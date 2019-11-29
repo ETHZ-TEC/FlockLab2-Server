@@ -1,0 +1,39 @@
+# Logrotate configuration for logs on FlockLab server
+
+/home/flocklab/logs/flocklab_debug* {
+	compress
+	notifempty
+	copytruncate
+	rotate 99
+	daily
+	missingok
+	olddir old
+	createolddir
+	sharedscripts
+}
+
+/home/flocklab/logs/flocklab_warn* {
+	mail flocklab@ee.ethz.ch
+	mailfirst
+	compress
+	notifempty
+	copytruncate
+	rotate 52
+	weekly
+	missingok
+	olddir old
+	createolddir
+	sharedscripts
+}
+
+/home/flocklab/logs/webserver_* {
+	compress
+	notifempty
+	copytruncate
+	rotate 12
+	monthly
+	missingok
+	olddir old
+	createolddir
+	sharedscripts
+}

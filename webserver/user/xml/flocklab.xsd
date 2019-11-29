@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+	/*
+	 * XML schema for FlockLab test configuration XMLs. 
+	 * This schema can be downloaded from http://www.flocklab.ethz.ch/user/xml/flocklab.xsd
+	 * Help is available at http://www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig
+ 	 *
+ 	 *
+	 * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
+	 * __copyright__   = "Copyright 2011-2014, ETH Zurich, Switzerland"
+	 * __license__     = "GPL"
+	 * __id__          = "$Id$"
+	 */
+-->
+
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.flocklab.ethz.ch" xmlns="http://www.flocklab.ethz.ch" elementFormDefault="qualified">
+
+<!-- ############################################################################### 
+     # The following block is the main schema for a FlockLab test.                 #
+     # It defines which elements have to be present in a valid XML configuration.  #
+     ############################################################################### -->
+<!-- testConf is the root element of the XML schema. It can only be present once. -->
+<xs:element name="testConf">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:group ref="services" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:choice minOccurs="1" maxOccurs="1">
+        <xs:sequence>
+          <xs:element name="generalConf" type="generalConfType" minOccurs="1" maxOccurs="1"/>
+          <xs:group ref="services" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element name="targetConf" type="targetConfType" minOccurs="1" maxOccurs="unbounded"/>
+        </xs:sequence>
+        <xs:sequence>
+          <xs:element name="targetConf" type="targetConfType" minOccurs="1" maxOccurs="unbounded"/>
+          <xs:group ref="services" minOccurs="0" maxOccurs="unbounded"/>
+          <xs:element name="generalConf" type="generalConfType" minOccurs="1" maxOccurs="1"/>
+        </xs:sequence>
+      </xs:choice>
+      <xs:group ref="services" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+
+<!-- ############################################################################### 
+     # Choice of available services                                                #
+     ############################################################################### -->
+<xs:group name="services">
+  <xs:choice>
+    <!-- Serial service configuration. If service is not to be used, do not specify this element. -->
+    <xs:element name="serialConf" type="serialConfType"/>
+    <!-- GPIO tracing service configuration. If service is not to be used, do not specify this element. -->
+    <xs:element name="gpioTracingConf" type="gpioTracingConfType"/>
+    <!-- GPIO actuation service configuration. If service is not to be used, do not specify this element. -->
+    <xs:element name="gpioActuationConf" type="gpioActuationConfType"/>
+    <!-- Power profiling service configuration. If service is not to be used, do not specify this element. -->
+    <xs:element name="powerProfilingConf" type="powerProfilingConfType"/>
+    <!-- Target image configuration. If only images from database are to be used, do not specify this element. -->
+    <xs:element name="imageConf" type="imageConfType"/>
+  </xs:choice>
+</xs:group>
+
+
+<!-- ############################################################################### 
+     # The following blocks define the types of elements used in the main block    #
+     # above.                                                                      #
+     ############################################################################### -->
+<!-- All elements needed for the general setup of a single FlockLab test -->
+<xs:complexType name="generalConfType">
+  <xs:sequence>
+    <xs:element name="name">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:minLength value="5"/>
+          <xs:maxLength value="45"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="description" minOccurs="0">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:maxLength value="512"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:choice>
+      <xs:element name="scheduleAbsolute">
+        <xs:complexType>
+          <xs:group ref="testDurationAbsoluteGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="scheduleAsap">
+        <xs:complexType>
+          <xs:all>
+            <xs:element name="durationSecs" type="testDurationSecsType"/>
+          </xs:all>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+    <xs:element name="emailResults" minOccurs="0" default="no">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="yes|no"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+  </xs:sequence>
+</xs:complexType>
+
+      
+<!-- Configuration of target adapters -->
+<xs:complexType name="targetConfType">
+  <xs:sequence>
+    <xs:element name="obsIds" type="obsIdListRestType"/>
+    <xs:element name="targetIds" type="targetIdListRestType" minOccurs="0"/>
+    <xs:element name="voltage" minOccurs="0" default="3.3">
+      <xs:simpleType>
+        <xs:restriction base="xs:decimal">
+          <xs:minInclusive value="1.8"/>
+          <xs:maxInclusive value="3.6"/>
+          <xs:fractionDigits value="1"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:choice>
+      <xs:group ref="targetimages" minOccurs="1" maxOccurs="4"/>
+      <xs:element name="noImage" type="slotNrType"/>
+    </xs:choice>
+  </xs:sequence>
+</xs:complexType>
+
+<!-- ############################################################################### 
+     # Choice of for target images                                                 #
+     ############################################################################### -->
+<xs:group name="targetimages">
+  <xs:choice>
+    <xs:element name="dbImageId" type="xs:integer"/>
+    <xs:element name="embeddedImageId" type="embeddedImageIdType"/>
+  </xs:choice>
+</xs:group>
+
+<!-- Configuration of target images -->
+<xs:complexType name="imageConfType">
+  <xs:all>
+    <xs:element name="embeddedImageId" type="embeddedImageIdType"/>
+    <xs:element name="name">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:minLength value="5"/>
+          <xs:maxLength value="45"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="description" minOccurs="0">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:maxLength value="512"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="platform" type="platformType"/>
+    <xs:element name="os" type="osType" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="data" type="xs:base64Binary"/>
+	<xs:element name="core" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+  </xs:all>
+</xs:complexType>
+
+
+<!-- Configuration of the serial service -->
+<xs:complexType name="serialConfType">
+  <xs:all>
+    <xs:element name="obsIds" type="obsIdListRestType"/>
+    <xs:element name="port"  minOccurs="0">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="usb|serial"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="baudrate" minOccurs="0">
+      <xs:simpleType>
+        <xs:restriction base="xs:integer">
+          <xs:enumeration value="2400"/>
+          <xs:enumeration value="4800"/>
+          <xs:enumeration value="9600"/>
+          <xs:enumeration value="19200"/>
+          <xs:enumeration value="38400"/>
+          <xs:enumeration value="57600"/>
+          <xs:enumeration value="115200"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="mode" minOccurs="0">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="pck|ascii|raw"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="remoteIp" type="ipType" minOccurs="0"/>
+  </xs:all>
+</xs:complexType>
+
+
+<!-- Configuration of the GPIO tracing service -->
+<xs:complexType name="gpioTracingConfType">
+  <xs:sequence>
+    <xs:element name="obsIds" type="obsIdListRestType"/>
+    <xs:element name="pinConf" type="gpioTracingPinConfType" minOccurs="1" maxOccurs="unbounded"/>
+  </xs:sequence>
+</xs:complexType>
+<xs:complexType name="gpioTracingPinConfType">
+  <xs:sequence>
+    <xs:element name="pin" type="pinTracingType"/>
+    <xs:element name="edge">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="rising|falling|both"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:element name="mode">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="single|continuous"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
+    <xs:choice minOccurs="0" maxOccurs="1">
+      <xs:element name="callbackGpioActAdd">
+        <xs:complexType>
+          <xs:group ref="gpioTracCallbackActAddGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="callbackPowerProfAdd">
+        <xs:complexType>
+          <xs:group ref="gpioTraccallbackPowerProfAddGroup"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:sequence>
+</xs:complexType>
+
+
+<!-- Configuration of the GPIO actuation service -->
+<xs:complexType name="gpioActuationConfType">
+  <xs:sequence>
+    <xs:element name="obsIds" type="obsIdListRestType"/>
+    <xs:element name="pinConf" type="gpioActuationPinConfType" minOccurs="1" maxOccurs="unbounded"/>
+  </xs:sequence>
+</xs:complexType>
+<xs:complexType name="gpioActuationPinConfType">
+  <xs:sequence>
+    <xs:element name="pin" type="pinActType"/>
+    <xs:element name="level" type="pinActLevelType"/>
+    <xs:element name="periodic" minOccurs="0" maxOccurs="1">
+      <xs:complexType>
+        <xs:group ref="gpioActuationPeriodicGroup"/>
+      </xs:complexType>
+    </xs:element>
+    <xs:choice>
+      <xs:element name="relativeTime">
+        <xs:complexType>
+          <xs:group ref="timingRelativeGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="absoluteTime">
+        <xs:complexType>
+          <xs:group ref="timingAbsoluteGroup"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+  </xs:sequence>
+</xs:complexType>
+
+
+<!-- Configuration of the power profiling service -->
+<xs:complexType name="powerProfilingConfType">
+  <xs:sequence>
+    <xs:element name="obsIds" type="obsIdListRestType"/>
+    <xs:element name="profConf" type="profConfType" minOccurs="1" maxOccurs="unbounded"/>
+  </xs:sequence>
+</xs:complexType>
+<xs:complexType name="profConfType">
+  <xs:sequence>
+    <xs:element name="durationMillisecs" type="powerProfDurationType"/>
+    <xs:choice>
+      <xs:element name="relativeTime">
+        <xs:complexType>
+          <xs:group ref="timingRelativeGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="absoluteTime">
+        <xs:complexType>
+          <xs:group ref="timingAbsoluteGroup"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:choice>
+    <xs:element name="samplingDivider" type="powerProfSamplingDividerType" minOccurs="0" maxOccurs="1"/>
+  </xs:sequence>
+</xs:complexType>
+
+
+<!-- ############################################################################### 
+     # The following blocks define helper types for custom types that are used in  #
+     # several configurations.                                                     #
+     ############################################################################### -->
+
+<!-- Type definition for platforms -->
+<xs:simpleType name="platformType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="tmote|tinynode|openmote|dpp|dpp2lora|dpp2lorahg"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for operating systems -->
+<xs:simpleType name ="osType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="contiki|tinyos|other"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definitions for observer IDs -->
+<xs:simpleType name="obsIdListRestType">
+  <xs:restriction base="obsIdListType">
+  	<xs:minLength value="1"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="obsIdListType">
+  <xs:list itemType="obsIdType"/>
+</xs:simpleType>
+
+<xs:simpleType name="obsIdType">
+  <xs:restriction base="xs:integer">
+    <xs:pattern value="1|2|3|4|6|7|8|10|11|13|14|15|16|17|18|19|20|22|23|24|25|26|27|28|29|31|32|33|001|002|003|004|006|007|008|010|011|013|014|015|016|017|018|019|020|022|023|024|025|026|027|028|029|031|032|033|300|301|302|303"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for target IDs -->
+<xs:simpleType name="targetIdListRestType">
+  <xs:restriction base="targetIdListType">
+  	<xs:minLength value="1"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="targetIdListType">
+  <xs:list itemType="xs:unsignedShort"/>
+</xs:simpleType>
+
+<!-- Type definition for embedded target image IDs -->
+<xs:simpleType name="embeddedImageIdType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="([a-zA-Z0-9_])+"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for tracable GPIOs -->
+<xs:simpleType name="pinTracingType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="INT1|INT2|LED1|LED2|LED3"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for actuation enabled GPIOs -->
+<xs:simpleType name="pinActType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="SIG1|SIG2|RST"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for actuation enabled GPIO levels -->
+<xs:simpleType name="pinActLevelType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="low|high|toggle"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Group definitions for GPIO tracing callbacks -->
+<xs:group name="gpioTracCallbackActAddGroup">
+  <xs:all>
+    <xs:element name="pin" type="pinActType"/>
+    <xs:element name="level" type="pinActLevelType"/>
+    <xs:element name="offsetSecs" type="offsetSecsType"/>
+    <xs:element name="offsetMicrosecs" type="microsecsType"/>
+  </xs:all>
+</xs:group>
+
+<xs:group name="gpioTraccallbackPowerProfAddGroup">
+  <xs:all>
+    <xs:element name="durationMillisecs" type="powerProfDurationType"/>
+    <xs:element name="offsetSecs" type="offsetSecsType"/>
+    <xs:element name="offsetMicrosecs" type="microsecsType"/>
+  </xs:all>
+</xs:group>
+
+<!-- Type definition for duration of a power profile in milliseconds -->
+<xs:simpleType name="powerProfDurationType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="50"/>
+    <xs:maxInclusive value="3600000"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for samling divider of a power profile -->
+<xs:simpleType name="powerProfSamplingDividerType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="1"/>
+    <xs:maxInclusive value="128"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for time offset in seconds -->
+<xs:simpleType name="offsetSecsType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="0"/>
+    <xs:maxInclusive value="3600"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for time offset in microseconds -->
+<xs:simpleType name="microsecsType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="0"/>
+    <xs:maxInclusive value="999999"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Group definitions for timing groups -->
+<xs:group name="timingRelativeGroup">
+  <xs:all>
+    <xs:element name="offsetSecs" type="offsetSecsType"/>
+    <xs:element name="offsetMicrosecs" type="microsecsType" minOccurs="0" maxOccurs="1"/>
+  </xs:all>
+</xs:group>
+
+<xs:group name="timingAbsoluteGroup">
+  <xs:all>
+    <xs:element name="absoluteDateTime" type="xs:dateTime"/>
+    <xs:element name="absoluteMicrosecs" type="microsecsType" minOccurs="0" maxOccurs="1"/>
+  </xs:all>
+</xs:group>
+
+<!-- Type definition for slot assignements -->
+<xs:simpleType name="slotNrType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="1"/>
+    <xs:maxInclusive value="4"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for test duration in seconds -->
+<xs:simpleType name="testDurationSecsType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="10"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Group definition for test start/end -->
+<xs:group name="testDurationAbsoluteGroup">
+  <xs:all>
+    <xs:element name="start" type="xs:dateTime"/>
+    <xs:element name="end" type="xs:dateTime"/>
+  </xs:all>
+</xs:group>
+
+<!-- Type definition for unsigned int -->
+<xs:simpleType name="unsignedIntType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="0"/>
+    <xs:maxInclusive value="4294967295"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definitions for periodic GPIO actuations -->
+<xs:simpleType name="periodicIntervalMicrosecsType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="100"/>
+    <xs:maxInclusive value="3600000000"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="periodicCountType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="1"/>
+    <xs:maxInclusive value="4294967295"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Group definition for GPIO actuation periodic group -->
+<xs:group name="gpioActuationPeriodicGroup">
+  <xs:all>
+    <xs:element name="intervalMicrosecs" type="periodicIntervalMicrosecsType"/>
+    <xs:element name="count" type="periodicCountType"/>
+  </xs:all>
+</xs:group>
+
+<!-- Type definition for IP addresses -->
+<xs:simpleType name="ipType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])"/>
+  </xs:restriction>
+</xs:simpleType>
+
+
+</xs:schema>

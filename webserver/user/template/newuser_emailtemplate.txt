@@ -1,0 +1,17 @@
+Hi
+
+We have activated your FlockLab account and you should now be able to login at
+https://user.flocklab.ethz.ch
+
+We strongly recommend you to walk through the tutorials that explain
+how FlockLab can be used:
+https://gitlab.ethz.ch/tec/public/flocklab/wikis/Index
+
+If you have questions, please use the according Google Group:
+https://groups.google.com/forum/#!forum/flocklab-users
+
+Please do not forget to cite our papers when writing publications with
+the help of FlockLab:
+https://dl.acm.org/citation.cfm?id=2461402
+
+Best regards from the FlockLab team!

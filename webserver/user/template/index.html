@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="css/flocklab.css">
+	<link rel="stylesheet" type="text/css" href="css/fullcalendar.css">
+
+	<link rel="shortcut icon" href="pics/icons/favicon.ico" type="image/x-ico; charset=binary">
+	<link rel="icon" href="pics/icons/favicon.ico" type="image/x-ico; charset=binary">
+
+	<title>FlockLab - <!-- TEMPLATE title --></title>
+
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta name="AUTHOR" content="ETH Zurich, Christoph Walser, CH-8092 Zurich, Switzerland">
+	<meta name="COPYRIGHT" content="ETH Zurich, Switzerland">
+	<meta name="LANGUAGE" content="English">
+	<meta name="ROBOTS" content="noindex, nofollow">
+	<meta name="DATE" content="2011">
+	
+	<!-- TEMPLATE javascript -->
+	<script type="text/javascript" src="scripts/jquery-latest.js"></script>
+	<script type="text/javascript" src="scripts/jquery.tablesorter.min.js"></script>
+	<script type="text/javascript" src="scripts/jquery.tablesorter.pager.js"></script>
+	<script type="text/javascript" src="scripts/jquery.validate.min.js"></script>
+	<script type='text/javascript' src='scripts/fullcalendar.min.js'></script>
+	<script type='text/javascript' src='scripts/jquery.qtip-1.0.0-rc3.min.js'></script>
+	<script type='text/javascript' src='scripts/qtip-flocklab.js'></script>
+	<script type='text/javascript' src='scripts/calendar-mini-flocklab.js'></script>
+	<script type="text/javascript" src="scripts/statusbar-flocklab.js"></script>
+	<script type="text/javascript" src="scripts/timezone-flocklab.js"></script>
+</head>
+<body>
+	<div id="container" class="container">
+		<div id="header" class="header">
+			<a href="http://www.flocklab.ethz.ch"><img alt="FlockLab" src="pics/flocklab_eth_logo.png"></a>
+			<div style="position:relative;float:right;width: 300px;">
+			<div id="statusbar" class="statusbar" style="position:absolute">
+				<span id="status"></span>
+				<ul id="vertical-ticker"><li></li></ul>
+			</div></div><!-- END statusbar -->
+		</div> <!-- END header -->
+		<div id="content" class="content">
+                <!-- TEMPLATE content -->
+		</div> <!-- END content -->
+		<div id="sidebar" class="sidebar">
+			<a href="calendar.php" id="minicalendarlink">
+				<h1>Mini Calendar</h1>
+				<div id='minicalendar' class='minicalendar'></div>
+			</a>
+			<div id='sidenavigation' class='sidenavigation'>
+				<h1>Navigation</h1>
+				<p>
+					<a href='index.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Manage Tests</a><br>
+					<a href='images.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Manage Images</a><br>
+					<a href='calendar.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Full Calendar</a><br>
+					<a href='xmlvalidate.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Validate XML Test Config</a><br>
+					<a href='user_edit.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> User Account</a><br>
+					<a href='testbedstatus.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> FlockLab Status</a><br>
+					<a href='topology.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Connectivity Map</a><br>
+					<a href='statistics.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Statistics</a><br>
+					<a href='https://flocklab.ethz.ch' target='_blank'><img src='pics/icons/right_arrow.png' alt="menuitem"> Help</a><br>
+					<a href='logout.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Logout</a><br>
+					<!-- ADMIN_START --><a href='admin_group_reservation.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Group Reservations</a><br><!-- ADMIN_END -->
+					<!-- ADMIN_START --><a href='admin_groups.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Groups</a><br><!-- ADMIN_END -->
+					<!-- ADMIN_START --><a href='admin_user_management.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> User Management</a><br><!-- ADMIN_END -->
+					<!-- ADMIN_START --><!--<a href='admin_statistics.php'><img src='pics/icons/right_arrow.png' alt="menuitem"> Admin Statistics</a><br>--><!-- ADMIN_END -->
+				</p>
+			</div><!-- END sidenavigation -->
+		</div> <!-- END sidebar -->
+		<div style="clear:both"></div>
+	</div> <!-- END container -->
+</body>
+</html>

@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: FlockLab Powerprofiling Resultfetcher
+Version: 2.0
+Summary: Converts powerprofiling results for FlockLab and writes a CSV file out of them.
+Home-page: UNKNOWN
+Author: Christoph Walser, ETH Zurich
+Author-email: walserc@tik.ee.ethz.ch
+License: GPL
+Description: UNKNOWN
+Platform: Linux Ubuntu
