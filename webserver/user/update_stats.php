@@ -1,9 +1,9 @@
 <?php 
-	/*
-	 * __author__      = "Reto Da Forno <reto.daforno@tik.ee.ethz.ch>"
-	 * __copyright__   = "Copyright 2017, ETH Zurich, Switzerland"
-	 * __license__     = "GPL"
-	 */
+    /*
+     * __author__      = "Reto Da Forno <reto.daforno@tik.ee.ethz.ch>"
+     * __copyright__   = "Copyright 2017, ETH Zurich, Switzerland"
+     * __license__     = "GPL"
+     */
 ?>
 <?php
 set_include_path(get_include_path() . PATH_SEPARATOR . "/home/flocklab/public_html/user");

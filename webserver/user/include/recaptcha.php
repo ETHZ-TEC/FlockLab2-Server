@@ -1,13 +1,13 @@
 <?php 
-	/*
-	 * __author__      = "Reto Da Forno <reto.daforno@tik.ee.ethz.ch>"
-	 * __copyright__   = "Copyright 2018, ETH Zurich, Switzerland, Reto Da Forno"
-	 * __license__     = "GPL"
-	 * __version__     = "$Revision$"
-	 * __date__        = "$Date$"
-	 * __id__          = "$Id$"
-	 * __source__      = "$URL$" 
-	 */
+    /*
+     * __author__      = "Reto Da Forno <reto.daforno@tik.ee.ethz.ch>"
+     * __copyright__   = "Copyright 2018, ETH Zurich, Switzerland, Reto Da Forno"
+     * __license__     = "GPL"
+     * __version__     = "$Revision$"
+     * __date__        = "$Date$"
+     * __id__          = "$Id$"
+     * __source__      = "$URL$" 
+     */
 ?>
 <?php require_once('config.php'); ?>
 <?php

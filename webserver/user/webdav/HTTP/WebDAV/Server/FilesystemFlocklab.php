@@ -333,7 +333,7 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
         $info["props"][] = $this->mkprop("resourcetype", "");
         $info["props"][] = $this->mkprop("getcontenttype", $mime);
         if ($size!=null)
-			$info["props"][] = $this->mkprop("getcontentlength", $size);
+            $info["props"][] = $this->mkprop("getcontentlength", $size);
         return $info;
     }
         
@@ -481,52 +481,52 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
     
     function getTest($testid, $power){
         global $CONFIG;
-		if ($power) {
-			// pipe file from archive
-			$archivepath =  $CONFIG['testmanagementserver']['archivedir'];
-			$cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
-			exec($cmd , $output, $ret);
-			if ($ret > 0)
-				return false;
-			// dump whole archive
-			$cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"cat ".$archivepath.'/'.$testid.".tar.gz\"";
-			$stream = popen($cmd, "r");
-			return $stream;
-		}
-		else {
-			flog("nopower");
-			$archivepath =  $CONFIG['testmanagementserver']['archivedir'];
-			$split_path = $CONFIG['testmanagementserver']['basedir'];
-			$cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
-			exec($cmd , $output, $ret);
-			if ($ret > 0)
-				return false;
-			// dump stripped archive
-			flog("nopower dump");
-			$cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"/bin/zcat ".$archivepath.'/'.$testid.".tar.gz | ".$split_path."/flocklab_archive_split | /usr/bin/pigz\"";
-			flog("nopower dump ". $cmd);
-			$stream = popen($cmd, "r");
-			return $stream;
-		}
+        if ($power) {
+            // pipe file from archive
+            $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
+            exec($cmd , $output, $ret);
+            if ($ret > 0)
+                return false;
+            // dump whole archive
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"cat ".$archivepath.'/'.$testid.".tar.gz\"";
+            $stream = popen($cmd, "r");
+            return $stream;
+        }
+        else {
+            flog("nopower");
+            $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
+            $split_path = $CONFIG['testmanagementserver']['basedir'];
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
+            exec($cmd , $output, $ret);
+            if ($ret > 0)
+                return false;
+            // dump stripped archive
+            flog("nopower dump");
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"/bin/zcat ".$archivepath.'/'.$testid.".tar.gz | ".$split_path."/flocklab_archive_split | /usr/bin/pigz\"";
+            flog("nopower dump ". $cmd);
+            $stream = popen($cmd, "r");
+            return $stream;
+        }
     }
     
     function getTestSize($testid, $power){
         global $CONFIG;
         if ($power===false)
-			return null;
-		// file exists?
-		$archivepath =  $CONFIG['testmanagementserver']['archivedir'];
-		$cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls -l ".$archivepath.'/'.$testid.".tar.gz\"";
-		exec($cmd , $output, $ret);
-		if ($ret > 0)
-			return 0;
-		else {
-			$size = explode(' ', $output[0]);
-			$size = preg_replace('/([0-9]*) .*/','$1',$size[4]);
- 			if (strlen($size)>0)
- 				return intval($size);
-		}
-		return 0;
+            return null;
+        // file exists?
+        $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls -l ".$archivepath.'/'.$testid.".tar.gz\"";
+        exec($cmd , $output, $ret);
+        if ($ret > 0)
+            return 0;
+        else {
+            $size = explode(' ', $output[0]);
+            $size = preg_replace('/([0-9]*) .*/','$1',$size[4]);
+             if (strlen($size)>0)
+                 return intval($size);
+        }
+        return 0;
     }
 
     /**

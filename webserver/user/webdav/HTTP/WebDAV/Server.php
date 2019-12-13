@@ -2166,13 +2166,13 @@ class HTTP_WebDAV_Server
      */
     function bytes($str)
     {
-    	static $func_overload;
-    	
-    	if (is_null($func_overload))
-    	{
-    		$func_overload = @extension_loaded('mbstring') ? ini_get('mbstring.func_overload') : 0;
-    	}
-    	return $func_overload & 2 ? mb_strlen($str,'ascii') : strlen($str);
+        static $func_overload;
+        
+        if (is_null($func_overload))
+        {
+            $func_overload = @extension_loaded('mbstring') ? ini_get('mbstring.func_overload') : 0;
+        }
+        return $func_overload & 2 ? mb_strlen($str,'ascii') : strlen($str);
     }
 } 
 

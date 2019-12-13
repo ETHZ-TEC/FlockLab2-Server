@@ -1,13 +1,13 @@
 <?php 
-	/*
-	 * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
-	 * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-	 * __license__     = "GPL"
-	 * __version__     = "$Revision: 2435 $"
-	 * __date__        = "$Date: 2013-09-27 16:03:15 +0200 (Fri, 27 Sep 2013) $"
-	 * __id__          = "$Id: testconfig_download.php 2435 2013-09-27 14:03:15Z walserc $"
-	 * __source__      = "$URL: svn://svn.ee.ethz.ch/flocklab/trunk/server/webserver/user/testconfig_download.php $" 
-	 */
+    /*
+     * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
+     * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
+     * __license__     = "GPL"
+     * __version__     = "$Revision: 2435 $"
+     * __date__        = "$Date: 2013-09-27 16:03:15 +0200 (Fri, 27 Sep 2013) $"
+     * __id__          = "$Id: testconfig_download.php 2435 2013-09-27 14:03:15Z walserc $"
+     * __source__      = "$URL: svn://svn.ee.ethz.ch/flocklab/trunk/server/webserver/user/testconfig_download.php $" 
+     */
 ?>
 <?php include_once('include/presets.php');?>
 <?php

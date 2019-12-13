@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-__author__		= "Reto Da Forno <reto.daforno@tik.ee.ethz.ch>"
-__copyright__	= "Copyright 2018, ETH Zurich, Switzerland"
-__license__		= "GPL"
+__author__        = "Reto Da Forno <reto.daforno@tik.ee.ethz.ch>"
+__copyright__    = "Copyright 2018, ETH Zurich, Switzerland"
+__license__        = "GPL"
 
 
 import sys, os, __main__, time, re

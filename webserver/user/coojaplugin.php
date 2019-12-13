@@ -1,12 +1,12 @@
 <?php 
-	/*
-	 * __author__      = "Roman Lim <lim@tik.ee.ethz.ch>"
-	 * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Roman Lim"
-	 * __license__     = "GPL"
-	 * __version__     = "$Revision: 1296 $"
-	 * __date__        = "$Date: 2011-08-12 17:06:17 +0200 (Fri, 12 Aug 2011) $"
-	 * __id__          = "$Id: newtest.php 1296 2011-08-12 15:06:17Z walserc $"
-	 */
+    /*
+     * __author__      = "Roman Lim <lim@tik.ee.ethz.ch>"
+     * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Roman Lim"
+     * __license__     = "GPL"
+     * __version__     = "$Revision: 1296 $"
+     * __date__        = "$Date: 2011-08-12 17:06:17 +0200 (Fri, 12 Aug 2011) $"
+     * __id__          = "$Id: newtest.php 1296 2011-08-12 15:06:17Z walserc $"
+     */
 ?>
 <?php
 $dir="/home/flocklab/flocklab_downloads/";

@@ -1,13 +1,13 @@
 <?php 
-	/*
-	 * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
-	 * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-	 * __license__     = "GPL"
-	 * __version__     = "$Revision$"
-	 * __date__        = "$Date$"
-	 * __id__          = "$Id$"
-	 * __source__      = "$URL$" 
-	 */
+    /*
+     * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
+     * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
+     * __license__     = "GPL"
+     * __version__     = "$Revision$"
+     * __date__        = "$Date$"
+     * __id__          = "$Id$"
+     * __source__      = "$URL$" 
+     */
 ?>
 <?php require_once('include/layout.php');require_once('include/presets.php'); ?>
 <?php
@@ -29,7 +29,7 @@ else if (!$first) {
   }
   else if (!(in_array($xmlfile["type"], array("text/xml", "application/xml")))) {
     // The uploaded file is not XML:
-    array_push($errors, "Uploaded file is not XML.");  	
+    array_push($errors, "Uploaded file is not XML.");      
   } else {
     $tmp_xmlfile = $xmlfile['tmp_name'];
   }
@@ -37,18 +37,18 @@ else if (!$first) {
 
 // process config
 if (isset($tmp_xmlfile) && empty($errors)) {
-	$xml_config = file_get_contents($tmp_xmlfile);
-	$res = update_add_test($xml_config, $errors);
+    $xml_config = file_get_contents($tmp_xmlfile);
+    $res = update_add_test($xml_config, $errors);
 }
 
-	  
+      
 ?>
 <?php
 /* If the page is called with a file associated, validate it and show the results */
 if (isset($tmp_xmlfile) && empty($errors)) {
     echo "<div class=\"info\"><div style=\"float:left;\"><img alt=\"\" src=\"pics/icons/success.png\"></div>";
     echo "<!-- cmd --><p>Test (Id ".$res['testId'].") successfully added.</p><!-- cmd --></div>";
-	echo "<!-- flocklabscript,".$res['testId'].",".$res['start']->format(DATE_ISO8601).",".$res['start']->format("U")."-->";
+    echo "<!-- flocklabscript,".$res['testId'].",".$res['start']->format(DATE_ISO8601).",".$res['start']->format("U")."-->";
     echo "<p></p>";
     include('index.php');
     exit();
