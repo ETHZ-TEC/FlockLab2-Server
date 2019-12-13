@@ -59,7 +59,7 @@ class StopTestThread(threading.Thread):
 			logger.debug("Start StopTestThread for observer ID %d"%(self._obsdict_key[self._obskey][1]))
 			errors = []
 			# First test if the observer is online and if the SD card is mounted: 
-			cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), "ls mmc/"]
+			cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), "mount | grep /dev/mmcblk0p1"]
 			p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 			while p.returncode == None:
 				self._abortEvent.wait(1.0)
