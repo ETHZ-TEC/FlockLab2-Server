@@ -1,0 +1,10 @@
+Host fl-?? fl-??.ethz.ch
+  User flocklab
+  Port 2322
+  PubkeyAuthentication yes
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel QUIET
+
+Host *
+ StrictHostKeyChecking no
