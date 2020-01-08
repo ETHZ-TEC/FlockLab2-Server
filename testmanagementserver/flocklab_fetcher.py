@@ -1,18 +1,13 @@
 #! /usr/bin/env python3
 
-__author__          = "Christoph Walser <walser@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-__license__         = "GPL"
-
-
 import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil
 from lxml import etree
 # Import local libraries
 import lib.daemon as daemon
 import lib.flocklab as flocklab
 from lib.flocklab import SUCCESS
-import ext_c_modules.lib.python.cResultfetcher as cResultfetcher
 from shutil import copyfile
+
 ### Global variables ###
 ###
 scriptname = os.path.basename(__main__.__file__)
@@ -20,26 +15,26 @@ scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
 name = "Fetcher"
 ###
 
-logger                        = None
-debug                        = False
-testid                        = None 
-errors                        = []
-FetchObsThread_list            = []
-FetchObsThread_stopEvent    = None
-FetchObsThread_queue        = None
-config                        = None
-obsfiledir                    = None
-testresultsdir                = None
-testresultsfile_dict        = {}
-mainloop_stop                = False
-owner_fk                    = None
-pindict                        = None
-obsdict_byid                = None
-servicedict                    = None
-serialdict                    = None
+logger                   = None
+debug                    = False
+testid                   = None 
+errors                   = []
+FetchObsThread_list      = []
+FetchObsThread_stopEvent = None
+FetchObsThread_queue     = None
+config                   = None
+obsfiledir               = None
+testresultsdir           = None
+testresultsfile_dict     = {}
+mainloop_stop            = False
+owner_fk                 = None
+pindict                  = None
+obsdict_byid             = None
+servicedict              = None
+serialdict               = None
 
 ITEM_TO_PROCESS = 0
-ITEM_PROCESSED = 1
+ITEM_PROCESSED  = 1
 
 ##############################################################################
 #
@@ -364,101 +359,6 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcali
         return (_errors, tuple(processeditem))
 ### END worker_powerprof
 
-#
-#
-#
-##############################################################################
-#
-# worker_flockdaq: Worker function for converting and aggregating flockdaq data. 
-# Unlike for the other services, this function works on
-# whole observer DB files.
-#
-##############################################################################
-# worker_args = [obsid, nodeid, obsdbfilepath, testresultsfile_dict['gpiotracing'][0], testresultsfile_dict['gpioactuation'][0], testresultsfile_dict['powerprofiling'][0], testresultsfile_dict['errorlog'][0], obsdict_byid[obsid][1][1], obsdict_byid[obsid][1][0], epoch_teststarttime, epoch_eteststoptime, vizimgdir, None, logqueue, PpStatsQueue]
-def worker_flockdaq(queueitem=None, nodeid=None, tracingresults_path=None, actuationresults_path=None, powerprofresults_path=None, error_path=None, slotcalib_factor=1, slotcalib_offset=0, test_start_time=0, test_stop_time=-1, vizimgdir=None, viz_f_pp=None, viz_f_tr=None, logqueue=None, PpStatsQueue=None):
-    try:
-        _errors = []
-        cur_p = multiprocessing.current_process()
-        (itemtype, obsid, fdir, f, workerstate) = queueitem
-        obsdbfile_path = "%s/%s"%(fdir,f)
-        loggername = "(%s).(Observer %d)"%(cur_p.name, obsid)
-        if workerstate is None:
-            pin_level_prev = 1
-            p_sample_list = ()
-            p_current_second = 0
-            pp_start_sec = 0
-            p_start_500ns = 0
-            t_current_second = 0
-        else:
-            (pin_level_prev, p_sample_list, p_current_second, pp_start_sec, p_start_500ns, t_current_second) = workerstate
-        # Rename file:
-        logqueue.put_nowait((loggername, logging.DEBUG, "Import file %s"%obsdbfile_path))
-        
-        # Use fast C-implementation to fetch values:
-        try:
-            #logqueue.put_nowait((loggername, logging.DEBUG, "cResultfetcher started. obsid: %d, nodeid: %d, slotcalib_factor: %f, slotcalib_offset: %f"%(int(obsid), int(nodeid), slotcalib_factor, slotcalib_offset)))
-            # arguments:
-            # obsid:                 Observer ID                                                        integer
-            # nodeid:                 Node ID                                                            integer
-            # obsdbfilepath:         Database file                                                    string
-            # tracingresults:     Output file for tracing results                            string
-            # actuationresults:     Output file for actuation results                        string
-            # powerprofresults:     Output file for powerprof results                        string
-            # errorlog:             Output file for error messages                            string
-            # slotcalib_factor:     Calibration factor                                            double
-            # slotcalib_offset:     Calibration offset                                            double
-            # start_test_epoch:     Start-Time of Test (UNIX timestamp in seconds)        integer
-            # stop_test_epoch:     Stop-Time of Test (UNIX timestamp in seconds)        integer
-
-            
-            ret = cResultfetcher.getdaqresults(obsid=int(obsid), nodeid=int(nodeid), obsdbfilepath=obsdbfile_path, tracingresults=tracingresults_path, actuationresults=actuationresults_path, powerprofresults=powerprofresults_path, errorlog=error_path,slotcalib_factor=slotcalib_factor, slotcalib_offset=slotcalib_offset, start_test_epoch=test_start_time, stop_test_epoch=test_stop_time, pin_level_prev=pin_level_prev, p_sample_list=p_sample_list, p_current_second=p_current_second, pp_start_sec=pp_start_sec, p_start_500ns=p_start_500ns, t_current_second=t_current_second)
-            #logqueue.put_nowait((loggername, logging.DEBUG, "cResultfetcher done."))
-        except:
-            raise
-        
-        logger.debug("Done converting FlockDAQ results...")
-        
-        # Do vizualisation:
-        workerstate = None
-        if ((type(ret) == list) and (len(ret) > 0)):
-            #logger.debug("return value had len %d"%len(ret))
-            if viz_f_pp != None:
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz started..."))
-                viz_f_pp(testid, owner_fk, ret[0:2], obsid, vizimgdir, logger)
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz done."))
-            if viz_f_tr != None:
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz started..."))
-                viz_f_tr(testid, owner_fk, ret[2], obsid, vizimgdir, logger)
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz done."))
-            ppstats = PpStatsQueue.get()
-            (totalavg, totalcount) = ppstats[obsid]
-            newcount = totalcount + ret[4]
-            if (newcount != 0):
-                avg = float(totalcount) / newcount * totalavg + float(ret[4]) / newcount * ret[3]
-                ppstats[obsid] = (avg,newcount)
-            PpStatsQueue.put(ppstats)
-            #logqueue.put_nowait((loggername, logging.DEBUG, "AVG values: %f %d + (%f %d) -> %f %d" % (totalavg, totalcount, ret[3], ret[4], avg, newcount)))
-            workerstate = tuple(ret[5:11])
-        
-        # Remove processed file:
-        os.unlink(obsdbfile_path)
-        
-        #if workerstate is None:
-        #    logger.debug("workerstate is None")
-        #else:
-        #    logger.debug("workerstate is %s" % str(workerstate))
-        
-    except:
-        msg = "Error in flockdaq worker process: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        _errors.append((msg, errno.ECOMM, obsid))
-        logqueue.put_nowait((loggername, logging.ERROR, msg))
-    finally:
-        processeditem = list(queueitem)
-        processeditem[0] = ITEM_PROCESSED
-        processeditem[4] = workerstate
-        return (_errors, tuple(processeditem))
-### END worker_flockdaq
-
 
 
 ##############################################################################
@@ -565,7 +465,7 @@ class FetchObsThread(threading.Thread):
                 rs = p.returncode
                 if (rs == SUCCESS):
                     services = {}
-                    for servicename in [ "gpio_setting","gpio_monitor","powerprofiling","serial","flockdaq"]:
+                    for servicename in [ "gpio_setting","gpio_monitor","powerprofiling","serial" ]:
                         services[servicename] = ServiceInfo(servicename)
                         services["error_%s"%servicename] = ServiceInfo("error_%s"%servicename)
                     # Read filenames
@@ -842,7 +742,7 @@ class WorkManager():
 #
 ##############################################################################
 def usage():
-    print("Usage: %s --testid=<int> [--stop] [--debug] [--help]" %scriptname)
+    print("Usage: %s --testid=<int> [--stop] [--debug] [--help]" % scriptname)
     print("Options:")
     print("  --testid=<int>\t\tTest ID of test to which incoming data belongs.")
     print("  --stop\t\t\tOptional. Causes the program to stop a possibly running instance of the fetcher.")
@@ -1039,14 +939,6 @@ def main(argv):
                 errors.append(msg)
                 logger.error(msg)
         
-        # check if user is allowed to use daq-services
-        cur.execute("SELECT `use_daq` FROM `tbl_serv_users` WHERE (`serv_users_key` = %s)" %owner_fk)
-        ret = cur.fetchone()
-        if ret[0] == 1:
-            FlockDAQ = "true"
-            logger.debug("Test is using FlockDAQ services")
-        else:
-            FlockDAQ = "false"
         cur.close()
         cn.close()
         if ((owner_fk==None) or (pindict==None) or (obsdict_byid==None) or (servicedict==None)):
@@ -1116,53 +1008,45 @@ def main(argv):
                 cpus_serial    = 0
                 cpus_free = cpus_free + config.getint('fetcher', 'cpus_serial')
             # CPUs for GPIO actuation. If the service is not used, assign a CPU anyhow since FlockLab always uses this service to determine start and stop times of a test.
-            if FlockDAQ != "true":                
-                cpus_flockdaq = 0
-                #cpus_errorlog = config.getint('fetcher', 'cpus_errorlog')
-                if servicesUsed_dict['gpioactuation'] == True:
-                    cpus_gpiosetting = config.getint('fetcher', 'cpus_gpiosetting')
-                else:
-                    cpus_gpiosetting = 1
-                    cpus_free = cpus_free + config.getint('fetcher', 'cpus_gpiosetting') - cpus_gpiosetting
-                # CPUs for GPIO tracing:
-                if servicesUsed_dict['gpiotracing'] == True:
-                    cpus_gpiomonitoring    = config.getint('fetcher', 'cpus_gpiomonitoring')
-                else:
-                    cpus_gpiomonitoring = 0
-                    cpus_free = cpus_free + config.getint('fetcher', 'cpus_gpiomonitoring')
-                # CPUs for powerprofiling:
-                if servicesUsed_dict['powerprofiling'] == True:
-                    cpus_powerprofiling    = config.getint('fetcher', 'cpus_powerprofiling')
-                else:
-                    cpus_powerprofiling = 0
-                    cpus_free = cpus_free + config.getint('fetcher', 'cpus_powerprofiling')
-                # If there are free CPUs left, give them to GPIO tracing and power profiling evenly as these services need the most CPU power:
-                if cpus_free > 0:
-                    if (cpus_powerprofiling > 0) and (cpus_gpiomonitoring > 0):
-                        # Both services are used, distribute the free CPUS evenly:
-                        cpus_powerprofiling = cpus_powerprofiling + int(math.ceil(float(cpus_free)/2))
-                        cpus_gpiomonitoring = cpus_gpiomonitoring + int(math.floor(float(cpus_free)/2))
-                    elif cpus_powerprofiling > 0:
-                        # GPIO monitoring/tracing is not used, so give all CPUs to powerprofiling:
-                        cpus_powerprofiling = cpus_powerprofiling + cpus_free
-                    elif cpus_gpiomonitoring > 0:
-                        # Powerprofiling is not used, so give all CPUs to GPIO monitoring/tracing:
-                        cpus_gpiomonitoring = cpus_gpiomonitoring + cpus_free
-                    else:
-                        # Neither of the services is used, so give it to one of the other services:
-                        if cpus_serial > 0:
-                            cpus_serial = cpus_serial + cpus_free
-                        elif cpus_gpiosetting > 0:
-                            cpus_gpiosetting = cpus_gpiosetting + cpus_free
-                cpus_total = cpus_errorlog + cpus_serial + cpus_gpiosetting + cpus_gpiomonitoring + cpus_powerprofiling
-            else: 
+            #cpus_errorlog = config.getint('fetcher', 'cpus_errorlog')
+            if servicesUsed_dict['gpioactuation'] == True:
+                cpus_gpiosetting = config.getint('fetcher', 'cpus_gpiosetting')
+            else:
+                cpus_gpiosetting = 1
+                cpus_free = cpus_free + config.getint('fetcher', 'cpus_gpiosetting') - cpus_gpiosetting
+            # CPUs for GPIO tracing:
+            if servicesUsed_dict['gpiotracing'] == True:
+                cpus_gpiomonitoring    = config.getint('fetcher', 'cpus_gpiomonitoring')
+            else:
                 cpus_gpiomonitoring = 0
+                cpus_free = cpus_free + config.getint('fetcher', 'cpus_gpiomonitoring')
+            # CPUs for powerprofiling:
+            if servicesUsed_dict['powerprofiling'] == True:
+                cpus_powerprofiling    = config.getint('fetcher', 'cpus_powerprofiling')
+            else:
                 cpus_powerprofiling = 0
-                cpus_gpiosetting = 0
-                cpus_flockdaq = config.getint('fetcher', 'cpus_gpiosetting') + config.getint('fetcher', 'cpus_gpiomonitoring') + config.getint('fetcher', 'cpus_powerprofiling') + cpus_free
-                cpus_total = cpus_flockdaq + cpus_serial + cpus_errorlog
+                cpus_free = cpus_free + config.getint('fetcher', 'cpus_powerprofiling')
+            # If there are free CPUs left, give them to GPIO tracing and power profiling evenly as these services need the most CPU power:
+            if cpus_free > 0:
+                if (cpus_powerprofiling > 0) and (cpus_gpiomonitoring > 0):
+                    # Both services are used, distribute the free CPUS evenly:
+                    cpus_powerprofiling = cpus_powerprofiling + int(math.ceil(float(cpus_free)/2))
+                    cpus_gpiomonitoring = cpus_gpiomonitoring + int(math.floor(float(cpus_free)/2))
+                elif cpus_powerprofiling > 0:
+                    # GPIO monitoring/tracing is not used, so give all CPUs to powerprofiling:
+                    cpus_powerprofiling = cpus_powerprofiling + cpus_free
+                elif cpus_gpiomonitoring > 0:
+                    # Powerprofiling is not used, so give all CPUs to GPIO monitoring/tracing:
+                    cpus_gpiomonitoring = cpus_gpiomonitoring + cpus_free
+                else:
+                    # Neither of the services is used, so give it to one of the other services:
+                    if cpus_serial > 0:
+                        cpus_serial = cpus_serial + cpus_free
+                    elif cpus_gpiosetting > 0:
+                        cpus_gpiosetting = cpus_gpiosetting + cpus_free
+            cpus_total = cpus_errorlog + cpus_serial + cpus_gpiosetting + cpus_gpiomonitoring + cpus_powerprofiling
             
-            service_pools_dict = {'errorlog': cpus_errorlog, 'serial': cpus_serial, 'gpioactuation': cpus_gpiosetting, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling, 'flockdaq': cpus_flockdaq}
+            service_pools_dict = { 'errorlog': cpus_errorlog, 'serial': cpus_serial, 'gpioactuation': cpus_gpiosetting, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling }
             if (cpus_total > multiprocessing.cpu_count()):
                 logger.warn("Number of requested CPUs for all aggregating processes (%d) is higher than number of available CPUs (%d) on system."%(cpus_total, multiprocessing.cpu_count()))
             
@@ -1244,17 +1128,6 @@ def main(argv):
                     logger.debug(loggerprefix + "File %s contains error logs"%f)
                     pool        = service_pools_dict['errorlog']
                     worker_args    =  [nextitem, nodeid, testresultsfile_dict['errorlog'][0], testresultsfile_dict['errorlog'][1], commitsize, vizimgdir, parse_error_log, convert_error_log, None, logqueue]
-                # flockdaq service
-                elif (re.search("^flockdaq_[0-9]{14}\.db$", f) != None):
-                    pool        = service_pools_dict['flockdaq']
-                    # teststarttime and teststoptime: see line 892
-                    epoch_teststarttime = int(time.mktime(time.strptime(str(teststarttime), config.get('database', 'timeformat'))))
-                    epoch_teststoptime = int(time.mktime(time.strptime(str(teststoptime), config.get('database', 'timeformat'))))
-                    worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], testresultsfile_dict['gpioactuation'][0], testresultsfile_dict['powerprofiling'][0], testresultsfile_dict['errorlog'][0], float(obsdict_byid[int(obsid)][1][1]), float(obsdict_byid[int(obsid)][1][0]), epoch_teststarttime, epoch_teststoptime, vizimgdir, None, None, logqueue, PpStatsQueue]
-                    worker_f    = worker_flockdaq
-                    if (enableviz == 1):
-                        worker_args[11] = flocklab.viz_powerprofiling
-                        worker_args[12] = flocklab.viz_gpio_monitor
                 else:
                     logger.warn(loggerprefix + "DB file %s/%s from observer %s did not match any of the known patterns" %(fdir, f, obsid))
                     continue

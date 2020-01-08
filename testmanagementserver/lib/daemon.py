@@ -1,7 +1,4 @@
-__author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-__license__     = "GPL"
-
+#!/usr/bin/env python3
 
 import os, sys, shutil
 

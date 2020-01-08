@@ -132,15 +132,14 @@ class StartTestThread(threading.Thread):
     """    Thread which uploads all config files to an observer and
         starts the test on the observer. 
     """ 
-    def __init__(self, obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, FlockDAQ, testid):
+    def __init__(self, obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, testid):
         threading.Thread.__init__(self) 
         self._obskey        = obskey
-        self._obsdict_key    = obsdict_key
-        self._xmldict_key    = xmldict_key
-        self._imagedict_key    = imagedict_key
-        self._errors_queue    = errors_queue
+        self._obsdict_key   = obsdict_key
+        self._xmldict_key   = xmldict_key
+        self._imagedict_key = imagedict_key
+        self._errors_queue  = errors_queue
         self._abortEvent    = threading.Event()
-        self._FlockDAQ        = FlockDAQ == 'true'
         self._testid        = testid
         
     def run(self):
@@ -148,7 +147,7 @@ class StartTestThread(threading.Thread):
         testconfigfolder  = "%s/%d" % (config.get("observer", "testconfigfolder"), self._testid)
         obsdataport       = config.getint('serialproxy', 'obsdataport')
         try:
-            logger.debug("Start StartTestThread for observer ID %d, FlockDAQ=%s" % (self._obsdict_key[self._obskey][1], str(self._FlockDAQ)))
+            logger.debug("Start StartTestThread for observer ID %d" % (self._obsdict_key[self._obskey][1]))
             # First test if the observer is online and if the SD card is mounted: 
             cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), "ls ~/mmc/ && mkdir %s" % testconfigfolder]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -172,21 +171,6 @@ class StartTestThread(threading.Thread):
                 logger.error(msg)
             else:
                 fileuploadlist = [self._xmldict_key[self._obskey][0]]
-                # generate DAQ config for daq tests:
-                if self._FlockDAQ:
-                    (fd, daqconfigpath) = tempfile.mkstemp()
-                    os.close(fd)
-                    cmd = [config.get("dispatcher", "flockdaqconfigscript"), "--xml=%s" % self._xmldict_key[self._obskey][0], "--outfile=%s" % daqconfigpath]
-                    p = subprocess.Popen(cmd, universal_newlines=True)
-                    out, err = p.communicate()
-                    rs = p.returncode
-                    if rs != 0:
-                        logger.error("Error %s returned from %s"%(str(rs), config.get('dispatcher','flockdaqconfigscript')))
-                        logger.error("Tried to execute %s"%str(cmd))
-                        errors.append("Generation of DAQ config file failed.")
-                        errors.append("Output of script was: %s %s" % (str(out), str(err)))
-                    else:
-                        fileuploadlist.append(daqconfigpath)
                 if self._obskey in list(self._imagedict_key.keys()):
                     for image in self._imagedict_key[self._obskey]:
                         fileuploadlist.append(image[0])
@@ -210,8 +194,6 @@ class StartTestThread(threading.Thread):
                     logger.debug("Upload of target image and config XML to observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
                     # Start the script on the observer which starts the test:
                     remote_cmd = config.get("observer", "starttestscript") + " --testid=%d --xml=%s/%s --serialport=%d" % (self._testid, testconfigfolder, os.path.basename(self._xmldict_key[self._obskey][0]), obsdataport)
-                    if self._FlockDAQ:
-                        remote_cmd += " --daqconfig=%s/%s"%(testconfigfolder, os.path.basename(daqconfigpath))
                     if debug:
                         remote_cmd += " --debug"
                     cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), remote_cmd]
@@ -239,8 +221,6 @@ class StartTestThread(threading.Thread):
                             for image in self._imagedict_key[self._obskey]:
                                 os.remove(image[0])
                                 #DEBUG logger.debug("Removed target image %s for observer ID %s"%(self._imagedict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
-                        if self._FlockDAQ:
-                            os.remove(daqconfigpath)
             
         except Error:
             # Main thread requested abort.
@@ -269,7 +249,6 @@ class StartTestThread(threading.Thread):
 def start_test(testid, cur, cn, obsdict_key, obsdict_id):
     errors = []
     warnings = []
-    FlockDAQ = "false"
     
     try:    
         logger.debug("Entering start_test() function...")
@@ -297,13 +276,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             owner_fk = ret[2]
             logger.debug("Got start time wish for test from database: %s" %starttime)
             logger.debug("Got end time wish for test from database: %s" %stoptime)
-            
-            cur.execute("SELECT `use_daq` FROM `tbl_serv_users` WHERE (`serv_users_key` = %s)" %owner_fk)
-            ret = cur.fetchone()
-            if ret[0] == 1:
-                FlockDAQ = "true"
-            else: 
-                FlockDAQ = "false"
             
             # Image processing ---
             # Get all images from the database:
@@ -528,7 +500,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             xmldict_key[obskey][1].write("\t<platform>%s</platform>\n"%(imagedict_key[obskey][0][2]))
                             xmldict_key[obskey][1].write("\t<os>%s</os>\n"%(imagedict_key[obskey][0][3]))
                             slot = imagedict_key[obskey][0][1]
-                        xmldict_key[obskey][1].write("\t<FlockDAQ>%s</FlockDAQ>\n"%FlockDAQ)
                         xmldict_key[obskey][1].write("</obsTargetConf>\n\n")
                         #logger.debug("Wrote obsTargetConf XML for observer ID %s" %obsid)
                         # update test_image mapping with slot information
@@ -719,7 +690,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             thread_list = []
             errors_queue = queue.Queue()
             for obskey in obsdict_key.keys():
-                thread = StartTestThread(obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, FlockDAQ,testid)
+                thread = StartTestThread(obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, testid)
                 thread_list.append((thread, obskey))
                 thread.start()
                 #DEBUG logger.debug("Started thread for test start on observer ID %s" %(str(obsdict_key[obskey][1])))

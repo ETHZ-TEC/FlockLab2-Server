@@ -13,12 +13,6 @@
 <?php
     if (!isset($_SESSION['is_admin']) || !$_SESSION['is_admin'])
         exit(1);
-    if (isset($_POST['use_daq']) && isset($_POST['user_id'])) {
-        $db = db_connect();
-        $sql =    "UPDATE tbl_serv_users SET use_daq=".mysqli_real_escape_string($db, $_POST['use_daq'])." WHERE serv_users_key=".mysqli_real_escape_string($db, $_POST['user_id']);
-        $rs = mysqli_query($db, $sql) or flocklab_die('Cannot update user propery in database because: ' . mysqli_error($db));
-        mysqli_close($db);
-    }
     if (isset($_POST['is_active']) && isset($_POST['user_id'])) {
         $db = db_connect();
         $sql =    "UPDATE tbl_serv_users SET is_active=".mysqli_real_escape_string($db, $_POST['is_active'])." WHERE serv_users_key=".mysqli_real_escape_string($db, $_POST['user_id']);
@@ -77,7 +71,7 @@
 echo '<h1>Admin User Management</h1>';
                 /* Get all users from the database and display them in the table. */
                 $db = db_connect();
-                $sql =    "SELECT serv_users_key, lastname, firstname, username, email, is_active, use_daq, quota_runtime, quota_tests, role, UNIX_TIMESTAMP(create_time) as create_time_ts, DATE_FORMAT(create_time,'%d.%m.%Y') as create_date, last_login from  tbl_serv_users";
+                $sql =    "SELECT serv_users_key, lastname, firstname, username, email, is_active, quota_runtime, quota_tests, role, UNIX_TIMESTAMP(create_time) as create_time_ts, DATE_FORMAT(create_time,'%d.%m.%Y') as create_date, last_login from  tbl_serv_users";
                 $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get users from database because: ' . mysqli_error($db));
                 $nrows = mysqli_num_rows($rs);
                 mysqli_close($db);
@@ -94,7 +88,6 @@ echo '<h1>Admin User Management</h1>';
                         <th width="50px">Quota</th>
                         <th width="30px">Role</th>
                         <th width="20px">active</th>
-                        <th width="20px">daq</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,7 +108,6 @@ echo '<h1>Admin User Management</h1>';
                         echo "<td>" . (string)$row['quota_tests'] . " / " . (string)$row['quota_runtime'] . "min</td>";
                         echo "<td>" . htmlentities($row['role']) . "</td>";
                         echo '<td><span style="display:none">'.$row['is_active'].'</span><form action="admin_user_management.php" method="post"><input name="is_active" type="checkbox" onclick="if(this.checked) { if(!confirm(\'Active this user? An email will be sent.\')) { return false; } }" ' . ($row['is_active']==1?' checked="true"':'') . '><input type="hidden" name="user_id" value ="'.$row['serv_users_key'].'"></form></td>';
-                        echo '<td><span style="display:none">'.$row['use_daq'].'</span><form action="admin_user_management.php" method="post"><input name="use_daq" type="checkbox" ' . ($row['use_daq']==1?' checked="true"':'') . '><input type="hidden" name="user_id" value ="'.$row['serv_users_key'].'"></form></td>';
                         echo "</tr>";
                     }
             ?>
