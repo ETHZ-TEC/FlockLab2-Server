@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 __author__         = "Christoph Walser <walserc@tik.ee.ethz.ch>, Adnan Mlika"
 __copyright__     = "Copyright 2010, ETH Zurich, Switzerland"
@@ -266,7 +266,7 @@ def main(argv):
         elif opt in ("-x", "--xml"):
             xmlpath = arg
             if (not os.path.exists(xmlpath) or not os.path.isfile(xmlpath)):
-                logger.warn("Wrong API usage: XML file does not exist")
+				logger.warn("Wrong API usage: XML file '%s' does not exist" % xmlpath)
                 sys.exit(errno.EINVAL)
         elif opt in ("-h", "--help"):
             usage(config)
@@ -535,11 +535,11 @@ def main(argv):
                         imagefile.write(base64.b64decode(image, None))
                         imagefile.close()
                         # Validate image:
-                        p = subprocess.Popen([config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE)
+						p = subprocess.Popen([config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE, universal_newlines=True)
                         stdout, stderr = p.communicate()
                         if p.returncode != SUCCESS:
                             if not quiet:
-                                print(("<b>Line %d</b>: element data: Validation of image data failed. Check if elements os and platform are set correctly and if element <data> contains correct data." %(image_line)))
+								print(("<b>Line %d</b>: element data: Validation of image data failed. %s" %(image_line, stderr)))
                             errcnt = errcnt + 1
                         # Remove temporary file:
                         os.remove(imagefilename)

@@ -1,9 +1,4 @@
-#!/usr/bin/env python
-
-__author__          = "Christoph Walser <walser@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-__license__         = "GPL"
-
+#!/usr/bin/env python3
 
 import sys, os, smtplib, MySQLdb, configparser, time, re, errno, random, subprocess, string, logging, traceback, numpy, calendar
 from matplotlib.figure import Figure
@@ -106,7 +101,7 @@ def connect_to_db(config=None, logger=None):
     try:
         cn = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database'), charset='utf8', use_unicode=True) 
         cur = cn.cursor()
-        #cur.execute("SET sql_mode=''")
+        #cur.execute("SET sql_mode=''")     # TODO check whether this is needed
     except:
         logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         raise

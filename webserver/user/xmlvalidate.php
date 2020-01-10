@@ -29,12 +29,7 @@
             // The uploaded file is not XML:
             array_push($errors, "Uploaded file is not XML.");
         } else {
-            $cmd = "python ".$CONFIG['tests']['testvalidator']." -x " . $xmlfile['tmp_name'] . " -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key'];
-            exec($cmd , $output, $ret);
-            foreach ($output as $error) {
-                array_push($errors, $error);
-            }
-            if (empty($errors) && $ret) {
+            if (!validate_test($xmlfile['tmp_name'], $errors) && empty($errors)) {
                 array_push($errors, "unknown error");
             }
         }
@@ -61,7 +56,7 @@
             <?php
                 /* If the page is called with a file associated, validate it and show the results */
                 if (!$first) {
-                    // Show validation errors:                     
+                    // Show validation errors:
                     if (!empty($errors)) {
                         echo "<div class=\"warning\"><div style=\"float:left;\"><img alt=\"\" src=\"pics/icons/att.png\"></div>";
                         echo "<!-- cmd --><p>Please correct the following errors:</p><ul>";

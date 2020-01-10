@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 __author__        = "Christoph Walser <walserc@tik.ee.ethz.ch>, Adnan Mlika"
 __copyright__    = "Copyright 2010, ETH Zurich, Switzerland"
