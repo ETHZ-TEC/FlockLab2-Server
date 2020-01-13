@@ -7,7 +7,7 @@ __license__        = "GPL"
 
 import sys, os, getopt, tempfile, shutil, re, time, errno, io, logging, traceback, __main__, csv, tarfile
 from datetime import datetime
-import struct import *
+from struct import *
 # Import local libraries
 from lib.flocklab import SUCCESS
 import lib.flocklab as flocklab
@@ -117,14 +117,14 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
     
     # Process CSV file ---
     logger.debug("Processing CSV file...")
-    packetreader = csv.reader(open(_serial_service_file, 'rb'), delimiter=',')
+    packetreader = csv.reader(open(_serial_service_file, 'r'), delimiter=',')
     for packetinfo in packetreader:
         if re.search("^observer_id", packetinfo[1]):
             continue
         # nx_uint16_t num_messages;
         # nx_uint16_t sender_id;
         # nx_uint16_t num_received;
-        packet = packetinfo[4].decode('hex')
+        packet = bytes.fromhex(packetinfo[4])
         data = unpack(">7xB%dx" % (len(packet) - 8), packet)
         if data[0] == 7:
             # link measurement
@@ -176,7 +176,7 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
             WHERE `a`.serv_tests_key = %s
             LIMIT 1
         """
-    cur.execute(sql, str(testid))
+    cur.execute(sql % str(testid))
     ret = cur.fetchall()
     platform_fk = ret[0][0]
     platform_name = ret[0][1]
@@ -214,11 +214,11 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
     
     # Store XML file in  DB ---
     logger.debug("Storing XML file in DB...")
-    cur.execute("DELETE FROM `tbl_serv_web_link_measurements` WHERE `test_fk`=%s", str(testid))
+    cur.execute("DELETE FROM `tbl_serv_web_link_measurements` WHERE `test_fk`=%s" % str(testid))
     if platform_radio is None:
-        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`) VALUES (%s,%s,%s,%s,%s)", (str(testid), platform_fk, linkmap.getvalue(), datetime.fromtimestamp(starttime), datetime.fromtimestamp(stoptime)))
+        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`) VALUES (%s,%s,'%s','%s','%s')" % ((str(testid), platform_fk, linkmap.getvalue(), datetime.fromtimestamp(starttime), datetime.fromtimestamp(stoptime))))
     else:
-        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`, `radio`) VALUES (%s,%s,%s,%s,%s,%s)", (str(testid), platform_fk, linkmap.getvalue(), datetime.fromtimestamp(starttime), datetime.fromtimestamp(stoptime), platform_radio))
+        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`, `radio`) VALUES (%s,%s,'%s','%s','%s',%s)" % (str(testid), platform_fk, linkmap.getvalue(), datetime.fromtimestamp(starttime), datetime.fromtimestamp(stoptime), platform_radio))
     cn.commit()    
 
     # Remove temp dir ---

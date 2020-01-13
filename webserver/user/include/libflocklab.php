@@ -347,9 +347,20 @@ function validate_image($image, &$errors) {
     $imagefile = tempnam(sys_get_temp_dir(), 'flocklab');
     file_put_contents($imagefile, $image['data']);
     $platform_list = get_available_platforms();
-    $cmd = $CONFIG['targetimage']['imagevalidator']." --image=".$imagefile." --platform=". $platform_list[$image['platform']][0]['name']." --core=".$image['core'];
+    // copy image file to testmanagement server
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'mkdir ".$CONFIG['testmanagementserver']['tempdir']."'";
+    exec($cmd);
+    $cmd = "scp ".$imagefile." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host'].":".$CONFIG['testmanagementserver']['tempdir'];
+    exec($cmd, $output, $ret);
+    if ($ret) {
+        array_push($errors, "Failed to copy file '$test_config_file' to testmanagement server.");
+        return 1;
+    }
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['targetimage']['imagevalidator']." --image=".$CONFIG['testmanagementserver']['tempdir']."/".basename($imagefile)." --platform=". $platform_list[$image['platform']][0]['name']." --core=".$image['core']."' 2>&1";
     exec($cmd , $output, $ret);
     unlink($imagefile);
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'rm ".$CONFIG['testmanagementserver']['tempdir']."/".basename($imagefile)."'";
+    exec($cmd);
     if ($ret != 0) {
         array_push($validate_image_errors, "The supplied file is not a valid image for this platform.");
     }
@@ -437,14 +448,15 @@ function validate_test($test_config_file, &$errors) {
         return 1;
     }
     // execute XML validation script (runs in the virtual environment on the testmanagement server, therefore we need to use SSH here)
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['tests']['testvalidator']." -x ".$CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file)." -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key']."' 2>&1";
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['tests']['testvalidator']." -x ".$CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file)." -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key']."' 2>&1";
     exec($cmd, $output, $ret);
     if ($ret) {
     foreach ($output as $error) {
             array_push($errors, $error);
         }
     }
-    unlink($CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file));
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'rm ".$CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file)."'";
+    exec($cmd);
     return $ret == 0;
 }
 
@@ -461,7 +473,7 @@ function validate_test($test_config_file, &$errors) {
 function trigger_scheduler() {
     global $CONFIG;
     // use SSH as a way to run the script under the user 'flocklab' on the testmanagement server
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['scheduler']." --debug' > /dev/null 2>&1 &";
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['testmanagementserver']['scheduler']." --debug' > /dev/null 2>&1 &";
     exec($cmd);
 }
 
