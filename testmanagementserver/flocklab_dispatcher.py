@@ -1088,8 +1088,6 @@ def inform_user(testid, cur, job, errors, warnings):
             msg += "\t * %s\n" %warn
         ret = SUCCESS
     else:
-        ret = SUCCESS
-    """
         if job == 'start':
             subj = "Test %d starting as planned" %testid
             msg  = "Your test has been prepared and is going to start as planned." 
@@ -1099,8 +1097,8 @@ def inform_user(testid, cur, job, errors, warnings):
         elif job == 'abort':
             subj = "Test %d aborted as requested" %testid
             msg = "Your test has been aborted as requested. The results (if any) will be available on the website soon.\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/"
-    """
-    
+        ret = SUCCESS
+
     rs = flocklab.get_test_owner(cur, testid)
     if isinstance(rs, tuple):
         owner_email = rs[4]

@@ -6,7 +6,7 @@
      */
 ?>
 <?php
-set_include_path(get_include_path() . PATH_SEPARATOR . "/home/flocklab/public_html/user");
+set_include_path(get_include_path() . PATH_SEPARATOR . "/home/flocklab/webserver");
 
 require_once('include/libflocklab.php');
 
@@ -14,7 +14,7 @@ if (!set_time_limit(120)) {
   die("unable to set max. execution time");
 }
 
-$statsFileName = "/home/flocklab/public_html/user/statistics.dat";
+$statsFileName = "/home/flocklab/webserver/statistics.dat";
 
 
 function collect_stats($filename)
