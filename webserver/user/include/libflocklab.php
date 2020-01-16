@@ -347,20 +347,30 @@ function validate_image($image, &$errors) {
     $imagefile = tempnam(sys_get_temp_dir(), 'flocklab');
     file_put_contents($imagefile, $image['data']);
     $platform_list = get_available_platforms();
-    // copy image file to testmanagement server
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'mkdir ".$CONFIG['testmanagementserver']['tempdir']."'";
-    exec($cmd);
-    $cmd = "scp ".$imagefile." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host'].":".$CONFIG['testmanagementserver']['tempdir'];
-    exec($cmd, $output, $ret);
-    if ($ret) {
-        array_push($errors, "Failed to copy file '$test_config_file' to testmanagement server.");
-        return 1;
+    // copy image file to testmanagement server if on a different host
+    $islocalhost = $CONFIG['testmanagementserver']['host'] == "localhost" || CONFIG['testmanagementserver']['host'] == "";
+    if ($islocalhost) {
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'mkdir ".$CONFIG['testmanagementserver']['tempdir']."'";
+        exec($cmd);
+        $cmd = "scp ".$imagefile." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host'].":".$CONFIG['testmanagementserver']['tempdir'];
+        exec($cmd, $output, $ret);
+        if ($ret) {
+            array_push($errors, "Failed to copy file '$test_config_file' to testmanagement server.");
+            return 1;
+        }
+        // remove unused file and adjust imagefile path
+        unlink($imagefile);
+        $imagefile = $CONFIG['testmanagementserver']['tempdir']."/".basename($imagefile);
     }
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['targetimage']['imagevalidator']." --image=".$CONFIG['testmanagementserver']['tempdir']."/".basename($imagefile)." --platform=". $platform_list[$image['platform']][0]['name']." --core=".$image['core']."' 2>&1";
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['targetimage']['imagevalidator']." --image=".$imagefile." --platform=". $platform_list[$image['platform']][0]['name']." --core=".$image['core']."' 2>&1";
     exec($cmd , $output, $ret);
-    unlink($imagefile);
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'rm ".$CONFIG['testmanagementserver']['tempdir']."/".basename($imagefile)."'";
-    exec($cmd);
+    // remove file
+    if ($islocalhost) {
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'rm ".$imagefile."'";
+        exec($cmd);
+    } else {
+        unlink($imagefile);
+    }
     if ($ret != 0) {
         array_push($validate_image_errors, "The supplied file is not a valid image for this platform.");
     }
@@ -418,17 +428,20 @@ function check_image_duplicate($image) {
 function store_image($image) {
     $id = null;
     $hash = hash('sha1', $image['data']);
+    if (!array_key_exists('os', $image) || $image['os'] == "") {
+        $image['os'] = 1;   # 1 = 'other'
+    }
     $db = db_connect();
     $sql = 'INSERT INTO `tbl_serv_targetimages` (`name`,`description`,`owner_fk`,`operatingsystems_fk`,`platforms_fk`,`core`,`binary`,`binary_hash_sha1`)
-        VALUES (
-        "'.mysqli_real_escape_string($db, trim($image['name'])).'",
-        "'.mysqli_real_escape_string($db, trim($image['description'])).'",
-        '.$_SESSION['serv_users_key'].',
-        '.mysqli_real_escape_string($db, $image['os']).',
-        '.mysqli_real_escape_string($db, $image['platform']).',
-        '.mysqli_real_escape_string($db, $image['core']).',
-        "'.mysqli_real_escape_string($db, $image['data']).'",
-        "'.$hash.'")';
+            VALUES (
+            "'.mysqli_real_escape_string($db, trim($image['name'])).'",
+            "'.mysqli_real_escape_string($db, trim($image['description'])).'",
+            '.$_SESSION['serv_users_key'].',
+            '.mysqli_real_escape_string($db, $image['os']).',
+            '.mysqli_real_escape_string($db, $image['platform']).',
+            '.mysqli_real_escape_string($db, $image['core']).',
+            "'.mysqli_real_escape_string($db, $image['data']).'",
+            "'.$hash.'")';
     mysqli_query($db, $sql) or flocklab_die('Cannot save uploaded images because: ' . mysqli_error($db));
     $id = mysqli_insert_id($db);
     mysqli_close($db);
@@ -438,25 +451,33 @@ function store_image($image) {
 // validate test
 function validate_test($test_config_file, &$errors) {
     global $CONFIG;
-    // copy xml file to testmanagement server
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'mkdir ".$CONFIG['testmanagementserver']['tempdir']."'";
-    exec($cmd);
-    $cmd = "scp ".$test_config_file." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host'].":".$CONFIG['testmanagementserver']['tempdir'];
-    exec($cmd , $output, $ret);
-    if ($ret) {
-        array_push($errors, "Failed to copy file '$test_config_file' to testmanagement server.");
-        return 1;
+    // copy xml file to testmanagement server if it is a different host
+    $islocalhost = $CONFIG['testmanagementserver']['host'] == "localhost" || CONFIG['testmanagementserver']['host'] == "";
+    if ($islocalhost) {
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'mkdir ".$CONFIG['testmanagementserver']['tempdir']."'";
+        exec($cmd);
+        $cmd = "scp ".$test_config_file." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host'].":".$CONFIG['testmanagementserver']['tempdir'];
+        exec($cmd , $output, $ret);
+        if ($ret) {
+            array_push($errors, "Failed to copy file '$test_config_file' to testmanagement server.");
+            return 1;
+        }
+        // adjust file name to new path
+        $test_config_file = $CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file);
     }
-    // execute XML validation script (runs in the virtual environment on the testmanagement server, therefore we need to use SSH here)
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['tests']['testvalidator']." -x ".$CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file)." -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key']."' 2>&1";
-    exec($cmd, $output, $ret);
+    // execute XML validation script in the python virtual environment on the testmanagement server as user flocklab
+    $cmd = $CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['tests']['testvalidator']." -x ".$test_config_file." -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key'];
+    exec("ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$cmd."' 2>&1", $output, $ret);
     if ($ret) {
-    foreach ($output as $error) {
+        foreach ($output as $error) {
             array_push($errors, $error);
         }
     }
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'rm ".$CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file)."'";
-    exec($cmd);
+    // remove copied file
+    if ($islocalhost) {
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." 'rm ".$test_config_file."'";
+        exec($cmd);
+    }
     return $ret == 0;
 }
 

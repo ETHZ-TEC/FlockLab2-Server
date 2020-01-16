@@ -96,14 +96,15 @@ def get_logger(loggername=None, loggerpath=None):
 ##############################################################################
 def connect_to_db(config=None, logger=None):
     # Check the arguments:
-    if ((not isinstance(config, configparser.SafeConfigParser)) or (not isinstance(logger, logging.Logger))):
+    if (not isinstance(config, configparser.SafeConfigParser)):
         return (None, None)
     try:
         cn = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database'), charset='utf8', use_unicode=True) 
         cur = cn.cursor()
         #cur.execute("SET sql_mode=''")     # TODO check whether this is needed
     except:
-        logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        if logger and isinstance(logger, logging.Logger):
+            logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         raise
     return (cn, cur)
 ### END connect_to_db()

@@ -216,6 +216,7 @@ class StartTestThread(threading.Thread):
                         logger.debug("Test-start script on observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
                         # Remove image file and xml on server:
                         os.remove(self._xmldict_key[self._obskey][0])
+                        logger.debug("XML FILE %s NOT REMOVED" % self._xmldict_key[self._obskey][0])    # TODO
                         #DEBUG logger.debug("Removed XML config %s for observer ID %s"%(self._xmldict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
                         if self._obskey in list(self._imagedict_key.keys()):
                             for image in self._imagedict_key[self._obskey]:

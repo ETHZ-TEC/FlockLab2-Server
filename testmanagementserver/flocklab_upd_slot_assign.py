@@ -1,10 +1,5 @@
 #! /usr/bin/env python3
 
-__author__         = "Christoph Walser <walser@tik.ee.ethz.ch>"
-__copyright__     = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-__license__     = "GPL"
-
-
 import os, sys, getopt, MySQLdb, errno, threading, subprocess, time, traceback, queue, logging
 # Import local libraries
 import lib.flocklab as flocklab
@@ -17,6 +12,24 @@ scriptname = os.path.basename(__file__)
 scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
 ###
 debug = False
+
+
+##############################################################################
+#
+# Usage
+#
+##############################################################################
+def usage():
+    print(("Usage: %s [--searchtime <float>] [--maxretries <int>] [--debug] [--help] [--obs <id>] [--email] [--develop]" % sys.argv[0]))
+    print("Options:")
+    print("  --searchtime\t\tOptional. If set, standard time for waiting for the ID search is overwritten.")
+    print("  --maxretries\t\tOptional. If set, standard number of retries for reading an ID is overwritten.")
+    print("  --debug\t\tOptional. Print debug messages to log.")
+    print("  --observer\t\tOptional. Update only observer with ID <id>.")
+    print("  --develop\t\tOptional. Update only observers with status 'develop'.")
+    print("  --email\t\tOptional. Send report via email.")
+    print("  --help\t\tOptional. Print this help.")
+### END usage()
 
 
 ##############################################################################
@@ -46,11 +59,11 @@ class UpdateSlotAssignThread(threading.Thread):
         self.Logger.debug("Observer %s: calling %s" %(self.ObsHostname, cmd))
         p = subprocess.Popen(['ssh', '%s' % (self.ObsHostname), cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         rs = p.communicate()
-        self.Logger.debug("Observer %s: got response: %s" % (self.ObsHostname, str(rs)))
+        self.Logger.debug("Observer %s response: %s" % (self.ObsHostname, str(rs)))
 
         # Compare list against values stored on database if ssh command was successful
         if (rs[1] != ''):
-            self.Logger.debug("Observer %s: returned error: %s" % (self.ObsHostname, str(rs[1])))
+            self.Logger.debug("Observer %s returned error: %s" % (self.ObsHostname, str(rs[1])))
         slots = rs[0].split('\n')
         if ((rs[1] == '') and (len(slots) > 1)):
             cmds = []
@@ -149,25 +162,6 @@ class UpdateSlotAssignThread(threading.Thread):
 ### END UpdateSlotAssignThread
 
 
-
-##############################################################################
-#
-# Usage
-#
-##############################################################################
-def usage():
-    print(("Usage: %s [--searchtime <float>] [--maxretries <int>] [--debug] [--help] [--obs <id>] [--develop]" % sys.argv[0]))
-    print("Options:")
-    print("  --searchtime\t\t\tOptional. If set, standard time for waiting for the ID search is overwritten.")
-    print("  --maxretries\t\t\tOptional. If set, standard number of retries for reading an ID is overwritten.")
-    print("  --debug\t\t\tPrint debug messages to log.")
-    print("  --observer\t\t\tUpdate only observer with ID <id>.")
-    print("  --develop\t\t\tUpdate only observers with status 'develop'.")
-    print("  --help\t\t\tOptional. Print this help.")
-### END usage()
-
-
-
 ##############################################################################
 #
 # Main
@@ -182,6 +176,7 @@ def main(argv):
     threadlist = []
     searchtime = None
     maxretries = None
+    email = False
     force = False
     observer = ""
     status = "'online', 'internal', 'develop'"
@@ -195,7 +190,7 @@ def main(argv):
 
     # Get command line parameters.
     try:
-        opts, args = getopt.getopt(argv, "hds:m:fo:d", ["help", "debug", "searchtime", "maxretries", "force", "observer", "develop"])
+        opts, args = getopt.getopt(argv, "hds:m:fo:de", ["help", "debug", "searchtime", "maxretries", "force", "observer", "develop", "email"])
     except getopt.GetoptError as err:
         print((str(err)))
         logger.warn(str(err))
@@ -203,6 +198,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
     except:
         logger.warn("Error %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        sys.exit(errno.EINVAL)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
@@ -240,6 +236,8 @@ def main(argv):
                 logger.warn("Wrong API usage: %s" %str(arg))
                 usage()
                 sys.exit(errno.EINVAL)
+        elif opt in ("-e", "--email"):
+            email = True
         else:
             print("Wrong API usage")
             logger.warn("Wrong API usage")
@@ -269,16 +267,16 @@ def main(argv):
         logger.debug("Going to fetch current database status for active observers...")
         try:
             sql = """ SELECT a.serv_observer_key, a.ethernet_address, b.serialid AS serialid_1, c.serialid AS serialid_2, d.serialid AS serialid_3, e.serialid AS serialid_4
-                                FROM `tbl_serv_observer` AS a
-                                LEFT JOIN `tbl_serv_tg_adapt_list` AS b
-                                ON a.slot_1_tg_adapt_list_fk = b.serv_tg_adapt_list_key
-                                LEFT JOIN `tbl_serv_tg_adapt_list` AS c
-                                ON a.slot_2_tg_adapt_list_fk = c.serv_tg_adapt_list_key
-                                LEFT JOIN `tbl_serv_tg_adapt_list` AS d
-                                ON a.slot_3_tg_adapt_list_fk = d.serv_tg_adapt_list_key
-                                LEFT JOIN `tbl_serv_tg_adapt_list` AS e
-                                ON a.slot_4_tg_adapt_list_fk = e.serv_tg_adapt_list_key
-                                WHERE a.status IN (%s) %s
+                      FROM `tbl_serv_observer` AS a
+                      LEFT JOIN `tbl_serv_tg_adapt_list` AS b
+                      ON a.slot_1_tg_adapt_list_fk = b.serv_tg_adapt_list_key
+                      LEFT JOIN `tbl_serv_tg_adapt_list` AS c
+                      ON a.slot_2_tg_adapt_list_fk = c.serv_tg_adapt_list_key
+                      LEFT JOIN `tbl_serv_tg_adapt_list` AS d
+                      ON a.slot_3_tg_adapt_list_fk = d.serv_tg_adapt_list_key
+                      LEFT JOIN `tbl_serv_tg_adapt_list` AS e
+                      ON a.slot_4_tg_adapt_list_fk = e.serv_tg_adapt_list_key
+                      WHERE a.status IN (%s) %s
                 """ % (status, observer)
             cur.execute(sql)
         except MySQLdb.Error as err:
@@ -321,15 +319,18 @@ def main(argv):
             while not q.empty():
                 msg = msg + q.get_nowait()
             if not msg == "":
-                try:
-                    (cn, cur) = flocklab.connect_to_db(config, logger)
-                except:
-                    logger.error("Could not connect to database")
-                    raise
-                emails = flocklab.get_admin_emails(cur, config)
-                flocklab.send_mail(subject="[FlockLab Slot Updater]", message=msg, recipients=emails)
-                cur.close()
-                cn.close()
+                if email:
+                    try:
+                        (cn, cur) = flocklab.connect_to_db(config, logger)
+                    except:
+                        logger.error("Could not connect to database")
+                        raise
+                    emails = flocklab.get_admin_emails(cur, config)
+                    flocklab.send_mail(subject="[FlockLab Slot Updater]", message=msg, recipients=emails)
+                    cur.close()
+                    cn.close()
+                else:
+                    print(msg)
         except:
             logger.warn("Error when sending change notifications to admin. %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
 

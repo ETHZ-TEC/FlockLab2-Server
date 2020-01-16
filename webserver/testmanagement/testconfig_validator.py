@@ -207,13 +207,13 @@ def is_internal(cursor=None, userid=0):
 #
 ##############################################################################
 def main(argv):
-    quiet        = False
-    userid        = None
-    xmlpath        = None
-    schemapath    = None
-    testid        = None
-    isadmin        = False
-    isinternal    = False
+    quiet      = False
+    userid     = None
+    xmlpath    = None
+    schemapath = None
+    testid     = None
+    isadmin    = False
+    isinternal = False
     
     # Open the log and create logger:
     try:
@@ -266,7 +266,7 @@ def main(argv):
         elif opt in ("-x", "--xml"):
             xmlpath = arg
             if (not os.path.exists(xmlpath) or not os.path.isfile(xmlpath)):
-				logger.warn("Wrong API usage: XML file '%s' does not exist" % xmlpath)
+                logger.warn("Wrong API usage: XML file '%s' does not exist" % xmlpath)
                 sys.exit(errno.EINVAL)
         elif opt in ("-h", "--help"):
             usage(config)
@@ -535,11 +535,11 @@ def main(argv):
                         imagefile.write(base64.b64decode(image, None))
                         imagefile.close()
                         # Validate image:
-						p = subprocess.Popen([config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE, universal_newlines=True)
+                        p = subprocess.Popen([config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE, universal_newlines=True)
                         stdout, stderr = p.communicate()
                         if p.returncode != SUCCESS:
                             if not quiet:
-								print(("<b>Line %d</b>: element data: Validation of image data failed. %s" %(image_line, stderr)))
+                                print(("<b>Line %d</b>: element data: Validation of image data failed. %s" %(image_line, stderr)))
                             errcnt = errcnt + 1
                         # Remove temporary file:
                         os.remove(imagefilename)
