@@ -1,13 +1,6 @@
 #! /usr/bin/env python3
 
-__author__          = "Christoph Walser <walserc@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2010, ETH Zurich, Switzerland"
-__license__         = "GPL"
-
-
 import sys, os, getopt, errno, time, datetime, subprocess, MySQLdb, logging, __main__, traceback, types, calendar, multiprocessing
-# Import local libraries
-from lib.flocklab import SUCCESS
 import lib.flocklab as flocklab
 
 
@@ -74,7 +67,7 @@ def test_startstopabort(testid=None, mode='stop',delay=0):
         p = subprocess.Popen(cmd)
         p.wait()
         rs = p.returncode
-    if (rs != SUCCESS):
+    if (rs != flocklab.SUCCESS):
         logger.error("Dispatcher to %s test returned with error %d" %(mode, rs))
         logger.debug("Command executed was: %s"%(str(cmd)))
         conn.close()
@@ -82,7 +75,7 @@ def test_startstopabort(testid=None, mode='stop',delay=0):
     else:
         logger.info("Test %d %s done." % (testid, mode))
         conn.close()
-        return SUCCESS
+        return flocklab.SUCCESS
 ### END test_startstopabort()
 
 
@@ -143,7 +136,7 @@ def main(argv):
             logger.setLevel(logging.DEBUG)
         elif opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         else:
             logger.warn("Wrong API usage")
             sys.exit(errno.EINVAL)
@@ -259,7 +252,7 @@ def main(argv):
     flocklab.release_db_lock(cur, cn, 'scheduler')
     cur.close()
     cn.close()
-    sys.exit(SUCCESS)
+    sys.exit(flocklab.SUCCESS)
 ### END main()
 
 if __name__ == "__main__":

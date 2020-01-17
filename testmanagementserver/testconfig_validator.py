@@ -1,34 +1,10 @@
 #!/usr/bin/env python3
 
-__author__         = "Christoph Walser <walserc@tik.ee.ethz.ch>, Adnan Mlika"
-__copyright__     = "Copyright 2010, ETH Zurich, Switzerland"
-__license__     = "GPL"
+import sys, os, getopt, errno, subprocess, time, calendar, MySQLdb, tempfile, base64, syslog, re, configparser, traceback, xml
+import lib.flocklab as flocklab
 
 
-import sys, os, getopt, errno, subprocess, time, calendar, MySQLdb, tempfile, base64, syslog, re, configparser, traceback
-from lxml import etree
-import logging.config
-
-
-### Global variables ###
-###
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-SUCCESS    = 0
-###
-
-debug    = False
-
-
-##############################################################################
-#
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
-
+debug = False
 
 
 ##############################################################################
@@ -99,13 +75,13 @@ def getXmlTimestamp(datetimestring):
 #
 ##############################################################################
 def usage(config):
-    print(("Usage: %s [--xml=<path>] [--testid=<int>] [--userid=<int>] [--schema=<path>] [--quiet] [--help]" % sys.argv[0]))
+    print("Usage: %s [--xml=<path>] [--testid=<int>] [--userid=<int>] [--schema=<path>] [--quiet] [--help]" % sys.argv[0])
     print("Validate an XML testconfiguration. Returns 0 on success, errno on errors.")
     print("Options:")
     print("  --xml\t\t\t\tOptional. Path to the XML file which is to check. Either --xml or --testid are) mandatory. If both are given, --testid will be favoured.")
     print("  --testid\t\t\tOptional. Test ID to validate. If this parameter is set, the XML will be taken from the DB. Either --xml or --testid are mandatory. If both are given, --testid will be favoured.")
     print("  --userid\t\t\tOptional. User ID to which the XML belongs. Mandatory if --xml is specified.")
-    print(("  --schema\t\t\tOptional. Path to the XML schema to check XML against. If not given, the standard path will be used: %s" %(str(config.get('xml', 'schemapath')))))
+    print("  --schema\t\t\tOptional. Path to the XML schema to check XML against. If not given, the standard path will be used: %s" %(str(config.get('xml', 'schemapath'))))
     print("  --quiet\t\t\tOptional. Do not print on standard out.")
     print("  --help\t\t\tOptional. Print this help.")
 ### END usage()
@@ -169,7 +145,7 @@ def is_admin(cursor=None, userid=0):
 
 ##############################################################################
 #
-# get_role - Check if an ID belongs to an internal user.
+# is_internal - Check if an ID belongs to an internal user.
 #
 ##############################################################################
 def is_internal(cursor=None, userid=0):
@@ -203,6 +179,33 @@ def is_internal(cursor=None, userid=0):
 
 ##############################################################################
 #
+# get_obsids - Get a list of currently available observer IDs of a certain platform.
+#
+##############################################################################
+def get_obsids(cursor=None, platform=None, status=None):
+    if not cursor or not platform or not status:
+        return None
+    rs = cursor.execute("""SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
+                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
+                        WHERE obs.status IN (%s) AND '%s' IN (slot1.name, slot2.name, slot3.name, slot4.name)
+                        ORDER BY obs.observer_id;
+                        """ % (status, platform))
+    obslist = []
+    for r in rs.fetchall():
+        obslist.append(r[obsid])
+    return obslist
+### END get_obsids()
+
+
+##############################################################################
+#
 # Main
 #
 ##############################################################################
@@ -217,8 +220,7 @@ def main(argv):
     
     # Open the log and create logger:
     try:
-        logging.config.fileConfig(scriptpath + '/logging.conf')
-        logger = logging.getLogger(os.path.basename(__file__))
+        logger = flocklab.get_logger(os.path.basename(__file__))
         if debug:
             logger.setLevel(logging.DEBUG)
         else:
@@ -246,7 +248,7 @@ def main(argv):
             try:
                 userid = int(arg)
                 if userid <= 0:
-                    raise Error
+                    raise
             except:
                 logger.warn("Wrong API usage: userid has to be a positive number")
                 sys.exit(errno.EINVAL)
@@ -254,7 +256,7 @@ def main(argv):
             try:
                 testid = int(arg)
                 if testid <= 0:
-                    raise Error
+                    raise
             except:
                 logger.warn("Wrong API usage: testid has to be a positive number")
                 sys.exit(errno.EINVAL)
@@ -321,7 +323,14 @@ def main(argv):
     if isinternal not in (True, False):
         logger.warn("Could not determine if user is internal or not. Error %d occurred. Exiting..." %isinternal)
         sys.exit(errno.EAGAIN)
-        
+    
+    # Valid stati for observers based on used permissions
+    stati = "'online'"
+    if isadmin:
+        stati += ", 'develop', 'internal'"
+    elif isinternal:
+        stati += ", 'internal'"
+    
     # Initialize error counter and set timezone to UTC:
     errcnt = 0;
     os.environ['TZ'] = 'UTC'
@@ -358,7 +367,7 @@ def main(argv):
                 tmp = err.split(':')
                 if len(tmp) >= 7:
                     if not quiet:
-                        print(("<b>Line " + tmp[1] + "</b>:" + tmp[2] + ":" + ":".join(tmp[6:])))
+                        print(("Line " + tmp[1] + ":" + tmp[2] + ":" + ":".join(tmp[6:])))
                     errcnt = errcnt + 1
                 elif not ((err.find('fails to validate') != -1) or (err.find('validates') != -1) or (err == '\n') or (err == '')):
                     if not quiet:
@@ -378,8 +387,8 @@ def main(argv):
         #    * If specified, start time has to be in the future
         #    * If specified, end time has to be after start time
         f = open(xmlpath, 'r')
-        parser = etree.XMLParser(remove_comments=True)
-        tree = etree.parse(f, parser)
+        parser = lxml.etree.XMLParser(remove_comments=True)
+        tree = lxml.etree.parse(f, parser)
         f.close()
         ns = {'d': config.get('xml', 'namespace')}
         # additional check for the namespace
@@ -395,7 +404,7 @@ def main(argv):
         for l in tree.xpath('//d:*/d:obsIds', namespaces=ns) + tree.xpath('//d:*/d:targetIds', namespaces=ns):
             if l.text.find('\t')>=0:
                 if not quiet:
-                    print("<b>Element obsIds/targetIds</b>: Id lists must not have tabs as separators.")
+                    print("Element obsIds/targetIds: Id lists must not have tabs as separators.")
                 errcnt = errcnt + 1
     
     if errcnt == 0:
@@ -408,14 +417,14 @@ def main(argv):
             testStart = getXmlTimestamp(rs[0].text)
             if (testStart <= now):
                 if not quiet:
-                    print("<b>Element generalConf</b>: Start time has to be in the future.")
+                    print("Element generalConf: Start time has to be in the future.")
                 errcnt = errcnt + 1
             # The end date and time have to be in the future and after the start:
             rs = tree.xpath('//d:generalConf/d:scheduleAbsolute/d:end', namespaces=ns)
             testEnd = getXmlTimestamp(rs[0].text)
             if (testEnd <= testStart):
                 if not quiet:
-                    print("<b>Element generalConf</b>: End time has to be after start time.")
+                    print("Element generalConf: End time has to be after start time.")
                 errcnt = errcnt + 1
             # Calculate the test duration which is needed later on:
             testDuration = testEnd - testStart
@@ -433,6 +442,7 @@ def main(argv):
         obsidlist = []
         obsiddict = {}
         targetconfs = tree.xpath('//d:targetConf', namespaces=ns)
+        platform = None
         for targetconf in targetconfs:
             targetids = None
             dbimageid = None
@@ -454,12 +464,13 @@ def main(argv):
             
             # Put obsids into obsidlist:
             for obsid in obsids:
-                obsidlist.append(obsid)
+                if obsid is not "ALL":
+                    obsidlist.append(obsid)
                 
             # If target ids are present, there need to be as many as observer ids:
             if (targetids and (len(targetids) != len(obsids))):
                 if not quiet:
-                    print(("<b>Line %d</b>: element targetIds: If element targetIds is used, it needs the same amount of IDs as in the corresponding element obsIds." %(targetids_line)))
+                    print(("Line %d: element targetIds: If element targetIds is used, it needs the same amount of IDs as in the corresponding element obsIds." %(targetids_line)))
                 errcnt = errcnt + 1
             
             # If DB image IDs are present, check if they are in the database and belong to the user (if he is not an admin) and get values for later use:
@@ -478,7 +489,7 @@ def main(argv):
                     ret = cursor.fetchone()
                     if not ret:
                         if not quiet:
-                            print(("<b>Line %d</b>: element dbImageId: The image with ID %s does not exist in the database or does not belong to you." %(line, str(dbimg))))
+                            print(("Line %d: element dbImageId: The image with ID %s does not exist in the database or does not belong to you." %(line, str(dbimg))))
                         errcnt = errcnt + 1
                     else:
                         # Put data into dictionary for later use:
@@ -488,7 +499,7 @@ def main(argv):
                                 obsiddict[obsid] = {}
                             if core in obsiddict[obsid]:
                                 if not quiet:
-                                    print(("<b>Line %d</b>: element dbImageId: There is already an image for core %d (image with ID %s)." %(line, core, str(dbimg))))
+                                    print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." %(line, core, str(dbimg))))
                                 errcnt = errcnt + 1
                             else:
                                 obsiddict[obsid][core]=ret[:2]
@@ -499,7 +510,7 @@ def main(argv):
                     imageconf = tree.xpath('//d:imageConf/d:embeddedImageId[text()="%s"]/..' %(embimg), namespaces=ns)
                     if not imageconf:
                         if not quiet:
-                            print(("<b>Line %d</b>: element embeddedImageId: There is no corresponding element imageConf with embeddedImageId %s defined." %(line, embimg)))
+                            print(("Line %d: element embeddedImageId: There is no corresponding element imageConf with embeddedImageId %s defined." %(line, embimg)))
                         errcnt = errcnt + 1
                     else:
                         # Get os and platform and put it into dictionary for later use:
@@ -519,7 +530,7 @@ def main(argv):
                                 obsiddict[obsid] = {}
                             if core in obsiddict[obsid]:
                                 if not quiet:
-                                    print(("<b>Line %d</b>: element dbImageId: There is already an image for core %d (image with ID %s)." %(line, core, str(embimg))))
+                                    print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." %(line, core, str(embimg))))
                                 errcnt = errcnt + 1
                             obsiddict[obsid][core]=(opersys, platform)
                         # Get the image and save it to a temporary file:
@@ -539,17 +550,20 @@ def main(argv):
                         stdout, stderr = p.communicate()
                         if p.returncode != SUCCESS:
                             if not quiet:
-                                print(("<b>Line %d</b>: element data: Validation of image data failed. %s" %(image_line, stderr)))
+                                print(("Line %d: element data: Validation of image data failed. %s" %(image_line, stderr)))
                             errcnt = errcnt + 1
                         # Remove temporary file:
                         os.remove(imagefilename)
         
+        # if there is just one target config and a list of observers is not provided, then fetch a list of all observers from the database
+        if (len(obsidlist) == 0) and len(targetconfs) == 1:
+            obsidlist = get_obsids(cursor, platform, stati)
         # Check if no observers are in the list multiple times and if every observer has the correct target adapter installed:
         obsidlist = list(set(obsidlist))
         (obsids, duplicates, allInList) = checkObsids(tree, '//d:targetConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
-                print("<b>Element targetConf</b>: Some observer IDs have been used more than once.")
+                print("Element targetConf: Some observer IDs have been used more than once.")
             errcnt = errcnt + 1
         else:
             usedObsidsList = sorted(obsids)
@@ -583,29 +597,26 @@ def main(argv):
                     for p in obsiddict[obsid].values():
                         if platf!=p[1].lower():
                             if not quiet:
-                                print(("<b>Element targetConf</b>: Observer ID %s has images of several platform types assigned." %(obsid)))
+                                print(("Element targetConf: Observer ID %s has images of several platform types assigned." %(obsid)))
                             errcnt = errcnt + 1
                             break
                         #if opersys!=p[0].lower():
                         #    if not quiet:
-                        #        print(("<b>Element targetConf</b>: Observer ID %s has images of several operating system types assigned." %(obsid)))
+                        #        print(("Element targetConf: Observer ID %s has images of several operating system types assigned." %(obsid)))
                         #    errcnt = errcnt + 1
                         #    break
                 else:
                     platf = None
                 # Get tg_adapt_types_fk of installed target adaptors on observer:
-                stati = "'online'"
-                if isadmin:
-                    stati += ", 'develop', 'internal'"
-                elif isinternal:
-                    stati += ", 'internal'"
                 cursor.execute(sql_adap %(obsid, stati))
                 adaptTypesFk = cursor.fetchone()
-                # If no results are returned, it most probably means that the observer is not active at the moment:
+                # If no results are returned, it most probably means that the observer is not active at the moment.
                 if not adaptTypesFk:
                     if not quiet:
-                        print(("<b>Element targetConf</b>: Observer ID %s cannot be used at the moment." %(obsid)))
-                    errcnt = errcnt + 1
+                        print(("Element targetConf: Observer ID %s cannot be used at the moment." %(obsid)))
+                    # If the test ID has been provided, the test has already been scheduled and should run despite a node that is not available.
+                    if not testid:
+                        errcnt = errcnt + 1
                 elif adaptTypesFk and platf:
                     # Cycle through the adaptors which are attached to the observer and try to find one that can be used with the requested platform:
                     adaptFound = False
@@ -619,7 +630,7 @@ def main(argv):
                                 break
                     if not adaptFound:
                         if not quiet:
-                            print(("<b>Element targetConf</b>: Observer ID %s has currently no target adapter for %s installed." %(obsid, platf)))
+                            print(("Element targetConf: Observer ID %s has currently no target adapter for %s installed." %(obsid, platf)))
                         errcnt = errcnt + 1
                 if platf is not None:
                     cursor.execute(sql_cores %(platf))
@@ -629,11 +640,11 @@ def main(argv):
                     provided_cores = list(obsiddict[obsid].keys())
                     if not set(required_cores).issubset(set(provided_cores)):
                         if not quiet:
-                            print(("<b>Element targetConf</b>: Not enough target images provided for Observer ID %s. Platform %s requires images for cores %s." %(obsid, platf, ','.join(map(str,required_cores)))))
+                            print(("Element targetConf: Not enough target images provided for Observer ID %s. Platform %s requires images for cores %s." %(obsid, platf, ','.join(map(str,required_cores)))))
                         errcnt = errcnt + 1
                     if not set(provided_cores).issubset(set(all_cores)):
                         if not quiet:
-                            print(("<b>Element targetConf</b>: Excess target images specified on Observer ID %s. Platform %s requires images for cores %s." %(obsid, platf, ','.join(map(str,required_cores)))))
+                            print(("Element targetConf: Excess target images specified on Observer ID %s. Platform %s requires images for cores %s." %(obsid, platf, ','.join(map(str,required_cores)))))
                         errcnt = errcnt + 1
     
     #===========================================================================
@@ -648,11 +659,11 @@ def main(argv):
         (ids, duplicates, allInList) = checkObsids(tree, '//d:serialConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
-                print("<b>Element serialConf</b>: Some observer IDs have been used more than once.")
+                print("Element serialConf: Some observer IDs have been used more than once.")
             errcnt = errcnt + 1
         if not allInList:
             if not quiet:
-                print("<b>Element serialConf</b>: Some observer IDs have been used but do not have a targetConf element associated with them.")
+                print("Element serialConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
         
         # gpioTracingConf additional validation ---------------------------------------
@@ -663,11 +674,11 @@ def main(argv):
         (ids, duplicates, allInList) = checkObsids(tree, '//d:gpioTracingConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
-                print("<b>Element gpioTracingConf</b>: Some observer IDs have been used more than once.")
+                print("Element gpioTracingConf: Some observer IDs have been used more than once.")
             errcnt = errcnt + 1
         if not allInList:
             if not quiet:
-                print("<b>Element gpioTracingConf</b>: Some observer IDs have been used but do not have a) targetConf element associated with them.")
+                print("Element gpioTracingConf: Some observer IDs have been used but do not have a) targetConf element associated with them.")
             errcnt = errcnt + 1
         # Check (pin, edge) combinations:
         gpiomonconfs = tree.xpath('//d:gpioTracingConf', namespaces=ns)
@@ -680,7 +691,7 @@ def main(argv):
                 combList.append((pin, edge))
             if (len(combList) != len(set(combList))):
                 if not quiet:
-                    print(("<b>Line %d</b>: element gpioTracingConf: Every (pin, edge) combination can only be used once per observer configuration." %(gpiomonconf.sourceline)))
+                    print(("Line %d: element gpioTracingConf: Every (pin, edge) combination can only be used once per observer configuration." %(gpiomonconf.sourceline)))
                 errcnt = errcnt + 1
                             
                             
@@ -693,35 +704,35 @@ def main(argv):
         (ids, duplicates, allInList) = checkObsids(tree, '//d:gpioActuationConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
-                print("<b>Element gpioActuationConf</b>: Some observer IDs have been used more than once.")
+                print("Element gpioActuationConf: Some observer IDs have been used more than once.")
             errcnt = errcnt + 1
         if not allInList:
             if not quiet:
-                print("<b>Element gpioActuationConf</b>: Some observer IDs have been used but do not have a targetConf element associated with them.")
+                print("Element gpioActuationConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
         # Check relative timings:
         rs = tree.xpath('//d:gpioActuationConf/d:pinConf/d:relativeTime/d:offsetSecs', namespaces=ns)
         for elem in rs:
             if (int(elem.text) > testDuration):
                 if not quiet:
-                    print(("<b>Line %d</b>: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." %(elem.sourceline)))
+                    print(("Line %d: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." %(elem.sourceline)))
                 errcnt = errcnt + 1
         # Check absolute timings:
         rs = tree.xpath('//d:gpioActuationConf/d:pinConf/d:absoluteTime/d:absoluteDateTime', namespaces=ns)
         for elem in rs:
             if sched_asap:
                 if not quiet:
-                    print(("<b>Line %d</b>: element absoluteDateTime: For test scheduling method ASAP, only relative timed actions are allowed." %(elem.sourceline)))
+                    print(("Line %d: element absoluteDateTime: For test scheduling method ASAP, only relative timed actions are allowed." %(elem.sourceline)))
                 errcnt = errcnt + 1
             else:
                 eventTime = getXmlTimestamp(elem.text)
                 if (eventTime > testEnd):
                     if not quiet:
-                        print(("<b>Line %d</b>: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
+                        print(("Line %d: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
                     errcnt = errcnt + 1
                 elif (eventTime < testStart):
                     if not quiet:
-                        print(("<b>Line %d</b>: element absoluteDateTime: The action is scheduled before the test starts, thus the action will never take place." %(elem.sourceline)))
+                        print(("Line %d: element absoluteDateTime: The action is scheduled before the test starts, thus the action will never take place." %(elem.sourceline)))
                     errcnt = errcnt + 1
         
 
@@ -734,11 +745,11 @@ def main(argv):
         (ids, duplicates, allInList) = checkObsids(tree, '//d:powerProfilingConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
-                print("<b>Element powerProfilingConf</b>: Some observer IDs have been used more than once.")
+                print("Element powerProfilingConf: Some observer IDs have been used more than once.")
             errcnt = errcnt + 1
         if not allInList:
             if not quiet:
-                print("<b>Element powerProfilingConf</b>: Some observer IDs have been used but do not have a targetConf element associated with them.")
+                print("Element powerProfilingConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
         # Check relative timings:
         rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:relativeTime/d:offsetSecs', namespaces=ns)
@@ -751,18 +762,18 @@ def main(argv):
             elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
             if (ppStart > testDuration):
                 if not quiet:
-                    print(("<b>Line %d</b>: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." %(elem.sourceline)))
+                    print(("Line %d: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." %(elem.sourceline)))
                 errcnt = errcnt + 1
             elif (ppStart + int(elem2.text)/1000 > testDuration):
                 if not quiet:
-                    print(("<b>Line %d</b>: element durationMillisecs: Profiling lasts longer than test." %(elem2.sourceline)))
+                    print(("Line %d: element durationMillisecs: Profiling lasts longer than test." %(elem2.sourceline)))
                 errcnt = errcnt + 1
         # Check absolute timings:
         rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:absoluteTime/d:absoluteDateTime', namespaces=ns)
         for elem in rs:
             if sched_asap:
                 if not quiet:
-                    print(("<b>Line %d</b>: element absoluteDateTime: For test scheduling method ASAP, only relative timed actions are allowed." %(elem.sourceline)))
+                    print(("Line %d: element absoluteDateTime: For test scheduling method ASAP, only relative timed actions are allowed." %(elem.sourceline)))
                 errcnt = errcnt + 1
             else:
                 ppMicroSecs = elem.getparent().find('d:absoluteMicrosecs', namespaces=ns)
@@ -774,15 +785,15 @@ def main(argv):
                 elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
                 if (ppStart > testEnd):
                     if not quiet:
-                        print(("<b>Line %d</b>: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
+                        print(("Line %d: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
                     errcnt = errcnt + 1
                 elif (ppStart < testStart):
                     if not quiet:
-                        print(("<b>Line %d</b>: element absoluteDateTime: The action is scheduled before the test starts, thus the action will never take place." %(elem.sourceline)))
+                        print(("Line %d: element absoluteDateTime: The action is scheduled before the test starts, thus the action will never take place." %(elem.sourceline)))
                     errcnt = errcnt + 1
                 elif (ppStart + int(elem2.text)/1000 > testEnd):
                     if not quiet:
-                        print(("<b>Line %d</b>: element durationMillisecs: Profiling lasts longer than test." %(elem2.sourceline)))
+                        print(("Line %d: element durationMillisecs: Profiling lasts longer than test." %(elem2.sourceline)))
                     errcnt = errcnt + 1
     
     #===========================================================================
@@ -800,7 +811,7 @@ def main(argv):
     if errcnt == 0:
         ret = SUCCESS
     else:
-        err_str = "<b>Number of errors: %d</b>. It is possible that there are more errors which could not be detected due to dependencies from above listed errors."%errcnt
+        err_str = "Number of errors: %d. It is possible that there are more errors which could not be detected due to dependencies from above listed errors."%errcnt
         logger.debug(err_str)
         if not quiet:
             print(err_str)

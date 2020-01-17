@@ -3,7 +3,6 @@
 # Script to register new target adapter IDs in the database
 
 import os, sys, getopt, MySQLdb, errno, threading, subprocess, time, traceback, queue, logging
-# Import local libraries
 import lib.flocklab as flocklab
 
 
@@ -20,7 +19,6 @@ def usage():
     print("  --adapterid\t\tOptional. ID of the target adapter board. Set automatically if not provided.")
     print("  --help\t\tPrint this help")
 ### END usage()
-
 
 
 ##############################################################################

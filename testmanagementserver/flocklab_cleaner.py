@@ -1,13 +1,6 @@
 #! /usr/bin/env python3
 
-__author__          = "Christoph Walser <walserc@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2010, ETH Zurich, Switzerland"
-__license__         = "GPL"
-
-
 import sys, os, getopt, errno, traceback, logging, time, __main__, shutil, glob, datetime
-# Import local libraries
-from lib.flocklab import SUCCESS
 import lib.flocklab as flocklab
 
 ### Global variables ###
@@ -23,18 +16,6 @@ config = None
 
 ##############################################################################
 #
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
-
-
-
-##############################################################################
-#
 # Usage
 #
 ##############################################################################
@@ -44,7 +25,6 @@ def usage():
     print("  --debug\t\t\tOptional. Print debug messages to log.")
     print("  --help\t\t\tOptional. Print this help.")
 ### END usage()
-
 
 
 ##############################################################################
@@ -89,7 +69,7 @@ def main(argv):
             logger.setLevel(logging.DEBUG)
         elif opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         else:
             logger.warn("Wrong API usage")
             sys.exit(errno.EINVAL)
@@ -206,7 +186,7 @@ def main(argv):
             cn.close()
     
     #logger.debug("Finished. Exit program.")
-    sys.exit(SUCCESS)
+    sys.exit(flocklab.SUCCESS)
 ### END main()
 
 if __name__ == "__main__":

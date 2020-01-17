@@ -57,7 +57,7 @@ if(isset($_SESSION['expires']) && $_SESSION['expires'] < $_SERVER['REQUEST_TIME'
 }
        
 // Set session timeout:
-$_SESSION['expires'] = $_SERVER['REQUEST_TIME'] + $CONFIG['session']['expiretime'];
+$_SESSION['expires'] = $_SERVER['REQUEST_TIME'] + $CONFIG['webserver']['sessionexpiretime'];
 
 set_exception_handler('flog');
 function flog($text) {

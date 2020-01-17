@@ -1,15 +1,6 @@
 #! /usr/bin/env python3
 
-__author__        = "Christoph Walser <walserc@tik.ee.ethz.ch>, Adnan Mlika"
-__copyright__    = "Copyright 2010, ETH Zurich, Switzerland"
-__license__        = "GPL"
-
-
-import sys, os, getopt, tempfile, shutil, re, time, errno, io, logging, traceback, __main__, csv, tarfile
-from datetime import datetime
-from struct import *
-# Import local libraries
-from lib.flocklab import SUCCESS
+import sys, os, getopt, tempfile, shutil, re, time, errno, io, logging, traceback, __main__, csv, tarfile, struct, datetime
 import lib.flocklab as flocklab
 
 
@@ -125,10 +116,10 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
         # nx_uint16_t sender_id;
         # nx_uint16_t num_received;
         packet = bytes.fromhex(packetinfo[4])
-        data = unpack(">7xB%dx" % (len(packet) - 8), packet)
+        data = struct.unpack(">7xB%dx" % (len(packet) - 8), packet)
         if data[0] == 7:
             # link measurement
-            data = unpack(">8xHHH",packet)
+            data = struct.unpack(">8xHHH",packet)
             #print "%s: src:%d dst:%s %d/%d" % (packetinfo[1], data[1], packetinfo[2], data[2], data[0])
             if not int(packetinfo[2]) in nodes:
                 nodes[int(packetinfo[2])] = Node(int(packetinfo[1]), int(packetinfo[2]))
@@ -139,7 +130,7 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
                 stoptime = float(packetinfo[0])
         elif data[0] == 8:
             # RSSI scan
-            data = unpack(">8xBHH",packet)
+            data = struct.unpack(">8xBHH",packet)
             # print "RSSI scan: %d %d %d" % (data[0], data[1] - 127 - 45, data[2])
             if not int(packetinfo[2]) in nodes:
                 nodes[int(packetinfo[2])] = Node(int(packetinfo[1]), int(packetinfo[2]))
@@ -216,9 +207,9 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
     logger.debug("Storing XML file in DB...")
     cur.execute("DELETE FROM `tbl_serv_web_link_measurements` WHERE `test_fk`=%s" % str(testid))
     if platform_radio is None:
-        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`) VALUES (%s,%s,'%s','%s','%s')" % ((str(testid), platform_fk, linkmap.getvalue(), datetime.fromtimestamp(starttime), datetime.fromtimestamp(stoptime))))
+        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`) VALUES (%s,%s,'%s','%s','%s')" % ((str(testid), platform_fk, linkmap.getvalue(), datetime.datetime.fromtimestamp(starttime), datetime.datetime.fromtimestamp(stoptime))))
     else:
-        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`, `radio`) VALUES (%s,%s,'%s','%s','%s',%s)" % (str(testid), platform_fk, linkmap.getvalue(), datetime.fromtimestamp(starttime), datetime.fromtimestamp(stoptime), platform_radio))
+        cur.execute("INSERT INTO `tbl_serv_web_link_measurements` (`test_fk`, `platform_fk`, `links`, `begin`, `end`, `radio`) VALUES (%s,%s,'%s','%s','%s',%s)" % (str(testid), platform_fk, linkmap.getvalue(), datetime.datetime.fromtimestamp(starttime), datetime.datetime.fromtimestamp(stoptime), platform_radio))
     cn.commit()    
 
     # Remove temp dir ---
@@ -284,7 +275,7 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-d", "--debug"):
             logger.setLevel(logging.DEBUG)
         else:
@@ -333,7 +324,7 @@ def main(argv):
         
     logger.debug("Finished. Exit program.")
     cn.close()
-    sys.exit(SUCCESS)
+    sys.exit(flocklab.SUCCESS)
 ### END main()
 
 

@@ -10,7 +10,7 @@
      */
 ?>
 <?php
-    $configfile = "/home/flocklab/testmanagement/user.ini";
+    $configfile = "/home/flocklab/flocklab_config.ini";
     if (!file_exists($configfile)) {
         die("File '$configfile' not found!");
     }
@@ -18,8 +18,8 @@
     if ($CONFIG === FALSE) {
         die("Failed to parse config file!");
     }
-    if (!file_exists ($CONFIG['session']['dir'])) {
-        mkdir ($CONFIG['session']['dir']);
+    if (!file_exists ($CONFIG['webserver']['sessiondir'])) {
+        mkdir ($CONFIG['webserver']['sessiondir']);
     }
-    session_save_path($CONFIG['session']['dir']);
+    session_save_path($CONFIG['webserver']['sessiondir']);
 ?>

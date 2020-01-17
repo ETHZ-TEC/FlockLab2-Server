@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 
-__author__        = "Christoph Walser <walserc@tik.ee.ethz.ch>, Adnan Mlika"
-__copyright__    = "Copyright 2010, ETH Zurich, Switzerland"
-__license__        = "GPL"
-
-
 import sys, os, getopt, errno, traceback, time, shutil, logging, subprocess, __main__, types
-# Import local libraries
-from lib.flocklab import SUCCESS
 import lib.flocklab as flocklab
 
 
@@ -20,18 +13,6 @@ name = "Archiver"
 
 logger = None
 config = None
-
-
-##############################################################################
-#
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
-
 
 
 ##############################################################################
@@ -92,7 +73,7 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-e", "--email"):
             send_email = True
         elif opt in ("-d", "--debug"):
@@ -102,7 +83,7 @@ def main(argv):
             try:
                 testid = int(arg)
                 if testid <= 0:
-                    raise Error
+                    raise
             except:
                 logger.warn("Wrong API usage: testid has to be a positive number")
                 sys.exit(errno.EINVAL)
@@ -248,7 +229,7 @@ Yours faithfully,\nthe FlockLab server" %(testid, archivename)
     
     cur.close()
     cn.close()
-    sys.exit(SUCCESS)
+    sys.exit(flocklab.SUCCESS)
 ### END main()
 
 

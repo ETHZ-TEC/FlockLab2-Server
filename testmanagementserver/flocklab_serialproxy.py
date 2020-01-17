@@ -1,17 +1,8 @@
 #! /usr/bin/env python3
 
-__author__          = "Roman Lim <lim@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2016, ETH Zurich, Switzerland"
-__license__         = "GPL"
-
-
-import os, sys, getopt, traceback, MySQLdb, signal, time, errno, subprocess, logging, __main__, multiprocessing, queue, threading, select, socket, io
-from lxml import etree
-from socket import error as socket_error
-# Import local libraries
+import os, sys, getopt, traceback, MySQLdb, signal, time, errno, subprocess, logging, __main__, multiprocessing, queue, threading, select, socket, io, lxml
 import lib.daemon as daemon
 import lib.flocklab as flocklab
-from lib.flocklab import SUCCESS
 
 ### Global variables ###
 ###
@@ -20,22 +11,11 @@ scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
 name = "SerialProxy"
 ###
 
-logger        = None
-debug        = False
-config        = None
-stopevent    = None
-reloadevent    = None
-
-
-##############################################################################
-#
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
+logger      = None
+debug       = False
+config      = None
+stopevent   = None
+reloadevent = None
 
 
 ##############################################################################
@@ -153,8 +133,8 @@ def update_configuration_from_db():
             for m in mapret:
                 if not m[2] is None:
                     mapping[int(m[0])] = (m[1], obsdataport)
-            parser = etree.XMLParser(remove_comments=True)
-            tree = etree.fromstring(bytes(bytearray(testconfig[0], encoding = 'utf-8')), parser)
+            parser = lxml.etree.XMLParser(remove_comments=True)
+            tree = lxml.etree.fromstring(bytes(bytearray(testconfig[0], encoding = 'utf-8')), parser)
             ns = {'d': config.get('xml', 'namespace')}
             logger.debug("Got XML from database.")
             ## Process serial configuration ---
@@ -373,7 +353,7 @@ class ProxyConnections():
                         try:
                             m = i.recv(1024)
                             logger.debug("received %d bytes from socket %s" % (len(m), str(i)))
-                        except socket_error as serr:
+                        except socket.error as serr:
                             # user probably disconnected, don't generate an error message
                             logger.debug("socket_error")
                             break
@@ -438,10 +418,10 @@ def sig_proxy(signum):
             pid = int(out)
             # Do not stop this instance if it is the only one running:
             if (pid == os.getpid()):
-                raise Error
+                raise
         else:
             logger.warn("Command failed: %s" % (str(cmd)))
-            raise Error
+            raise
         # Signal the process to stop:
         if (pid > 0):
             logger.debug("Sending signal %d to process %d" %(signum, pid))
@@ -460,11 +440,11 @@ def sig_proxy(signum):
                         os.kill(pid, signal.SIGKILL)
             except:
                 logger.warn("Failed to send SIGKILL: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-    except (ValueError, Error):
+    except (ValueError):
         logger.debug("Serial proxy daemon was not running, thus it cannot be stopped.")
         return errno.ENOPKG
     
-    return SUCCESS
+    return flocklab.SUCCESS
 ### END sig_proxy
 
 
@@ -529,7 +509,7 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-d", "--debug"):
             debug = True
             logger.debug("Detected debug flag.")
@@ -546,14 +526,14 @@ def main(argv):
             sys.exit(errno.EINVAL)
     
     # Start / stop the proxy ---
-    ret = SUCCESS
+    ret = flocklab.SUCCESS
     if stop:
         ret = sig_proxy(signal.SIGTERM)
     elif notify:
         ret = sig_proxy(signal.SIGINT)
     if start or notify and ret == errno.ENOPKG:
         # Start the proxy processes:
-        ret = SUCCESS
+        ret = flocklab.SUCCESS
         try:
             start_proxy()
         except Exception:

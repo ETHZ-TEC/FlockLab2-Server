@@ -22,7 +22,7 @@
     }
     
     // Set session timeout:
-    $_SESSION['expires'] = $_SERVER['REQUEST_TIME'] + $CONFIG['session']['expiretime'];
+    $_SESSION['expires'] = $_SERVER['REQUEST_TIME'] + $CONFIG['webserver']['sessionexpiretime'];
 
     $hostname = $_SERVER['HTTP_HOST'];
     $path = dirname($_SERVER['PHP_SELF']);

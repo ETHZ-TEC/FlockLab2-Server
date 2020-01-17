@@ -123,7 +123,7 @@ function do_login($username, $password) {
             $_SESSION['lastname']           = $rows['lastname'];
             $_SESSION['email']              = $rows['email'];
             $_SESSION['is_admin']           = ($rows['role'] == 'admin') ? true : false; 
-            $_SESSION['expires'] = $_SERVER['REQUEST_TIME'] + $CONFIG['session']['expiretime'];
+            $_SESSION['expires'] = $_SERVER['REQUEST_TIME'] + $CONFIG['webserver']['sessionexpiretime'];
             return true;
         }
         else {

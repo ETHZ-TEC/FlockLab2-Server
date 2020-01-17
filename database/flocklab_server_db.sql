@@ -238,7 +238,7 @@ DROP TABLE IF EXISTS `tbl_serv_platforms`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `tbl_serv_platforms` (
   `serv_platforms_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(45) COLLATE utf8_bin NOT NULL,
+  `name` varchar(45) COLLATE utf8_general_ci NOT NULL,
   `description` text COLLATE utf8_bin,
   `freq_2400` tinyint(1) NOT NULL DEFAULT '0',
   `freq_868` tinyint(1) NOT NULL DEFAULT '0',
@@ -391,7 +391,7 @@ DROP TABLE IF EXISTS `tbl_serv_tg_adapt_types`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `tbl_serv_tg_adapt_types` (
   `serv_tg_adapt_types_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(45) COLLATE utf8_bin NOT NULL,
+  `name` varchar(45) COLLATE utf8_general_ci NOT NULL,
   `description` text COLLATE utf8_bin,
   `platforms_fk` int(10) unsigned NOT NULL,
   `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

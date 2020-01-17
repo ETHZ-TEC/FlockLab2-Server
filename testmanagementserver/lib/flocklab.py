@@ -19,16 +19,35 @@ import MySQLdb.cursors
 ### Global variables ###
 # Error code to return if there was no error:
 SUCCESS = 0
+FAILED  = -1
 scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
 scriptname = "flocklab.py"
+configpath = "~/"
+configname = "flocklab_config.ini"
+config = None
 
 # Set timezone to UTC ---
 os.environ['TZ'] = 'UTC'
 time.tzset()
 
-LOW    = 0
-HIGH   = 1
-TOGGLE = 2
+
+##############################################################################
+#
+# load_config - loads the config from the ini file and stores it in a global variable
+#
+##############################################################################
+def load_config():
+    global config
+    try:
+        config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
+        config.read(configpath + '/' + configname)
+    except:
+        logger = get_logger()
+        logger.error("Could not read %s/%s because: %s: %s" %(str(configpath), configname, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        config = None
+        return FAILED
+    return SUCCESS
+### END load_config()
 
 
 ##############################################################################
@@ -37,8 +56,7 @@ TOGGLE = 2
 #
 ##############################################################################
 def get_config(configpath=None):
-    global scriptpath
-    global scriptname
+    global scriptpath, scriptname
     """Arguments: 
             configpath
        Return value:
@@ -49,10 +67,10 @@ def get_config(configpath=None):
         configpath = scriptpath
     try: 
         config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        config.read(configpath + '/config.ini')
+        config.read(configpath + '/' + configname)
     except:
         logger = get_logger()
-        logger.error("Could not read %s/config.ini because: %s: %s" %(str(configpath), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.error("Could not read %s/%s because: %s: %s" %(str(configpath), configname, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         config = None
     return config
 ### END get_config()
@@ -64,8 +82,6 @@ def get_config(configpath=None):
 #
 ##############################################################################
 def get_logger(loggername=None, loggerpath=None):
-    global scriptpath
-    global scriptname
     """Arguments: 
             loggername
             loggerpath
@@ -116,20 +132,8 @@ def connect_to_db(config=None, logger=None):
 #
 ##############################################################################
 def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
-    """Arguments: 
-            subject:     the subject of the message
-            message:     the message to be sent
-            recipients:  tuple with recipient(s) of the message
-            attachments: list of files to attach. Each file has to be an absolute path
-       Return value:
-            0 on success
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error processing the function
-       """
-    
-    # Local variables:
-    from_address = "flocklab@tik.ee.ethz.ch"
-    
+    if not config:
+        return FAILED
     # Check the arguments:
     if ((type(message) != str) or ((type(recipients) != str) and (type(recipients) != list) and (type(recipients) != tuple)) or (type(attachments) != list)):
         return(1)
@@ -147,7 +151,7 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
     
     # Set header fields:
     mail['Subject'] = str(subject)
-    mail['From'] = "FlockLab <%s>" % from_address
+    mail['From'] = "FlockLab <%s>" % config.get('email', 'flocklab_email')
     mail['Date'] = formatdate(localtime=True)
     mail['Message-ID'] = make_msgid()
     if ((type(recipients) == tuple) or (type(recipients) == list)):
@@ -182,6 +186,51 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
     return (0)
 ### END send_mail()
 
+
+##############################################################################
+#
+# batch_send_mail - send a mail to several users (if recipient list empty, mail will be sent to all active users) with 10s delay, can be aborted with ctrl+c
+#
+##############################################################################
+def batch_send_mail(subject="[FlockLab]", message="", recipients=[], attachments=[]):
+    if not message:
+        return
+    if not recipients:
+        # no email provided -> extract all addresses from the database
+        try:
+          config = flocklab.get_config(configpath=scriptpath)
+          logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+          (cn, cur) = flocklab.connect_to_db(config, logger)
+          cur.execute("""SELECT email FROM `tbl_serv_users` WHERE is_active=1;""")
+          ret = cur.fetchall()
+          if not ret:
+              print("failed to get user emails from database")
+              cur.close()
+              cn.close()
+              sys.exit()
+          recipients = []
+          for elem in ret:
+              recipients.append(elem[0])
+          cur.close()
+          cn.close()
+        except Exception as e:
+            print("could not connect to database: " + sys.exc_info()[1][0])
+            sys.exit()
+    print("mail content:\n" + message)
+    sys.stdout.write("sending mail with subject '" + subject + "' to " + str(len(recipients)) + " recipient(s) in  ")
+    sys.stdout.flush()
+    try:
+        for x in range(9, 0, -1):
+            sys.stdout.write('\b' + str(x))
+            sys.stdout.flush()
+            time.sleep(1)
+        print(" ")
+        for usermail in r:
+            send_mail(subject=s, message=msg, recipients=usermail)
+            print("email sent to " + usermail)
+    except KeyboardInterrupt:
+        print("\naborted")
+### END batch_send_mail()
 
 
 ##############################################################################
@@ -892,28 +941,16 @@ def count_running_instances(scriptname=None):
 
 ##############################################################################
 #
-# get_admin_emails - Get the email addresses of all admins from the FlockLab 
-#    database
+# get_admin_emails - Get the email addresses of all admins from the FlockLab database or the config file if admin_email is present.
 #
 ##############################################################################
 def get_admin_emails(cursor=None, config=None):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-       Return value:
-            On success, a list with all admin email addresses if successful, an empty list if no addresses were found
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
-    # Local variables:   
     email_list = []
-    
-    if (not isinstance(config, configparser.SafeConfigParser)) or (not config.has_option('general', 'admin_email')):
-    
+    if (not isinstance(config, configparser.SafeConfigParser)) or (not config.has_option('email', 'admin_email')):
         # Check the arguments:
         if (type(cursor) != MySQLdb.cursors.Cursor):
             return(1)
-
-        # Get the addresses from the database:            
+        # Get the addresses from the database:
         try:
             cursor.execute("SELECT `email` FROM `tbl_serv_users` WHERE `role` = 'admin'")
             rs = cursor.fetchall()
@@ -924,10 +961,8 @@ def get_admin_emails(cursor=None, config=None):
             logger = get_logger()
             logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
             return(2)
-            
     else:
-            email_list.append(config.get('general','admin_email'))
-    
+        email_list.append(config.get('email','admin_email'))
     return(email_list)
 ### END get_admin_emails()
 

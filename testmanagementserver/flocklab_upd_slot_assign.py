@@ -1,9 +1,7 @@
 #! /usr/bin/env python3
 
 import os, sys, getopt, MySQLdb, errno, threading, subprocess, time, traceback, queue, logging
-# Import local libraries
 import lib.flocklab as flocklab
-from lib.flocklab import SUCCESS
 
 
 ### Global variables ###
@@ -158,7 +156,7 @@ class UpdateSlotAssignThread(threading.Thread):
             msg = "Observer %s: ssh invalid return!\n" % (self.ObsHostname)
             self.Queue.put(msg)
 
-        return(SUCCESS)
+        return(flocklab.SUCCESS)
 ### END UpdateSlotAssignThread
 
 
@@ -202,7 +200,7 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-d", "--debug"):
             debug = True
             logger.setLevel(logging.DEBUG)
@@ -337,7 +335,7 @@ def main(argv):
     logger.debug("Slot assignment updater finished.")
 
 
-    sys.exit(SUCCESS)
+    sys.exit(flocklab.SUCCESS)
 ### END main()
 
 if __name__ == "__main__":

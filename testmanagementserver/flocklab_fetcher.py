@@ -1,12 +1,8 @@
 #! /usr/bin/env python3
 
-import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil
-from lxml import etree
-# Import local libraries
+import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil, lxml
 import lib.daemon as daemon
 import lib.flocklab as flocklab
-from lib.flocklab import SUCCESS
-from shutil import copyfile
 
 ### Global variables ###
 ###
@@ -36,15 +32,12 @@ serialdict               = None
 ITEM_TO_PROCESS = 0
 ITEM_PROCESSED  = 1
 
+
 ##############################################################################
 #
 # Error classes
 #
 ##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-
 class DbFileEof(Exception):
     pass
 
@@ -79,7 +72,6 @@ class ServiceInfo():
         if ((len(self.files) > 0) and removelast):
             self.files.pop()
 ### END ServiceInfo
-
 
 
 ##############################################################################
@@ -125,7 +117,6 @@ def sigterm_handler(signum, frame):
 ### END sigterm_handler
 
 
-
 ##############################################################################
 #
 # Functions for parsing observer DB files data
@@ -149,7 +140,6 @@ def parse_serial(buf):
 def parse_error_log(buf):
     _data = struct.unpack("<iii%ds" % (len(buf) - 12),buf) #struct timeval timestamp; int service_fk; char errormessage[1024];
     return (str(_data[2]), _data[3], "%i.%06i"%(_data[0],_data[1]))
-
 
 
 ##############################################################################
@@ -190,7 +180,6 @@ def read_from_db_file(dbfile):
             raise DbFileReadError(_size[0], len(_buf), _fpos)
         return _buf
 ### END read_from_db_file
-
 
 
 ##############################################################################
@@ -282,7 +271,6 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
 ### END worker_convert_and_aggregate
 
 
-
 ##############################################################################
 #
 # worker_gpiotracing: Worker function for converting and aggregating gpio
@@ -319,7 +307,6 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, slotca
         processeditem[0] = ITEM_PROCESSED
         return (_errors, tuple(processeditem))
 ### END worker_gpiotracing
-
 
 
 ##############################################################################
@@ -360,7 +347,6 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcali
 ### END worker_powerprof
 
 
-
 ##############################################################################
 #
 # worker_callback: Callback function which reports errors from worker processes
@@ -383,7 +369,6 @@ def worker_callback(result):
         logger.error(msg)
     return 0
 ### END worker_callback
-
 
 
 ##############################################################################
@@ -414,7 +399,6 @@ class LogQueueThread(threading.Thread):
         # Stop the process:
         self._logger.info("LogQueueThread stopped")
 ### END LogQueueThread
-
 
 
 ##############################################################################
@@ -463,7 +447,7 @@ class FetchObsThread(threading.Thread):
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)  # universal_newlines makes sure that a string is returned instead of a byte object
                 out, err = p.communicate(None)
                 rs = p.returncode
-                if (rs == SUCCESS):
+                if (rs == flocklab.SUCCESS):
                     services = {}
                     for servicename in [ "gpio_setting","gpio_monitor","powerprofiling","serial" ]:
                         services[servicename] = ServiceInfo(servicename)
@@ -521,7 +505,7 @@ class FetchObsThread(threading.Thread):
                                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                                 out, err = p.communicate(None)
                                 rs = p.wait()
-                                if (rs != SUCCESS):
+                                if (rs != flocklab.SUCCESS):
                                     self._logger.error(self._loggerprefix + "Could not remove files on observer, result was %d, stdout: %s, error: %s."%(rs, out, err))
                             else:
                                 self._logger.debug(self._loggerprefix + "No files left to delete on observer.")
@@ -533,7 +517,7 @@ class FetchObsThread(threading.Thread):
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                         out, err = p.communicate(None)
                         rs = p.wait()
-                        if (rs != SUCCESS):
+                        if (rs != flocklab.SUCCESS):
                             self._logger.error(self._loggerprefix + "Could not remove db directory from observer, result was %d, stdout: %s, error: %s."%(rs, out, err))
                 else:
                     cause = "unknown error"
@@ -554,7 +538,6 @@ class FetchObsThread(threading.Thread):
         # Stop the process:
         self._logger.info(self._loggerprefix + "FetchObsThread stopped")
 ### END FetchObsThread
-
 
 
 ##############################################################################
@@ -630,9 +613,8 @@ def start_fetcher():
             logger.warn("Error when starting fetcher thread for observer %d: %s: %s" %(obsid, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
             continue    
     
-    return SUCCESS
+    return flocklab.SUCCESS
 ### END start_fetcher
-
 
 
 ##############################################################################
@@ -648,7 +630,7 @@ def stop_fetcher():
         if (pid > 0):
             # Do not stop this instance if it is the only one running:
             if (pid == os.getpid()):
-                raise Error
+                raise
             logger.debug("Sending SIGTERM signal to process %d" %pid)
             try:
                 os.kill(pid, signal.SIGTERM)
@@ -663,8 +645,8 @@ def stop_fetcher():
             except:
                 pass
         else:
-            raise Error
-    except (ValueError, Error):
+            raise
+    except (ValueError):
         logger.debug("Fetcher daemon was not running, thus it cannot be stopped.")
         # Set DB status in order to allow dispatcher and scheduler to go on.:
         logger.debug("Setting test status in DB to 'synced'...")
@@ -678,7 +660,7 @@ def stop_fetcher():
         
         return errno.ENOPKG
     
-    return SUCCESS
+    return flocklab.SUCCESS
 ### END stop_fetcher
 
 
@@ -751,7 +733,6 @@ def usage():
 ### END usage()
 
 
-
 ##############################################################################
 #
 # Main
@@ -802,7 +783,7 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-d", "--debug"):
             debug = True
             logger.debug("Detected debug flag.")
@@ -850,14 +831,14 @@ def main(argv):
     logger.name += " (Test %d)"%testid
     
     # Start / stop the fetcher ---
-    ret = SUCCESS
+    ret = flocklab.SUCCESS
     if stop:
         ret = stop_fetcher()
         logger.info("FlockLab fetcher stopped.")
     else:
         # Start the fetcher processes which download data from the observers: 
         ret = start_fetcher()
-        if ret == SUCCESS:
+        if ret == flocklab.SUCCESS:
             logger.info("FlockLab fetcher started.")
         else:
             msg = "Start function returned error. Exiting..."
@@ -925,8 +906,8 @@ def main(argv):
         else:
             try:
                 logger.debug("Got XML from database.")
-                parser = etree.XMLParser(remove_comments=True)
-                tree = etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+                parser = lxml.etree.XMLParser(remove_comments=True)
+                tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
                 ns = {'d': config.get('xml', 'namespace')}
                 for service, xmlname in servicesUsed_dict.items():
                     if tree.xpath('//d:%s'%xmlname, namespaces=ns):
@@ -1185,7 +1166,7 @@ def main(argv):
                     msg += error
                 flocklab.error_logandexit(msg, errno.EBADMSG, name, logger, config)
             else:
-                ret = SUCCESS
+                ret = flocklab.SUCCESS
     sys.exit(ret)
 ### END main()
 

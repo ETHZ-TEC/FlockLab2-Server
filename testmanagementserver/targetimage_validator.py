@@ -1,31 +1,7 @@
 #!/usr/bin/env python3
 
-__author__        = "Christoph Walser <walserc@tik.ee.ethz.ch>, Adnan Mlika"
-__copyright__    = "Copyright 2010, ETH Zurich, Switzerland"
-__license__        = "GPL"
-
-
 import sys, os, getopt, errno, subprocess, MySQLdb, syslog, configparser, traceback
-import logging.config
-
-
-### Global variables ###
-###
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-SUCCESS    = 0
-###
-
-
-##############################################################################
-#
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
-
+import lib.flocklab as flocklab
 
 
 ##############################################################################
@@ -79,8 +55,7 @@ def main(argv):
     
     # Open the log and create logger:
     try:
-        logging.config.fileConfig(scriptpath + '/logging.conf')
-        logger = logging.getLogger(os.path.basename(__file__))
+        logger = flocklab.get_logger(os.path.basename(__file__))
     except:
         syslog.syslog(syslog.LOG_ERR, "%s: Could not open logger because: %s: %s" %(os.path.basename(__file__), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         

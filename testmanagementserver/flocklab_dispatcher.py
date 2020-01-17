@@ -1,15 +1,6 @@
 #! /usr/bin/env python3
 
-__author__          = "Christoph Walser <walserc@tik.ee.ethz.ch>"
-__copyright__   = "Copyright 2010, ETH Zurich, Switzerland"
-__license__         = "GPL"
-
-
-import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib
-from lxml import etree
-from MySQLdb.constants import ER as MySQLErrors
-# Import local libraries
-from lib.flocklab import SUCCESS
+import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib, lxml, MySQLdb
 import lib.flocklab as flocklab
 
 
@@ -94,7 +85,7 @@ class StopTestThread(threading.Thread):
                 else:
                     out, err = p.communicate()
                 rs = p.returncode
-                if (rs == SUCCESS):
+                if (rs == flocklab.SUCCESS):
                     logger.debug("Test-stop script on observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
                 elif (rs == 255):
                     msg = "Observer ID %s is not reachable, thus not able to stop test. Dataloss occurred possibly for this observer."%(self._obsdict_key[self._obskey][1])
@@ -185,7 +176,7 @@ class StartTestThread(threading.Thread):
                 if self._abortEvent.is_set():
                     p.kill()
                 rs = p.returncode
-                if (rs != SUCCESS):
+                if (rs != flocklab.SUCCESS):
                     msg = "Upload of target image and config XML to observer ID %s failed with error number %d" %(self._obsdict_key[self._obskey][1], rs)
                     errors.append((msg, rs, self._obsdict_key[self._obskey][1]))
                     logger.error(msg)
@@ -207,7 +198,7 @@ class StartTestThread(threading.Thread):
                     else:
                         out, err = p.communicate()
                     rs = p.wait()
-                    if rs != SUCCESS:
+                    if rs != flocklab.SUCCESS:
                         msg = "Test-start script on observer ID %s failed with error code %s and error message %s" %(self._obsdict_key[self._obskey][1], errno.errorcode[rs], str(out))
                         errors.append((msg, rs, self._obsdict_key[self._obskey][1]))
                         logger.error(msg)
@@ -454,8 +445,8 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 errors.append(msg)
                 logger.error(msg)
             else:
-                parser = etree.XMLParser(remove_comments=True)
-                tree = etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+                parser = xml.etree.XMLParser(remove_comments=True)
+                tree = xml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
                 ns = {'d': config.get('xml', 'namespace')}
                 logger.debug("Got XML from database.")
                 # Create XML files ---
@@ -870,8 +861,8 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             errors.append(msg)
             logger.error(msg)
         else:
-            parser = etree.XMLParser(remove_comments=True)
-            tree = etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+            parser = xml.etree.XMLParser(remove_comments=True)
+            tree = xml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
             ns = {'d': config.get('xml', 'namespace')}
             logger.debug("Got XML from database.")
             # only stop serialproxy if remote IP specified in xml
@@ -934,7 +925,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             cmd.append("--debug")
         p = subprocess.Popen(cmd)
         rs = p.wait()
-        if rs not in (SUCCESS, errno.ENOPKG): # SUCCESS (0) is successful stop, ENOPKG (65) means the service was not running. 
+        if rs not in (flocklab.SUCCESS, errno.ENOPKG): # flocklab.SUCCESS (0) is successful stop, ENOPKG (65) means the service was not running. 
             msg = "Could not stop database fetcher for test ID %d. Fetcher returned error %d"%(testid, rs)
             errors.append(msg)
             logger.error(msg)
@@ -985,8 +976,8 @@ def prepare_testresults(testid, cur):
     cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
     ret = cur.fetchone()
     if ret:
-        parser = etree.XMLParser(remove_comments=True)
-        tree = etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+        parser = xml.etree.XMLParser(remove_comments=True)
+        tree = xml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
         ns = {'d': config.get('xml', 'namespace')}
         logger.debug("Got XML from database.")
         # Check if user wants results as email
@@ -1014,7 +1005,7 @@ def prepare_testresults(testid, cur):
     while rs == errno.EUSERS:
         p = subprocess.Popen(cmd)
         rs = p.wait()
-        if rs not in (SUCCESS, errno.EUSERS): # SUCCESS (0) is successful stop, EUSERS (87) means the maximum number of allowed instances is reached. 
+        if rs not in (flocklab.SUCCESS, errno.EUSERS): # flocklab.SUCCESS (0) is successful stop, EUSERS (87) means the maximum number of allowed instances is reached. 
             msg = "Could not trigger archiver. Archiver returned error %d"%(rs)
             logger.error(msg)
             logger.error("Tried to execute %s"%str(cmd))
@@ -1046,7 +1037,7 @@ def evalute_linkmeasurement(testid, cur):
         cmd = [config.get('dispatcher', 'testtolinkmapscript')]
         p = subprocess.Popen(cmd)                
         rs = p.wait()
-        if rs != SUCCESS:
+        if rs != flocklab.SUCCESS:
             msg = "Error %s returned from testtolinkmap script" % str(rs)
             logger.error(msg)
             errors.append(msg)
@@ -1087,7 +1078,7 @@ def inform_user(testid, cur, job, errors, warnings):
             msg = "Your test has been aborted as requested and the results (if any) will be available on the website soon\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/\nConsider the following warnings:\n\n"
         for warn in warnings:
             msg += "\t * %s\n" %warn
-        ret = SUCCESS
+        ret = flocklab.SUCCESS
     else:
         if job == 'start':
             subj = "Test %d starting as planned" %testid
@@ -1098,7 +1089,7 @@ def inform_user(testid, cur, job, errors, warnings):
         elif job == 'abort':
             subj = "Test %d aborted as requested" %testid
             msg = "Your test has been aborted as requested. The results (if any) will be available on the website soon.\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/"
-        ret = SUCCESS
+        ret = flocklab.SUCCESS
 
     rs = flocklab.get_test_owner(cur, testid)
     if isinstance(rs, tuple):
@@ -1178,7 +1169,7 @@ def db_register_activity(testid, cur, cn, action, obskeys):
             cn.commit()
             register_ok = False
         except MySQLdb.OperationalError as e: # retry if deadlock
-            if e.args[0] == MySQLErrors.LOCK_DEADLOCK:
+            if e.args[0] == MySQLdb.constants.ER.LOCK_DEADLOCK:
                 time.sleep(1)
                 spin = True
             else:
@@ -1262,7 +1253,7 @@ def main(argv):
             logger.debug("Detected debug flag.")
         elif opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-t", "--testid"):
             try:
                 testid = int(arg)
@@ -1460,7 +1451,7 @@ def main(argv):
         msg = "Unexpected error: %s: %s\n%s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         print(msg)
         flocklab.error_logandexit(msg, errno.EFAULT, name, logger, config)
-    sys.exit(SUCCESS)
+    sys.exit(flocklab.SUCCESS)
         
 ### END main()
 
