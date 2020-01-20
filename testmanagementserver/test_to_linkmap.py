@@ -4,26 +4,7 @@ import sys, os, getopt, tempfile, shutil, re, time, errno, io, logging, tracebac
 import lib.flocklab as flocklab
 
 
-### Global variables ###
-###
-scriptname = os.path.basename(__main__.__file__)
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-name = "test_to_linkmap"
-###
-
 logger = None
-config = None
-
-
-##############################################################################
-#
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
 
 
 ##############################################################################
@@ -227,7 +208,7 @@ def TestToLinkmap(testid=None, cn=None, cur=None):
 #
 ##############################################################################
 def usage():
-    print("Usage: %s [--debug] [--help]" %scriptname)
+    print("Usage: %s [--debug] [--help]" % __file__)
     print("Options:")
     print("  --debug\t\t\tOptional. Print debug messages to log.")
     print("  --help\t\t\tOptional. Print this help.")
@@ -241,7 +222,6 @@ def usage():
 ##############################################################################
 def main(argv):
     global logger
-    global config
     global name
     
     errors = []
@@ -252,13 +232,12 @@ def main(argv):
     time.tzset()
     
     # Get logger:
-    logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+    logger = flocklab.get_logger()
     
     # Get the config file:
-    config = flocklab.get_config(configpath=scriptpath)
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     #logger.debug("Read configuration file.")
     
     # Get the arguments:
@@ -270,7 +249,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
     except:
         msg = "Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -284,10 +263,10 @@ def main(argv):
     
     # Connect to the DB ---
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     #logger.debug("Connected to database")
     
     # Query database for pending link measurements ---
@@ -320,7 +299,7 @@ def main(argv):
         msg = ""
         for err in errors:
             msg += err    
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
         
     logger.debug("Finished. Exit program.")
     cn.close()
@@ -333,5 +312,5 @@ if __name__ == "__main__":
         main(sys.argv[1:])
     except Exception:
         msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     

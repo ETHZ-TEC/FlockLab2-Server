@@ -4,15 +4,7 @@ import sys, os, getopt, errno, traceback, time, shutil, logging, subprocess, __m
 import lib.flocklab as flocklab
 
 
-### Global variables ###
-###
-scriptname = os.path.basename(__main__.__file__)
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-name = "Archiver"
-###
-
 logger = None
-config = None
 
 
 ##############################################################################
@@ -21,7 +13,7 @@ config = None
 #
 ##############################################################################
 def usage():
-    print("Usage: %s --testid=<int> [--email] [--debug] [--help]" %scriptname)
+    print("Usage: %s --testid=<int> [--email] [--debug] [--help]" % __file__)
     print("Options:")
     print("  --testid=<int>\t\tTest ID of test whose results should be archived.")
     print("  --email\t\t\tOptional. Send the data to the test owner by email.")
@@ -39,7 +31,6 @@ def main(argv):
 
     ### Global Variables ###
     global logger
-    global config
     
     send_email = False
     testid = -1
@@ -49,13 +40,12 @@ def main(argv):
     time.tzset()
     
     # Get logger ---
-    logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+    logger = flocklab.get_logger()
         
     # Get config ---
-    config = flocklab.get_config(configpath=scriptpath)
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     #logger.debug("Read configuration file.")
             
     # Get arguments ---
@@ -68,7 +58,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
     except:
         msg = "Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
 
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -101,37 +91,35 @@ def main(argv):
     
     # Connect to the DB ---
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     
     # Check if max number of instances is not reached ---
-    rs = flocklab.count_running_instances(scriptname)
+    rs = flocklab.count_running_instances(__file__)
     if (rs >= 0):
-        maxinscount = config.getint('archiver', 'max_instances')
+        maxinscount = flocklab.config.getint('archiver', 'max_instances')
         if rs > maxinscount:
-            msg = "Maximum number of instances (%d) for script %s with currently %d instances running exceeded. Aborting..."%(maxinscount, scriptname, rs)
-            flocklab.error_logandexit(msg, errno.EUSERS, name, logger, config)
-        #else:
-            #logger.debug("Maximum number of instances (%d) for script %s with currently %d instances running not exceeded."%(maxinscount, scriptname, rs))
+            msg = "Maximum number of instances (%d) for script %s with currently %d instances running exceeded. Aborting..." % (maxinscount, __file__, rs)
+            flocklab.error_logandexit(msg, errno.EUSERS)
     else:
-        msg = "Error when trying to count running instances of %s. Function returned with %d"%(scriptname, rs)
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        msg = "Error when trying to count running instances of %s. Function returned with %d" % (__file__, rs)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
         
     # Check if the Test ID exists in the database ---
     rs = flocklab.check_test_id(cur, testid)
     if rs != 0:
         if rs == 3:
             msg = "Test ID %d does not exist in database." %testid
-            flocklab.error_logandexit(msg, errno.EINVAL, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EINVAL)
         else:
             msg = "Error when trying to get test ID from database: %s: %s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-            flocklab.error_logandexit(msg, errno.EIO, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EIO)
     
     # Check directories needed ---
-    archivedir    = config.get('archiver', 'archive_dir')
-    archivename    = "%d%s"%(testid, config.get('archiver','archive_ext'))
+    archivedir    = flocklab.config.get('archiver', 'archive_dir')
+    archivename    = "%d%s"%(testid, flocklab.config.get('archiver','archive_ext'))
     archivepath    = "%s/%s"%(archivedir, archivename)
     if ((not os.path.exists(archivedir)) or (not os.path.isdir(archivedir))):
         if not os.path.exists(archivedir):
@@ -139,17 +127,17 @@ def main(argv):
             logger.debug("Directory '%s' created." % (archivedir))
         else:
             msg = "The path %s does either not exist or is not a directory. Aborting..."%(archivedir)
-            flocklab.error_logandexit(msg, errno.EINVAL, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EINVAL)
     
     # Generate archive ---
     if ((os.path.exists(archivepath)) and (os.path.isfile(archivepath))):
         logger.debug("Archive %s is already existing." %(archivepath))
     else:
         # Check if testresultsdir directory is existing:
-        testresultsdir = "%s/%d" %(config.get('fetcher', 'testresults_dir'), testid)
+        testresultsdir = "%s/%d" %(flocklab.config.get('fetcher', 'testresults_dir'), testid)
         if ((not os.path.exists(testresultsdir)) or (not os.path.isdir(testresultsdir))):
             msg = "The path %s does either not exist or is not a directory. Aborting..."%(testresultsdir)
-            flocklab.error_logandexit(msg, errno.EINVAL, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EINVAL)
         else:
             logger.debug("Directory %s exists."%(testresultsdir))
         # sort tar file, powerprofiling at the end
@@ -162,9 +150,9 @@ def main(argv):
                 pp_part.append(os.path.basename(testresultsdir)+'/'+part)
         resultparts.extend(pp_part)
         # Archive files:
-        max_cpus = config.get('archiver', 'pigz_max_cpus')
+        max_cpus = flocklab.config.get('archiver', 'pigz_max_cpus')
         try:
-            nice_level = config.getint('archiver', 'nice_level')
+            nice_level = flocklab.config.getint('archiver', 'nice_level')
         except:
             logger.warn("Could not read nice_level from config file. Setting level to 10.")
             nice_level = 10
@@ -193,7 +181,7 @@ def main(argv):
             msg += "Tar command returned: %s, %s"%(str(tarout), str(tarerr))
             msg += "Gz command returned: %s, %s"%(str(gzout), str(gzerr))
             msg += "Error was: %s: %s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-            flocklab.error_logandexit(msg, errno.EFAULT, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EFAULT)
     archive_size = os.path.getsize(archivepath)
     archive_size_mb = float(archive_size)/1048576
     logger.debug("Archive has size %dB (%.3fMB)"%(archive_size, archive_size_mb))
@@ -208,12 +196,12 @@ def main(argv):
             usermail = rs
         if ((usermail == 1) or (usermail == 2)):
             msg = "Error when trying to get test owner email address for test id %d from database. Aborting..." %testid
-            flocklab.error_logandexit(msg, errno.EINVAL, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EINVAL)
         else:
             logger.debug("Got email of test owner: %s" %(str(usermail)))
     
         # Check the size of the archive and only send it by email if it has a decent size:
-        if ( archive_size > int(config.get('archiver','email_maxsize')) ):
+        if ( archive_size > int(flocklab.config.get('archiver','email_maxsize')) ):
             msg = "Dear FlockLab user,\n\n\
 Measurement data for test with ID %d has been successfully retrieved from the FlockLab database \
 but could not be sent by email as it is too big. Please fetch your test results from the user interface.\n\n\
@@ -238,4 +226,4 @@ if __name__ == "__main__":
         main(sys.argv[1:])
     except Exception:
         msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)

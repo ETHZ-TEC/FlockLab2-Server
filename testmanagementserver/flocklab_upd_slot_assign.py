@@ -4,11 +4,6 @@ import os, sys, getopt, MySQLdb, errno, threading, subprocess, time, traceback, 
 import lib.flocklab as flocklab
 
 
-### Global variables ###
-###
-scriptname = os.path.basename(__file__)
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-###
 debug = False
 
 
@@ -89,7 +84,7 @@ class UpdateSlotAssignThread(threading.Thread):
             # If any changes need to be done to the database, do so:
             if len(cmds) > 0:
                 try:
-                    (cn, cur) = flocklab.connect_to_db(self.Config, self.Logger)
+                    (cn, cur) = flocklab.connect_to_db()
                 except:
                     self.Logger.error("Could not connect to database")
                     raise
@@ -169,8 +164,6 @@ def main(argv):
 
     ### Get global variables ###
     global debug
-    global scriptname
-    global scriptpath
     threadlist = []
     searchtime = None
     maxretries = None
@@ -184,7 +177,7 @@ def main(argv):
     time.tzset()
 
     # Get logger:
-    logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+    logger = flocklab.get_logger()
 
     # Get command line parameters.
     try:
@@ -243,14 +236,13 @@ def main(argv):
             sys.exit(errno.EINVAL)
 
     # Get the config file:
-    config = flocklab.get_config(configpath=scriptpath)
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         logger.warn("Could not read configuration file. Exiting...")
         sys.exit(errno.EAGAIN)
 
     # Check if a test is preparing, running or cleaning up. If yes, exit program.
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         logger.error("Could not connect to database")
         raise
@@ -319,7 +311,7 @@ def main(argv):
             if not msg == "":
                 if email:
                     try:
-                        (cn, cur) = flocklab.connect_to_db(config, logger)
+                        (cn, cur) = flocklab.connect_to_db()
                     except:
                         logger.error("Could not connect to database")
                         raise

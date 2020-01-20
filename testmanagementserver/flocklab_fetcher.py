@@ -4,12 +4,6 @@ import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multipr
 import lib.daemon as daemon
 import lib.flocklab as flocklab
 
-### Global variables ###
-###
-scriptname = os.path.basename(__main__.__file__)
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-name = "Fetcher"
-###
 
 logger                   = None
 debug                    = False
@@ -18,7 +12,6 @@ errors                   = []
 FetchObsThread_list      = []
 FetchObsThread_stopEvent = None
 FetchObsThread_queue     = None
-config                   = None
 obsfiledir               = None
 testresultsdir           = None
 testresultsfile_dict     = {}
@@ -91,7 +84,7 @@ def sigterm_handler(signum, frame):
         
     # Signal all observer fetcher threads to stop:
     logger.debug("Stopping observer fetcher threads...")
-    shutdown_timeout = config.getint("fetcher", "shutdown_timeout")
+    shutdown_timeout = flocklab.config.getint("fetcher", "shutdown_timeout")
     try:
         FetchObsThread_stopEvent.set()
     except:
@@ -104,7 +97,7 @@ def sigterm_handler(signum, frame):
     # Set DB status:
     logger.debug("Setting test status in DB to 'syncing'...")
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
         flocklab.set_test_status(cur, cn, testid, 'syncing')
         cur.close()
         cn.close()
@@ -419,9 +412,9 @@ class FetchObsThread(threading.Thread):
         self._stopEvent        = stopEvent
         self._logger        = logger
         
-        self._min_sleep        = config.getint("fetcher", "min_sleeptime")
-        self._max_randsleep    = config.getint("fetcher", "max_rand_sleeptime")
-        self._obsdbfolder    = "%s/%d" % (config.get("observer", "obsdbfolder"), testid)
+        self._min_sleep        = flocklab.config.getint("fetcher", "min_sleeptime")
+        self._max_randsleep    = flocklab.config.getint("fetcher", "max_rand_sleeptime")
+        self._obsdbfolder    = "%s/%d" % (flocklab.config.get("observer", "obsdbfolder"), testid)
         
     def run(self):
         try:
@@ -559,10 +552,10 @@ def start_fetcher():
         
     # Get needed metadata from database ---
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     try:
         cur.execute("""    SELECT `a`.observer_id, `a`.ethernet_address 
                         FROM `tbl_serv_observer` AS `a` 
@@ -571,7 +564,7 @@ def start_fetcher():
                     """ %testid)
     except MySQLdb.Error as err:
         msg = str(err)
-        flocklab.error_logandexit(msg, errno.EIO, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EIO)
     except:
         logger.warn("Error %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
     rs = cur.fetchall()
@@ -584,10 +577,10 @@ def start_fetcher():
         
     # Start fetcher threads ---
     # Create a directory structure to store the downloaded files from the DB:
-    obsfiledir = "%s/%d" %(config.get('fetcher', 'obsfile_dir'), testid)
+    obsfiledir = "%s/%d" %(flocklab.config.get('fetcher', 'obsfile_dir'), testid)
     if not os.path.exists(obsfiledir):
         os.makedirs(obsfiledir)
-    obsfiledebugdir = "%s/%d" %(config.get('fetcher', 'obsfile_debug_dir'), testid)
+    obsfiledebugdir = "%s/%d" %(flocklab.config.get('fetcher', 'obsfile_debug_dir'), testid)
     if not os.path.exists(obsfiledebugdir):
         os.makedirs(obsfiledebugdir)
         #DEBUG logger.debug("Created %s"%obsfiledir)
@@ -635,7 +628,7 @@ def stop_fetcher():
             try:
                 os.kill(pid, signal.SIGTERM)
                 # wait for process to finish (timeout..)
-                shutdown_timeout = config.getint("fetcher", "shutdown_timeout")
+                shutdown_timeout = flocklab.config.getint("fetcher", "shutdown_timeout")
                 pidpath = "/proc/%d"%pid
                 while os.path.exists(pidpath) & (shutdown_timeout>0):
                     time.sleep(1)
@@ -651,7 +644,7 @@ def stop_fetcher():
         # Set DB status in order to allow dispatcher and scheduler to go on.:
         logger.debug("Setting test status in DB to 'synced'...")
         try:
-            (cn, cur) = flocklab.connect_to_db(config, logger)
+            (cn, cur) = flocklab.connect_to_db()
             flocklab.set_test_status(cur, cn, testid, 'synced')
             cur.close()
             cn.close()
@@ -724,7 +717,7 @@ class WorkManager():
 #
 ##############################################################################
 def usage():
-    print("Usage: %s --testid=<int> [--stop] [--debug] [--help]" % scriptname)
+    print("Usage: %s --testid=<int> [--stop] [--debug] [--help]" % __file__)
     print("Options:")
     print("  --testid=<int>\t\tTest ID of test to which incoming data belongs.")
     print("  --stop\t\t\tOptional. Causes the program to stop a possibly running instance of the fetcher.")
@@ -744,7 +737,6 @@ def main(argv):
     global logger
     global debug
     global testid
-    global config
     global testresultsdir
     global testresultsfile_dict
     global owner_fk
@@ -760,13 +752,12 @@ def main(argv):
     time.tzset()
     
     # Get logger:
-    logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+    logger = flocklab.get_logger()
         
     # Get the config file ---
-    config = flocklab.get_config(configpath=scriptpath)
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     #logger.debug("Read configuration file.")
 
     # Get command line parameters ---
@@ -779,7 +770,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
     except:
         msg = "Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
@@ -812,20 +803,20 @@ def main(argv):
         
     # Check if the Test ID exists in the database ---
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     rs = flocklab.check_test_id(cur, testid)
     cur.close()
     cn.close()
     if rs != 0:
         if rs == 3:
             msg = "Test ID %d does not exist in database." %testid
-            flocklab.error_logandexit(msg, errno.EINVAL, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EINVAL)
         else:
             msg = "Error when trying to get test ID from database: %s: %s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-            flocklab.error_logandexit(msg, errno.EIO, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EIO)
         
     # Add Test ID to logger name ---
     logger.name += " (Test %d)"%testid
@@ -843,14 +834,14 @@ def main(argv):
         else:
             msg = "Start function returned error. Exiting..."
             os.kill(os.getpid(), signal.SIGTERM)
-            rs = flocklab.error_logandexit(msg, ret, name, logger, config)
+            rs = flocklab.error_logandexit(msg, ret)
             
         # Get needed metadata ---
         try:
-            (cn, cur) = flocklab.connect_to_db(config, logger)
+            (cn, cur) = flocklab.connect_to_db()
         except:
             msg = "Could not connect to database"
-            flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EAGAIN)
         rs = flocklab.get_test_owner(cur, testid)
         if isinstance(rs, tuple):
             owner_fk = rs[0]
@@ -908,7 +899,7 @@ def main(argv):
                 logger.debug("Got XML from database.")
                 parser = lxml.etree.XMLParser(remove_comments=True)
                 tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
-                ns = {'d': config.get('xml', 'namespace')}
+                ns = {'d': flocklab.config.get('xml', 'namespace')}
                 for service, xmlname in servicesUsed_dict.items():
                     if tree.xpath('//d:%s'%xmlname, namespaces=ns):
                         servicesUsed_dict[service] = True
@@ -928,7 +919,7 @@ def main(argv):
             msg += "Exiting..."
             logger.debug(msg)
             os.kill(os.getpid(), signal.SIGTERM)
-            flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+            flocklab.error_logandexit(msg, errno.EAGAIN)
         else:
             logger.debug("Got all needed metadata.")        
         
@@ -941,7 +932,7 @@ def main(argv):
         """
         if __name__ == '__main__':
             # Create directory and files needed for test results:
-            testresultsdir = "%s/%d" %(config.get('fetcher', 'testresults_dir'), testid)
+            testresultsdir = "%s/%d" %(flocklab.config.get('fetcher', 'testresults_dir'), testid)
             if not os.path.exists(testresultsdir):
                 os.makedirs(testresultsdir)
                 logger.debug("Created %s"%testresultsdir)
@@ -981,32 +972,32 @@ def main(argv):
             PpStatsQueue.put(ppstats)
             # Determine the number of CPU's to be used for each aggregating process. If a service is not used, its CPUs are assigned to other services
             cpus_free = 0
-            cpus_errorlog = config.getint('fetcher', 'cpus_errorlog')
+            cpus_errorlog = flocklab.config.getint('fetcher', 'cpus_errorlog')
             # CPUs for serial service:
             if servicesUsed_dict['serial'] == True:
-                cpus_serial    = config.getint('fetcher', 'cpus_serial')
+                cpus_serial    = flocklab.config.getint('fetcher', 'cpus_serial')
             else:
                 cpus_serial    = 0
-                cpus_free = cpus_free + config.getint('fetcher', 'cpus_serial')
+                cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_serial')
             # CPUs for GPIO actuation. If the service is not used, assign a CPU anyhow since FlockLab always uses this service to determine start and stop times of a test.
-            #cpus_errorlog = config.getint('fetcher', 'cpus_errorlog')
+            #cpus_errorlog = flocklab.config.getint('fetcher', 'cpus_errorlog')
             if servicesUsed_dict['gpioactuation'] == True:
-                cpus_gpiosetting = config.getint('fetcher', 'cpus_gpiosetting')
+                cpus_gpiosetting = flocklab.config.getint('fetcher', 'cpus_gpiosetting')
             else:
                 cpus_gpiosetting = 1
-                cpus_free = cpus_free + config.getint('fetcher', 'cpus_gpiosetting') - cpus_gpiosetting
+                cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_gpiosetting') - cpus_gpiosetting
             # CPUs for GPIO tracing:
             if servicesUsed_dict['gpiotracing'] == True:
-                cpus_gpiomonitoring    = config.getint('fetcher', 'cpus_gpiomonitoring')
+                cpus_gpiomonitoring    = flocklab.config.getint('fetcher', 'cpus_gpiomonitoring')
             else:
                 cpus_gpiomonitoring = 0
-                cpus_free = cpus_free + config.getint('fetcher', 'cpus_gpiomonitoring')
+                cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_gpiomonitoring')
             # CPUs for powerprofiling:
             if servicesUsed_dict['powerprofiling'] == True:
-                cpus_powerprofiling    = config.getint('fetcher', 'cpus_powerprofiling')
+                cpus_powerprofiling    = flocklab.config.getint('fetcher', 'cpus_powerprofiling')
             else:
                 cpus_powerprofiling = 0
-                cpus_free = cpus_free + config.getint('fetcher', 'cpus_powerprofiling')
+                cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_powerprofiling')
             # If there are free CPUs left, give them to GPIO tracing and power profiling evenly as these services need the most CPU power:
             if cpus_free > 0:
                 if (cpus_powerprofiling > 0) and (cpus_gpiomonitoring > 0):
@@ -1044,9 +1035,9 @@ def main(argv):
             signal.signal(signal.SIGTERM, sigterm_handler)
             signal.signal(signal.SIGINT,  sigterm_handler)
             # Loop through the folders and assign work to the worker processes:
-            vizimgdir = config.get('viz','imgdir')
-            commitsize = config.getint('fetcher', 'commitsize')
-            enableviz = config.getint('viz','enablepreview')
+            vizimgdir = flocklab.config.get('viz','imgdir')
+            commitsize = flocklab.config.getint('fetcher', 'commitsize')
+            enableviz = flocklab.config.getint('viz','enablepreview')
             loggerprefix = "(Mainloop): " 
             workmanager = WorkManager()
             # Main loop ---
@@ -1145,7 +1136,7 @@ def main(argv):
             # Set DB status:
             logger.debug("Setting test status in DB to 'synced'...")
             try:
-                (cn, cur) = flocklab.connect_to_db(config, logger)
+                (cn, cur) = flocklab.connect_to_db()
                 flocklab.set_test_status(cur, cn, testid, 'synced')
                 cur.close()
                 cn.close()
@@ -1157,14 +1148,14 @@ def main(argv):
             if ((obsfiledir != None) and (os.path.exists(obsfiledir))):
                 shutil.rmtree(obsfiledir)
             # Delete old debug files
-            if os.path.exists(config.get('fetcher', 'obsfile_debug_dir')):
-                for d in [fn for fn in os.listdir(config.get('fetcher', 'obsfile_debug_dir')) if os.stat("%s/%s" % (config.get('fetcher', 'obsfile_debug_dir'), fn)).st_mtime < int(time.time()) - int(config.get('fetcher', 'obsfile_debug_dir_max_age_days')) * 24 * 3600]:
-                    shutil.rmtree("%s/%s" % (config.get('fetcher', 'obsfile_debug_dir'),d))
+            if os.path.exists(flocklab.config.get('fetcher', 'obsfile_debug_dir')):
+                for d in [fn for fn in os.listdir(flocklab.config.get('fetcher', 'obsfile_debug_dir')) if os.stat("%s/%s" % (flocklab.config.get('fetcher', 'obsfile_debug_dir'), fn)).st_mtime < int(time.time()) - int(flocklab.config.get('fetcher', 'obsfile_debug_dir_max_age_days')) * 24 * 3600]:
+                    shutil.rmtree("%s/%s" % (flocklab.config.get('fetcher', 'obsfile_debug_dir'),d))
             if len(errors) > 1:
                 msg = ""
                 for error in errors:
                     msg += error
-                flocklab.error_logandexit(msg, errno.EBADMSG, name, logger, config)
+                flocklab.error_logandexit(msg, errno.EBADMSG)
             else:
                 ret = flocklab.SUCCESS
     sys.exit(ret)
@@ -1175,4 +1166,4 @@ if __name__ == "__main__":
         main(sys.argv[1:])
     except Exception:
         msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)

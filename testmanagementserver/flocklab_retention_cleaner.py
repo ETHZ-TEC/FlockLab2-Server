@@ -3,15 +3,8 @@
 import sys, os, getopt, errno, traceback, logging, time, __main__, shutil, glob
 import lib.flocklab as flocklab
 
-### Global variables ###
-###
-scriptname = os.path.basename(__main__.__file__)
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-name = "Retention-Cleaner"
-###
 
 logger = None
-config = None
 
 
 ##############################################################################
@@ -20,7 +13,7 @@ config = None
 #
 ##############################################################################
 def usage():
-    print("Usage: %s [--debug] [--help]" %scriptname)
+    print("Usage: %s [--debug] [--help]" % __file__)
     print("Options:")
     print("  --debug\t\t\tOptional. Print debug messages to log.")
     print("  --help\t\t\tOptional. Print this help.")
@@ -36,20 +29,18 @@ def main(argv):
 
     ### Global Variables ###
     global logger
-    global config
 
     # Set timezone to UTC:
     os.environ['TZ'] = 'UTC'
     time.tzset()
     
     # Get logger:
-    logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+    logger = flocklab.get_logger()
     
     # Get config ---
-    config = flocklab.get_config(configpath=scriptpath)
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     #logger.debug("Read configuration file.")
     
     # Get the arguments:
@@ -62,7 +53,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
     except:
         msg = "Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
 
     for opt, arg in opts:
         if opt in ("-d", "--debug"):
@@ -75,28 +66,25 @@ def main(argv):
             sys.exit(errno.EINVAL)
     
     # Allow only x instances ---
-    rs = flocklab.count_running_instances(scriptname)
+    rs = flocklab.count_running_instances(__file__)
     if (rs >= 0):
-        maxinscount = config.getint('retentioncleaner', 'max_instances')
+        maxinscount = flocklab.config.getint('retentioncleaner', 'max_instances')
         if rs > maxinscount:
-            msg = "Maximum number of instances (%d) for script %s with currently %d instances running exceeded. Aborting..."%(maxinscount, scriptname, rs)
-            flocklab.error_logandexit(msg, errno.EUSERS, name, logger, config)
-        #else:
-            #logger.debug("Maximum number of instances (%d) for script %s with currently %d instances running not exceeded."%(maxinscount, scriptname, rs))
+            msg = "Maximum number of instances (%d) for script %s with currently %d instances running exceeded. Aborting..." % (maxinscount, __file__, rs)
+            flocklab.error_logandexit(msg, errno.EUSERS)
     else:
-        msg = "Error when trying to count running instances of %s. Function returned with %d"%(scriptname, rs)
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        msg = "Error when trying to count running instances of %s. Function returned with %d" % (__file__, rs)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     
     # Connect to the database ---
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
-    #logger.debug("Connected to database")
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     
     # Check for work ---
-    expiration_leadtime = config.get('retentioncleaner', 'expiration_leadtime')
+    expiration_leadtime = flocklab.config.get('retentioncleaner', 'expiration_leadtime')
     logger.debug("Expiration lead time is %s days"%expiration_leadtime)
     try:
         # Get all users that have ran tests:
@@ -152,8 +140,8 @@ Yours faithfully,\nthe FlockLab server"""
                             msg = "Could not send Email to %s. Function returned %d"%(owneremail, ret)
                             logger.error(msg)
                             emails = flocklab.get_admin_emails(cur, config)
-                            msg = "%s on server %s encountered error:\n\n%s" %(scriptname, os.uname()[1], msg)
-                            flocklab.send_mail(subject="[FlockLab %s]"%name, message=msg, recipients=emails)
+                            msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
+                            flocklab.send_mail(subject="[FlockLab %s]" % name, message=msg, recipients=emails)
                             continue
                         else:
                             # Mark the tests in the database:
@@ -196,7 +184,7 @@ Yours faithfully,\nthe FlockLab server"""
                         msg = "Could not send Email to %s. Function returned %d"%(owneremail, ret)
                         logger.error(msg)
                         emails = flocklab.get_admin_emails(cur, config)
-                        msg = "%s on server %s encountered error:\n\n%s" %(scriptname, os.uname()[1], msg)
+                        msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
                         flocklab.send_mail(subject="[FlockLab %s]"%name, message=msg, recipients=emails)
                         continue
                     else:
@@ -214,7 +202,7 @@ Yours faithfully,\nthe FlockLab server"""
         msg = "Encountered error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         logger.error(msg)
         emails = flocklab.get_admin_emails(cur, config)
-        msg = "%s on server %s encountered error:\n\n%s" %(scriptname, os.uname()[1], msg)
+        msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
         flocklab.send_mail(subject="[FlockLab %s]"%name, message=msg, recipients=emails)
     finally:
         cur.close()
@@ -229,5 +217,5 @@ if __name__ == "__main__":
         main(sys.argv[1:])
     except Exception:
         msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
         

@@ -35,7 +35,7 @@ def get_config():
     """
     try: 
         config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        config.read(os.path.dirname(os.path.abspath(sys.argv[0])) + '/user.ini')
+        flocklab.config.read(os.path.dirname(os.path.abspath(sys.argv[0])) + '/user.ini')
     except:
         syslog(LOG_WARNING, "Could not read %s/user.ini because: %s: %s" %(str(os.path.dirname(os.path.abspath(sys.argv[0]))), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
     return config
@@ -55,13 +55,12 @@ def main(argv):
     
     # Open the log and create logger:
     try:
-        logger = flocklab.get_logger(os.path.basename(__file__))
+        logger = flocklab.get_logger()
     except:
         syslog.syslog(syslog.LOG_ERR, "%s: Could not open logger because: %s: %s" %(os.path.basename(__file__), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         
     # Get the config file:
-    config = get_config()
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         logger.warn("Could not read configuration file. Exiting...")
         sys.exit(errno.EAGAIN)
     
@@ -109,7 +108,7 @@ def main(argv):
         
     # Connect to the DB:
     try:
-        db = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database')) 
+        db = MySQLdb.connect(host=flocklab.config.get('database','host'), user=flocklab.config.get('database','user'), passwd=flocklab.config.get('database','password'), db=flocklab.config.get('database','database')) 
         cursor = db.cursor()
     except:
         logger.warn("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
@@ -133,11 +132,11 @@ def main(argv):
     # Validate the image. This is dependent on the architecture of the target platform:
     errcnt = 0
     if arch == 'msp430':
-        p = subprocess.Popen([config.get('targetimage', 'msp430'), '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
+        p = subprocess.Popen([flocklab.config.get('targetimage', 'msp430'), '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
         if p.wait() != 0:
             errcnt += 1
     elif arch == 'arm':
-        p = subprocess.Popen([config.get('targetimage', 'arm'), '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
+        p = subprocess.Popen([flocklab.config.get('targetimage', 'arm'), '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
         if p.wait() != 0:
             errcnt += 1
     else:

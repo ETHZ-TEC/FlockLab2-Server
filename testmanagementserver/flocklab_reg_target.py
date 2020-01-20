@@ -69,14 +69,13 @@ def main(argv):
         sys.exit(errno.EINVAL)
 
     # Get the config file:
-    config = flocklab.get_config(configpath=os.path.dirname(os.path.abspath(sys.argv[0])))
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         print("Could not read configuration file.")
         sys.exit(errno.EAGAIN)
 
     # Check if a test is preparing, running or cleaning up. If yes, exit program.
     try:
-        (cn, cur) = flocklab.connect_to_db(config)
+        (cn, cur) = flocklab.connect_to_db()
     except:
         print("Could not connect to database")
         sys.exit(errno.EPERM)

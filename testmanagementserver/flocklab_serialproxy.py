@@ -4,16 +4,9 @@ import os, sys, getopt, traceback, MySQLdb, signal, time, errno, subprocess, log
 import lib.daemon as daemon
 import lib.flocklab as flocklab
 
-### Global variables ###
-###
-scriptname = os.path.basename(__main__.__file__)
-scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-name = "SerialProxy"
-###
 
 logger      = None
 debug       = False
-config      = None
 stopevent   = None
 reloadevent = None
 
@@ -39,6 +32,7 @@ def sigterm_handler(signum, frame):
     elif signum == signal.SIGINT and reloadevent:
         reloadevent.set()
 ### END sigterm_handler
+
 
 ##############################################################################
 #
@@ -68,6 +62,7 @@ def listen_process(port, newConnectionQueue, _stopevent):
             logger.error("Listen process on port %d: Socket error %s"%(port,str(sys.exc_info()[1])))
         time.sleep(5)
 ### END listen_process
+
 
 ##############################################################################
 #
@@ -99,6 +94,7 @@ def obs_connect_process(conreqQueue, condoneQueue, _stopevent):
                 pass
 ### END obs_connect_process
 
+
 ##############################################################################
 #
 # update_configuration_from_db
@@ -110,16 +106,16 @@ def update_configuration_from_db():
     # for each observer used in a serial configuration
     # (user remoteIp, server port, observer ip, port)
     
-    proxystartport = config.getint('serialproxy', 'startport')
-    obsdataport = config.getint('serialproxy', 'obsdataport')
+    proxystartport = flocklab.config.getint('serialproxy', 'startport')
+    obsdataport = flocklab.config.getint('serialproxy', 'obsdataport')
     proxyConfig = []
     try:
-        (cn, cur) = flocklab.connect_to_db(config, logger)
+        (cn, cur) = flocklab.connect_to_db()
         cur.execute('SET time_zone="+0:00"')
     except:
         msg = "Could not connect to database"
         logger.error(msg)
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     try:
         # Get the XML config from the database:
         cur.execute("SELECT `testconfig_xml`, `serv_tests_key` FROM `tbl_serv_tests` WHERE (`test_status` IN ('preparing', 'running') AND `time_end_wish` >= NOW())")
@@ -135,7 +131,7 @@ def update_configuration_from_db():
                     mapping[int(m[0])] = (m[1], obsdataport)
             parser = lxml.etree.XMLParser(remove_comments=True)
             tree = lxml.etree.fromstring(bytes(bytearray(testconfig[0], encoding = 'utf-8')), parser)
-            ns = {'d': config.get('xml', 'namespace')}
+            ns = {'d': flocklab.config.get('xml', 'namespace')}
             logger.debug("Got XML from database.")
             ## Process serial configuration ---
             srconfs = tree.xpath('//d:serialConf', namespaces=ns)
@@ -156,7 +152,7 @@ def update_configuration_from_db():
     except MySQLdb.Error as err:
         msg = str(err)
         logger.error(msg)
-        flocklab.error_logandexit(msg, errno.EIO, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EIO)
     except:
         logger.warn("Error %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         raise
@@ -381,6 +377,7 @@ class ProxyConnections():
         logger.info("Serial proxy stopped.")
 ### END class ProxyConnections
 
+
 ##############################################################################
 #
 # Start proxy
@@ -401,7 +398,8 @@ def start_proxy():
     proxy.reloadConfiguration(proxyConfig)
     proxy.run()
 ### END start_proxy
- 
+
+
 ##############################################################################
 #
 # Stop proxy
@@ -410,7 +408,7 @@ def start_proxy():
 def sig_proxy(signum):
     # Get oldest running instance of the proxy for the selected test ID which is the main process and send it the terminate signal:
     try:
-        searchterm = "%s"%scriptname
+        searchterm = "%s" % __file__
         cmd = ['pgrep', '-o', '-f', searchterm]
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         out, err = p.communicate()
@@ -430,7 +428,7 @@ def sig_proxy(signum):
                 if signum == signal.SIGTERM:
                     logger.debug("Waiting for process to finish...")
                     # wait for process to finish (timeout..)
-                    shutdown_timeout = config.getint("serialproxy", "shutdown_timeout")
+                    shutdown_timeout = flocklab.config.getint("serialproxy", "shutdown_timeout")
                     pidpath = "/proc/%d"%pid
                     while os.path.exists(pidpath) & (shutdown_timeout>0):
                         time.sleep(1)
@@ -448,14 +446,13 @@ def sig_proxy(signum):
 ### END sig_proxy
 
 
-
 ##############################################################################
 #
 # Usage
 #
 ##############################################################################
 def usage():
-    print("Usage: %s --notify/start/stop [--debug] [--help]" %scriptname)
+    print("Usage: %s --notify/start/stop [--debug] [--help]" % __file__)
     print("Options:")
     print("  --notify\t\t\tNotifies the proxy of a change in the database.")
     print("  --start\t\t\tStarts the background process of the proxy.")
@@ -463,7 +460,6 @@ def usage():
     print("  --debug\t\t\tOptional. Print debug messages to log.")
     print("  --help\t\t\tOptional. Print this help.")
 ### END usage()
-
 
 
 ##############################################################################
@@ -476,7 +472,6 @@ def main(argv):
     ### Get global variables ###
     global logger
     global debug
-    global config
     
     stop = False
     start = False
@@ -487,13 +482,12 @@ def main(argv):
     time.tzset()
     
     # Get logger:
-    logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
+    logger = flocklab.get_logger()
         
     # Get the config file ---
-    config = flocklab.get_config(configpath=scriptpath)
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
 
     # Get command line parameters ---
     try:
@@ -505,7 +499,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
     except:
         msg = "Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
@@ -543,9 +537,10 @@ def main(argv):
     sys.exit(ret)
 ### END main()
 
+
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Exception:
         msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN, name, logger, config)
+        flocklab.error_logandexit(msg, errno.EAGAIN)

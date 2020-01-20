@@ -74,14 +74,14 @@ def getXmlTimestamp(datetimestring):
 # Usage
 #
 ##############################################################################
-def usage(config):
+def usage():
     print("Usage: %s [--xml=<path>] [--testid=<int>] [--userid=<int>] [--schema=<path>] [--quiet] [--help]" % sys.argv[0])
     print("Validate an XML testconfiguration. Returns 0 on success, errno on errors.")
     print("Options:")
     print("  --xml\t\t\t\tOptional. Path to the XML file which is to check. Either --xml or --testid are) mandatory. If both are given, --testid will be favoured.")
     print("  --testid\t\t\tOptional. Test ID to validate. If this parameter is set, the XML will be taken from the DB. Either --xml or --testid are mandatory. If both are given, --testid will be favoured.")
     print("  --userid\t\t\tOptional. User ID to which the XML belongs. Mandatory if --xml is specified.")
-    print("  --schema\t\t\tOptional. Path to the XML schema to check XML against. If not given, the standard path will be used: %s" %(str(config.get('xml', 'schemapath'))))
+    print("  --schema\t\t\tOptional. Path to the XML schema to check XML against. If not given, the standard path will be used: %s" %(str(flocklab.config.get('xml', 'schemapath'))))
     print("  --quiet\t\t\tOptional. Do not print on standard out.")
     print("  --help\t\t\tOptional. Print this help.")
 ### END usage()
@@ -102,7 +102,7 @@ def get_config():
     """
     try: 
         config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        config.read(scriptpath + '/user.ini')
+        flocklab.config.read(scriptpath + '/user.ini')
     except:
         syslog(LOG_WARNING, "Could not read %s/user.ini because: %s: %s" %(scriptpath, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
     return config
@@ -220,7 +220,7 @@ def main(argv):
     
     # Open the log and create logger:
     try:
-        logger = flocklab.get_logger(os.path.basename(__file__))
+        logger = flocklab.get_logger()
         if debug:
             logger.setLevel(logging.DEBUG)
         else:
@@ -231,8 +231,7 @@ def main(argv):
         sys.exit(errno.EAGAIN)
     
     # Get the config file:
-    config = get_config()
-    if not config:
+    if flocklab.load_config() != flocklab.SUCCESS:
         logger.warn("Could not read configuration file. Exiting...")
         sys.exit(errno.EAGAIN)
     
@@ -241,7 +240,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "hqu:s:x:t:", ["help", "quiet", "userid=", "schema=", "xml=", "testid="])
     except getopt.GetoptError as err:
         logger.warn(str(err))
-        usage(config)
+        usage()
         sys.exit(errno.EINVAL)
     for opt, arg in opts:
         if opt in ("-u", "--userid"):
@@ -271,14 +270,14 @@ def main(argv):
                 logger.warn("Wrong API usage: XML file '%s' does not exist" % xmlpath)
                 sys.exit(errno.EINVAL)
         elif opt in ("-h", "--help"):
-            usage(config)
+            usage()
             sys.exit(SUCCESS)
         elif opt in ("-q", "--quiet"):
             quiet = True
         else:
             if not quiet:
                 print("Wrong API usage")
-                usage(config)
+                usage()
             logger.warn("Wrong API usage")
             sys.exit(errno.EINVAL)
     
@@ -286,13 +285,13 @@ def main(argv):
     if ( ((not testid) and (not xmlpath)) or ((xmlpath) and (not userid)) ):
         if not quiet:
             print("Wrong API usage")
-            usage(config)
+            usage()
         logger.warn("Wrong API usage")
         sys.exit(errno.EINVAL)
     
     # Set the schemapath:
     if not schemapath:
-        schemapath = config.get('xml', 'schemapath')
+        schemapath = flocklab.config.get('xml', 'schemapath')
     
     # check if xmllint is installed
     try:
@@ -306,7 +305,7 @@ def main(argv):
     
     # Connect to the DB:
     try:
-        db = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database')) 
+        db = MySQLdb.connect(host=flocklab.config.get('database','host'), user=flocklab.config.get('database','user'), passwd=flocklab.config.get('database','password'), db=flocklab.config.get('database','database')) 
         cursor = db.cursor()
     except:
         logger.warn("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
@@ -336,7 +335,7 @@ def main(argv):
     os.environ['TZ'] = 'UTC'
     time.tzset()
     
-    logger.debug("Checking xml config...")
+    logger.debug("Checking xml flocklab.config...")
     
     #===========================================================================
     # If a testid was given, get the xml from the database
@@ -390,7 +389,7 @@ def main(argv):
         parser = lxml.etree.XMLParser(remove_comments=True)
         tree = lxml.etree.parse(f, parser)
         f.close()
-        ns = {'d': config.get('xml', 'namespace')}
+        ns = {'d': flocklab.config.get('xml', 'namespace')}
         # additional check for the namespace
         m = re.match('\{.*\}', tree.getroot().tag)
         if not m:
@@ -546,7 +545,7 @@ def main(argv):
                         imagefile.write(base64.b64decode(image, None))
                         imagefile.close()
                         # Validate image:
-                        p = subprocess.Popen([config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE, universal_newlines=True)
+                        p = subprocess.Popen([flocklab.config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE, universal_newlines=True)
                         stdout, stderr = p.communicate()
                         if p.returncode != SUCCESS:
                             if not quiet:

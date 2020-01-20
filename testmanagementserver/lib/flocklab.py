@@ -21,10 +21,12 @@ import MySQLdb.cursors
 SUCCESS = 0
 FAILED  = -1
 scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
-scriptname = "flocklab.py"
-configpath = "~/"
+scriptname = os.path.basename(os.path.abspath(sys.argv[0]))   # name of caller script
+configpath = "/home/flocklab"
 configname = "flocklab_config.ini"
 config = None
+logger = None
+debug = True
 
 # Set timezone to UTC ---
 os.environ['TZ'] = 'UTC'
@@ -37,13 +39,18 @@ time.tzset()
 #
 ##############################################################################
 def load_config():
-    global config
+    global config, logger
+    if config:
+        logger.warn("Config already loaded")
+        return SUCCESS
     try:
         config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
         config.read(configpath + '/' + configname)
+        #logger.debug("Config file '%s' loaded." % (configpath + '/' + configname))
     except:
-        logger = get_logger()
-        logger.error("Could not read %s/%s because: %s: %s" %(str(configpath), configname, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        if not logger:
+            logger = get_logger()
+        logger.error("Could not read file '%s/%s' because: %s: %s" %(str(configpath), configname, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         config = None
         return FAILED
     return SUCCESS
@@ -56,16 +63,13 @@ def load_config():
 #
 ##############################################################################
 def get_config(configpath=None):
-    global scriptpath, scriptname
-    """Arguments: 
-            configpath
-       Return value:
-            The configuration object on success
-            none otherwise
-    """
+    global scriptpath, scriptname, config
+    # if already loaded, return
+    if config:
+        return config
     if not configpath:
         configpath = scriptpath
-    try: 
+    try:
         config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
         config.read(configpath + '/' + configname)
     except:
@@ -78,28 +82,58 @@ def get_config(configpath=None):
 
 ##############################################################################
 #
+# init_logger - Open a logger and keep it in a global variable.
+#
+##############################################################################
+def init_logger(loggername=None):
+    global logger
+    if logger:
+        logger.warn("Logger already initialized.")
+        return SUCCESS        # already initialized
+    loggerpath = scriptpath
+    if not loggername:
+        loggername = scriptname
+    if not os.path.isfile(loggerpath + '/logging.conf'):
+        # fallback: write to syslog
+        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): file '%s' not found." % (loggerpath + '/logging.conf'))
+        return FAILED
+    try:
+        logging.config.fileConfig(loggerpath + '/logging.conf')
+        logger = logging.getLogger(loggername)
+        if debug:
+            logger.setLevel(logging.DEBUG)
+        #logger.debug("Logger for %s initialized with config file '%s'." % (loggername, loggerpath + '/logging.conf'))
+    except:
+        # fallback: write to syslog
+        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): %s: Could not open logger because: %s: %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger = None
+    return SUCCESS
+### END init_logger()
+
+
+##############################################################################
+#
 # get_logger - Open a logger for the caller.
 #
 ##############################################################################
 def get_logger(loggername=None, loggerpath=None):
-    """Arguments: 
-            loggername
-            loggerpath
-       Return value:
-            The logger object on success
-            none otherwise
-    """
+    global logger
+    # if it already exists, return logger
+    if logger:
+        return logger
     if not loggerpath:
         loggerpath = scriptpath
     if not loggername:
         loggername = scriptname
+    if not os.path.isfile(loggerpath + '/logging.conf'):
+        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): file '%s' not found." % (loggerpath + '/logging.conf'))
+        return None
     try:
         logging.config.fileConfig(loggerpath + '/logging.conf')
         logger = logging.getLogger(loggername)
-        if not logger:
-            print("no valid logger received")
     except:
-        syslog.syslog(syslog.LOG_ERR, "flocklab.py: error in get_logger(): %s: Could not open logger because: %s: %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        # fallback: write to syslog
+        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): %s: Could not open logger because: %s: %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         logger = None
     return logger
 ### END get_logger()
@@ -110,18 +144,19 @@ def get_logger(loggername=None, loggerpath=None):
 # connect_to_db - Connect to the FlockLab database
 #
 ##############################################################################
-def connect_to_db(config=None, logger=None):
-    # Check the arguments:
-    if (not isinstance(config, configparser.SafeConfigParser)):
+def connect_to_db():
+    global config, logger
+    if not config or not isinstance(config, configparser.SafeConfigParser):
         return (None, None)
     try:
         cn = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database'), charset='utf8', use_unicode=True) 
         cur = cn.cursor()
         #cur.execute("SET sql_mode=''")     # TODO check whether this is needed
     except:
-        if logger and isinstance(logger, logging.Logger):
-            logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        raise
+        if not logger:
+            logger = get_logger()
+        logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        raise Exception
     return (cn, cur)
 ### END connect_to_db()
 
@@ -136,12 +171,12 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
         return FAILED
     # Check the arguments:
     if ((type(message) != str) or ((type(recipients) != str) and (type(recipients) != list) and (type(recipients) != tuple)) or (type(attachments) != list)):
-        return(1)
+        return FAILED
     # Check if attachments exist in file system:
     if (len(attachments) > 0):
         for path in attachments:
             if not os.path.isfile(path):
-                return(1)
+                return FAILED
 
     # Create the email:
     mail = MIMEMultipart()
@@ -159,7 +194,7 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
     elif (type(recipients) == str):
         mail['To'] = recipients
     else:
-        return(1)
+        return FAILED
     
     # If there are attachments, attach them to the email:
     for path in attachments:
@@ -174,14 +209,14 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
     # Establish an SMTP object and connect to your mail server
     try:
         s = smtplib.SMTP()
-        s.connect("smtp.ee.ethz.ch")
+        s.connect(config.get('email', 'mailserver'))
         # Send the email - real from, real to, extra headers and content ...
-        s.sendmail(from_address, recipients, mail.as_string())
+        s.sendmail(config.get('email', 'flocklab_email'), recipients, mail.as_string())
         s.close()
     except:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
     
     return (0)
 ### END send_mail()
@@ -198,24 +233,25 @@ def batch_send_mail(subject="[FlockLab]", message="", recipients=[], attachments
     if not recipients:
         # no email provided -> extract all addresses from the database
         try:
-          config = flocklab.get_config(configpath=scriptpath)
-          logger = flocklab.get_logger(loggername=scriptname, loggerpath=scriptpath)
-          (cn, cur) = flocklab.connect_to_db(config, logger)
+          config = flocklab.get_config()
+          logger = flocklab.get_logger()
+          (cn, cur) = flocklab.connect_to_db()
           cur.execute("""SELECT email FROM `tbl_serv_users` WHERE is_active=1;""")
           ret = cur.fetchall()
           if not ret:
-              print("failed to get user emails from database")
+              logger.error("failed to get user emails from database")
               cur.close()
               cn.close()
-              sys.exit()
+              return FAILED
           recipients = []
           for elem in ret:
               recipients.append(elem[0])
           cur.close()
           cn.close()
         except Exception as e:
-            print("could not connect to database: " + sys.exc_info()[1][0])
-            sys.exit()
+            logger.error("could not connect to database: " + sys.exc_info()[1][0])
+            return FAILED
+    # interactive, user can abort this process at any time
     print("mail content:\n" + message)
     sys.stdout.write("sending mail with subject '" + subject + "' to " + str(len(recipients)) + " recipient(s) in  ")
     sys.stdout.flush()
@@ -250,7 +286,7 @@ def check_test_id(cursor=None, testid=0):
        """
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(testid) != int) or (testid <= 0)):
-        return(1)
+        return FAILED
 
     # Check if the test ID is in the database:            
     try:
@@ -259,14 +295,14 @@ def check_test_id(cursor=None, testid=0):
         rs = cursor.fetchone()[0]
         
         if (rs == 0):
-            return(3)
+            return FAILED
         else: 
             return(0)
     except:
         # There was an error in the database connection:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
 ### END check_test_id()
 
 
@@ -348,7 +384,7 @@ def get_test_owner(cursor=None, testid=0):
 
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(testid) != int) or (testid <= 0)):
-        return(1)
+        return FAILED
     
     try:
         sql = "    SELECT `a`.serv_users_key, `a`.lastname, `a`.firstname, `a`.username, `a`.email, `a`.disable_infomails \
@@ -558,7 +594,7 @@ def get_obs_from_id(cursor=None, obsid=0):
 
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(obsid) != int) or (obsid <= 0)):
-        return(1)
+        return FAILED
     
     try:
         sql = "    SELECT `ethernet_address`, `status` \
@@ -594,7 +630,7 @@ def check_observer_id(cursor=None, obsid=0):
        """
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(obsid) != int) or (obsid <= 0)):
-        return(1)
+        return FAILED
 
     # Check if the test ID is in the database:            
     try:
@@ -631,18 +667,18 @@ def set_test_status(cursor=None, conn=None, testid=0, status=None):
        """
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(conn) != MySQLdb.connections.Connection) or (type(testid) != int) or (testid <= 0)):
-        return(1)
+        return FAILED
     # Get all possible test stati and check the status argument:
     try:
         cursor.execute("SHOW COLUMNS FROM `tbl_serv_tests` WHERE Field = 'test_status'")
         possible_stati = cursor.fetchone()[1][5:-1].split(",")
         if ("'%s'"%status not in possible_stati):
-            return(1)
+            return FAILED
     except:
         # There was an error in the database connection:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
 
     # Set the status in the database            
     try:
@@ -652,7 +688,7 @@ def set_test_status(cursor=None, conn=None, testid=0, status=None):
         # There was an error in the database connection:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
     return(0)
 ### END set_test_status()
 
@@ -707,7 +743,7 @@ def set_test_dispatched(cursor=None, conn=None, testid=0):
        """
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(conn) != MySQLdb.connections.Connection) or (type(testid) != int) or (testid <= 0)):
-        return(1)
+        return FAILED
 
     # Set the flag in the database            
     try:
@@ -717,7 +753,7 @@ def set_test_dispatched(cursor=None, conn=None, testid=0):
         # There was an error in the database connection:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
     return(0)
 ### END set_test_dispatched()
 
@@ -787,7 +823,7 @@ def release_db_lock(cursor, conn, key, expiry_time=10):
         # There was an error in the database connection:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
     return(0)
 ### END release_db_lock()
 
@@ -810,11 +846,11 @@ def write_errorlog(cursor=None, conn=None, testid=0, obsid=0, message="", timest
        """
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(conn) != MySQLdb.connections.Connection) or (type(testid) != int) or (type(obsid) != int) or (type(message) != str) or (len(message) <= 0) or (type(timestamp) != float) or (timestamp < 0.0)):
-        return(1)
+        return FAILED
     if ((testid != 0) and (check_test_id(cursor, testid) != 0)):
-        return(1)
+        return FAILED
     if ((obsid != 0) and (check_observer_id(cursor, obsid) <= 0)):
-        return(1)
+        return FAILED
     else: 
         obskey = check_observer_id(cursor, obsid)
     
@@ -840,10 +876,9 @@ def write_errorlog(cursor=None, conn=None, testid=0, obsid=0, message="", timest
         # There was an error in the database connection:
         logger = get_logger()
         logger.error("Error when executing %s: %s: %s" %(sql, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
+        return FAILED
     return(0)
 ### END write_errorlog()
-
 
 
 ##############################################################################
@@ -851,58 +886,33 @@ def write_errorlog(cursor=None, conn=None, testid=0, obsid=0, message="", timest
 # error_logandexit - Logs an error (to log and email to admins) and exits the script
 #
 ##############################################################################
-def error_logandexit(message=None, exitcode=SUCCESS, scriptname="", logger=None, config=None):
-    """Arguments: 
-            message:    error message to log
-            exitcode:    code to exit with
-            scriptname:    name of script which calls the function
-            logger:        logger instance to log to
-            config:        config instance
-       Return value:
-            none on success
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
+def error_logandexit(message=None, exitcode=FAILED):
+    global logger, config
     # Check the arguments:
-    if ((type(message) != str) or (type(exitcode) != int) or (type(scriptname) != str) or ((logger != None) and (not isinstance(logger, logging.Logger))) or ((config != None) and (not isinstance(config, configparser.SafeConfigParser)))):
-        return(1)
-    # Required arguments:
-    if (message == ""):
-        return(1)
-
+    if (type(message) != str) or (message == "") or (type(exitcode) != int):
+        return FAILED
     # Log error - if available, use logger, otherwise get it first:
-    if logger:
-        logger.error(message)
-    else:
-        logger = get_logger(loggername=scriptname)
-        logger.error(message)
-    
-    
+    if not logger:
+        logger = get_logger()
+    logger.error(message)
     # Send email to admin:
     try:
-        cn, cur = connect_to_db(config, logger)
-        admin_emails = get_admin_emails(cur, config)
-        cur.close()
-        cn.close()
-        if ((admin_emails == 1) or (admin_emails == 2)):
+        admin_emails = get_admin_emails()
+        if admin_emails == FAILED:
             msg = "Error when getting admin emails from database"
             if logger:
                 logger.error(msg)
             else:
                 logger = get_logger()
                 logger.error(msg)
-            raise
+            raise Exception
+        send_mail(subject="[FlockLab %s]" % (scriptname.replace('.', '_').split('_')[1].capitalize()), message=message, recipients=admin_emails)
     except:
-        # Use backup email address:
-        admin_emails = "flocklab@tik.ee.ethz.ch"
-    finally:
-        send_mail(subject="[FlockLab %s]"%(scriptname.capitalize()), message=message, recipients=admin_emails)
-        
+        logger.error("error_logandexit(): Failed to send email to admin.")
     # Exit program
     logger.debug("Exiting with error code %u." % exitcode)
     sys.exit(exitcode)
 ### END error_logandexit()
-
 
 
 ##############################################################################
@@ -911,13 +921,6 @@ def error_logandexit(message=None, exitcode=SUCCESS, scriptname="", logger=None,
 #
 ##############################################################################
 def count_running_instances(scriptname=None):
-    """Arguments: 
-            scriptname:    name of script to check
-       Return value:
-            Count on success
-            -1 if there is an error in the arguments passed to the function
-            -2 if there was an error in processing the request
-       """
     # Check the arguments:
     if ((type(scriptname) != str) or (len(scriptname) <= 0)):
         return(-1)
@@ -944,12 +947,9 @@ def count_running_instances(scriptname=None):
 # get_admin_emails - Get the email addresses of all admins from the FlockLab database or the config file if admin_email is present.
 #
 ##############################################################################
-def get_admin_emails(cursor=None, config=None):
+def get_admin_emails(cursor=None):
     email_list = []
-    if (not isinstance(config, configparser.SafeConfigParser)) or (not config.has_option('email', 'admin_email')):
-        # Check the arguments:
-        if (type(cursor) != MySQLdb.cursors.Cursor):
-            return(1)
+    if cursor and type(cursor) == MySQLdb.cursors.Cursor:
         # Get the addresses from the database:
         try:
             cursor.execute("SELECT `email` FROM `tbl_serv_users` WHERE `role` = 'admin'")
@@ -958,12 +958,16 @@ def get_admin_emails(cursor=None, config=None):
                 email_list.append(mail[0])
         except:
             # There was an error in the database connection:
-            logger = get_logger()
-            logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-            return(2)
-    else:
+            if logger:
+                logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+            return FAILED
+    elif config and isinstance(config, configparser.SafeConfigParser) and config.has_option('email', 'admin_email'):
         email_list.append(config.get('email','admin_email'))
-    return(email_list)
+    else:
+        if logger:
+            logger.error("Failed to get admin email.")
+        return FAILED
+    return email_list
 ### END get_admin_emails()
 
 
@@ -1085,10 +1089,11 @@ def viz_gpio_monitor(testid, owner_fk, values, obsid, imgdir, logger):
 #
 ##############################################################################
         
-def scheduleLinkTest(logger, config, cur, cn, debug=False):
+def schedule_linktest(cur, cn, debug=False):
+    global config, logger
     # Check the arguments:
-    if ((type(cur) != MySQLdb.cursors.Cursor) or (type(cn) != MySQLdb.connections.Connection)):
-        return(1)
+    if not config or not logger or ((type(cur) != MySQLdb.cursors.Cursor) or (type(cn) != MySQLdb.connections.Connection)):
+        return FAILED
     
     sql = "SELECT TIMESTAMPDIFF(MINUTE, `begin`, NOW()) AS `last` FROM `tbl_serv_web_link_measurements` ORDER BY `last` ASC LIMIT 1"
     cur.execute(sql)
