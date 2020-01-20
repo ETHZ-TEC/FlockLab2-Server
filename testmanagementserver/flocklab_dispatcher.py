@@ -43,7 +43,7 @@ class StopTestThread(threading.Thread):
             logger.debug("Start StopTestThread for observer ID %d"%(self._obsdict_key[self._obskey][1]))
             errors = []
             # First test if the observer is online and if the SD card is mounted: 
-            cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), "mount | grep /dev/mmcblk0p1"]
+            cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), "mount | grep /dev/mmcblk0p1"]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             while p.returncode == None:
                 self._abortEvent.wait(1.0)
@@ -68,7 +68,7 @@ class StopTestThread(threading.Thread):
                 remote_cmd = flocklab.config.get("observer", "stoptestscript") + " --testid=%d" % self._testid
                 if debug:
                     remote_cmd += " --debug"
-                cmd = ['ssh' ,'%s'%(self._obsdict_key[self._obskey][2]), remote_cmd]
+                cmd = ['ssh' ,'%s' % (self._obsdict_key[self._obskey][2]), remote_cmd]
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
                 while p.returncode == None:
                     self._abortEvent.wait(1.0)
@@ -133,7 +133,7 @@ class StartTestThread(threading.Thread):
         try:
             logger.debug("Start StartTestThread for observer ID %d" % (self._obsdict_key[self._obskey][1]))
             # First test if the observer is online and if the SD card is mounted: 
-            cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), "ls ~/mmc/ && mkdir %s" % testconfigfolder]
+            cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), "ls ~/mmc/ && mkdir %s" % testconfigfolder]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             while p.returncode == None:
                 self._abortEvent.wait(1.0)
@@ -161,7 +161,7 @@ class StartTestThread(threading.Thread):
                 # Now upload the image and XML config file:
                 cmd = ['scp', '-q']
                 cmd.extend(fileuploadlist)
-                cmd.append('%s:%s/.'%(self._obsdict_key[self._obskey][2], testconfigfolder))
+                cmd.append('%s:%s/.' % (self._obsdict_key[self._obskey][2], testconfigfolder))
                 p = subprocess.Popen(cmd)
                 while p.returncode == None:
                     self._abortEvent.wait(1.0)
@@ -180,7 +180,7 @@ class StartTestThread(threading.Thread):
                     remote_cmd = flocklab.config.get("observer", "starttestscript") + " --testid=%d --xml=%s/%s --serialport=%d" % (self._testid, testconfigfolder, os.path.basename(self._xmldict_key[self._obskey][0]), obsdataport)
                     if debug:
                         remote_cmd += " --debug"
-                    cmd = ['ssh', '%s'%(self._obsdict_key[self._obskey][2]), remote_cmd]
+                    cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), remote_cmd]
                     #DEBUG logger.debug("execute %s" %(str(cmd)))
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
                     while p.returncode == None:
@@ -301,7 +301,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 
                 # Convert image to binary format and, depending on operating system and platform architecture, write the node ID (if specified) to the image:
                 logger.debug("Found %s target platform architecture with %s operating system on platform %s for observer ID %s (node ID to be used: %s)." %(arch, osname, platname, str(obs_id), str(node_id)))
-                set_symbols_tool = flocklab.config.get('dispatcher', 'setsymbolsscript')
+                set_symbols_tool = flocklab.config.get('targetimage', 'setsymbolsscript')
                 symbol_node_id = "FLOCKLAB_NODE_ID"
                 # keep <os> tag for backwards compatibility
                 if ((node_id != None) and (osname == 'tinyos')):
@@ -309,10 +309,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 elif (osname == 'contiki'):
                     symbol_node_id = None   # don't set node ID for OS Contiki
                 if (arch == 'msp430'):
-                    binutils_path = flocklab.config.get('dispatcher', 'binutils_msp430')
+                    binutils_path = flocklab.config.get('targetimage', 'binutils_msp430')
                     binpath = "%s.ihex"%binpath
                     if symbol_node_id:
-                        cmd = ['%s'%(set_symbols_tool), '--objcopy', '%s/msp430-objcopy'%(binutils_path), '--objdump', '%s/msp430-objdump'%(binutils_path), '--target', 'ihex', imagepath, binpath, '%s=%s'%(symbol_node_id, node_id), 'ActiveMessageAddressC$addr=%s'%(node_id), 'ActiveMessageAddressC__addr=%s'%(node_id)]
+                        cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/msp430-objcopy' % (binutils_path), '--objdump', '%s/msp430-objdump' % (binutils_path), '--target', 'ihex', imagepath, binpath, '%s=%s' % (symbol_node_id, node_id), 'ActiveMessageAddressC$addr=%s' % (node_id), 'ActiveMessageAddressC__addr=%s' % (node_id)]
                         try:
                             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                             rs = p.wait()
@@ -331,7 +331,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             errors.append(msg)
                             removeimage = False
                     else:
-                        cmd = ['%s/msp430-objcopy'%(binutils_path), '--output-target', 'ihex', imagepath, binpath]
+                        cmd = ['%s/msp430-objcopy' % (binutils_path), '--output-target', 'ihex', imagepath, binpath]
                         try:
                             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                             rs = p.wait()
@@ -354,13 +354,13 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         imgformat = 'binary'
                         binpath = "%s.bin"%binpath
                     # Set library path for arm-binutils:
-                    arm_binutils_path = flocklab.config.get('dispatcher', 'binutils_arm')
+                    arm_binutils_path = flocklab.config.get('targetimage', 'binutils_arm')
                     arm_env = os.environ
                     if 'LD_LIBRARY_PATH' not in arm_env:
                         arm_env['LD_LIBRARY_PATH'] = ''
-                    arm_env['LD_LIBRARY_PATH'] += ':%s/%s'%(arm_binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
+                    arm_env['LD_LIBRARY_PATH'] += ':%s/%s' % (arm_binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
                     if symbol_node_id:
-                        cmd = ['%s'%(set_symbols_tool), '--objcopy', '%s/%s'%(arm_binutils_path, "usr/bin/arm-linux-gnu-objcopy"), '--objdump', '%s/%s'%(arm_binutils_path, "usr/bin/arm-linux-gnu-objdump"), '--target', imgformat, imagepath, binpath, '%s=%s'%(symbol_node_id, node_id), 'ActiveMessageAddressC$addr=%s'%(node_id), 'ActiveMessageAddressC__addr=%s'%(node_id)]
+                        cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (arm_binutils_path, "usr/bin/arm-linux-gnu-objcopy"), '--objdump', '%s/%s' % (arm_binutils_path, "usr/bin/arm-linux-gnu-objdump"), '--target', imgformat, imagepath, binpath, '%s=%s' % (symbol_node_id, node_id), 'ActiveMessageAddressC$addr=%s' % (node_id), 'ActiveMessageAddressC__addr=%s' % (node_id)]
                         try:
                             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=arm_env)
                             rs = p.wait()
@@ -376,7 +376,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             errors.append(msg)
                             removeimage = False
                     else:
-                        cmd = ['%s/%s'%(arm_binutils_path, "usr/bin/arm-linux-gnu-objcopy"), '--output-target', imgformat, imagepath, binpath]
+                        cmd = ['%s/%s' % (arm_binutils_path, "usr/bin/arm-linux-gnu-objcopy"), '--output-target', imgformat, imagepath, binpath]
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=arm_env)
                         rs = p.wait()
                         if rs != 0:

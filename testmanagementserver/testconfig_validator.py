@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, os, getopt, errno, subprocess, time, calendar, MySQLdb, tempfile, base64, syslog, re, configparser, traceback, xml
+import sys, os, getopt, errno, subprocess, time, calendar, MySQLdb, tempfile, base64, syslog, re, configparser, traceback, lxml, logging
 import lib.flocklab as flocklab
 
 
@@ -28,6 +28,9 @@ def checkObsids(tree, xpathExpr, namespace, obsidlist=None):
         tmp.append(ids.text.split())
     list(map(foundObsids.extend, tmp))
     
+    if "ALL" in foundObsids:
+        return (obsidlist, duplicates, allInList)
+    
     # Check for duplicates:
     if ( (len(foundObsids) != len(set(foundObsids))) ):
         duplicates = True
@@ -39,11 +42,10 @@ def checkObsids(tree, xpathExpr, namespace, obsidlist=None):
     
     # Return the values to the caller:
     if (duplicates or not allInList):
-        return(None, duplicates, allInList)
+        return (None, duplicates, allInList)
     else:
-        return(sorted(foundObsids), duplicates, allInList)
+        return (sorted(foundObsids), duplicates, allInList)
 ### END checkObsids()
-
 
 
 ##############################################################################
@@ -68,7 +70,6 @@ def getXmlTimestamp(datetimestring):
 ### END getXmlTimestamp()
 
 
-
 ##############################################################################
 #
 # Usage
@@ -89,117 +90,28 @@ def usage():
 
 ##############################################################################
 #
-# get_config - read user.ini and return it to caller.
-#
-##############################################################################
-def get_config():
-    global scriptpath
-    """Arguments: 
-            none
-       Return value:
-            The configuration object on success
-            none otherwise
-    """
-    try: 
-        config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        flocklab.config.read(scriptpath + '/user.ini')
-    except:
-        syslog(LOG_WARNING, "Could not read %s/user.ini because: %s: %s" %(scriptpath, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-    return config
-### END get_config()
-
-
-##############################################################################
-#
-# is_admin - Check if a user ID belongs to an admin.
-#
-##############################################################################
-def is_admin(cursor=None, userid=0):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-            userid: user ID to test
-       Return value:
-            On success, True or False
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
-    # Check the arguments:
-    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
-        return(1)
-
-    # Get the addresses from the database:            
-    try:
-        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" %userid)
-        rs = cursor.fetchone()
-        ret = False
-        if ((rs != None) and (rs[0] == 'admin')):
-            ret = True
-    except:
-        # There was an error in the database connection:
-        syslog(LOG_WARNING, "FlockLab is_admin() error: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
-    
-    return ret
-### END is_admin()
-
-
-##############################################################################
-#
-# is_internal - Check if an ID belongs to an internal user.
-#
-##############################################################################
-def is_internal(cursor=None, userid=0):
-    """Arguments:
-            cursor: cursor of the database connection to be used for the query
-            userid: user ID to test
-       Return value:
-            On success, True or False
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
-    # Check the arguments:
-    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
-        return(1)
-
-    # Get the addresses from the database:
-    try:
-        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" %userid)
-        rs = cursor.fetchone()
-        ret = False
-        if ((rs != None) and (rs[0] == 'internal')):
-            ret = True
-    except:
-        # There was an error in the database connection:
-        syslog(LOG_WARNING, "FlockLab is_internal() error: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return(2)
-    
-    return ret
-### END is_internal()
-
-
-##############################################################################
-#
 # get_obsids - Get a list of currently available observer IDs of a certain platform.
 #
 ##############################################################################
 def get_obsids(cursor=None, platform=None, status=None):
     if not cursor or not platform or not status:
         return None
-    rs = cursor.execute("""SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
-                        LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
-                        WHERE obs.status IN (%s) AND '%s' IN (slot1.name, slot2.name, slot3.name, slot4.name)
-                        ORDER BY obs.observer_id;
-                        """ % (status, platform))
+    cursor.execute("""
+                   SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
+                   WHERE obs.status IN (%s) AND '%s' IN (slot1.name, slot2.name, slot3.name, slot4.name)
+                   ORDER BY obs.observer_id;
+                   """ % (status, platform))
     obslist = []
-    for r in rs.fetchall():
-        obslist.append(r[obsid])
+    for rs in cursor.fetchall():
+        obslist.append(rs[0])
     return obslist
 ### END get_obsids()
 
@@ -215,20 +127,17 @@ def main(argv):
     xmlpath    = None
     schemapath = None
     testid     = None
-    isadmin    = False
-    isinternal = False
+    userrole   = ""
     
     # Open the log and create logger:
-    try:
-        logger = flocklab.get_logger()
-        if debug:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.INFO)
-    except:
-        syslog.syslog(syslog.LOG_ERR, "%s: Could not open logger because: %s: %s" % (os.path.basename(__file__), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        print("Failed to open logger because: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        sys.exit(errno.EAGAIN)
+    logger = flocklab.get_logger()
+    if not logger:
+        print("Failed to init logger.")
+        sys.exit(errno.EINVAL)
+    if debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     
     # Get the config file:
     if flocklab.load_config() != flocklab.SUCCESS:
@@ -312,22 +221,16 @@ def main(argv):
         sys.exit(errno.EAGAIN)
         
     # Check if the user is admin:
-    isadmin = is_admin(cursor, userid)
-    if isadmin not in (True, False):
-        logger.warn("Could not determine if user is admin or not. Error %d occurred. Exiting..." %isadmin)
-        sys.exit(errno.EAGAIN)
-        
-    # Check if the user is internal:
-    isinternal = is_internal(cursor, userid)
-    if isinternal not in (True, False):
-        logger.warn("Could not determine if user is internal or not. Error %d occurred. Exiting..." %isinternal)
+    userrole = flocklab.get_user_role(cursor, userid)
+    if userrole is None:
+        logger.warn("Could not determine user role.")
         sys.exit(errno.EAGAIN)
     
     # Valid stati for observers based on used permissions
     stati = "'online'"
-    if isadmin:
+    if "admin" in userrole:
         stati += ", 'develop', 'internal'"
-    elif isinternal:
+    elif "internal" in userrole:
         stati += ", 'internal'"
     
     # Initialize error counter and set timezone to UTC:
@@ -463,7 +366,7 @@ def main(argv):
             
             # Put obsids into obsidlist:
             for obsid in obsids:
-                if obsid is not "ALL":
+                if obsid != "ALL":
                     obsidlist.append(obsid)
                 
             # If target ids are present, there need to be as many as observer ids:
@@ -482,7 +385,7 @@ def main(argv):
                                 LEFT JOIN `tbl_serv_platforms` AS c 
                                     ON a.platforms_fk = c.serv_platforms_key
                                 WHERE (a.`serv_targetimages_key` = %s AND a.`binary` IS NOT NULL)""" %(dbimg)
-                    if not isadmin:
+                    if "admin" not in userrole:
                         sql += " AND (a.`owner_fk` = %s)"%(userid)
                     cursor.execute(sql)
                     ret = cursor.fetchone()
@@ -547,7 +450,7 @@ def main(argv):
                         # Validate image:
                         p = subprocess.Popen([flocklab.config.get('targetimage', 'imagevalidator'), '--quiet', '--image', imagefilename, '--platform', platform], stderr=subprocess.PIPE, universal_newlines=True)
                         stdout, stderr = p.communicate()
-                        if p.returncode != SUCCESS:
+                        if p.returncode != flocklab.SUCCESS:
                             if not quiet:
                                 print(("Line %d: element data: Validation of image data failed. %s" %(image_line, stderr)))
                             errcnt = errcnt + 1
@@ -557,7 +460,10 @@ def main(argv):
         # if there is just one target config and a list of observers is not provided, then fetch a list of all observers from the database
         if (len(obsidlist) == 0) and len(targetconfs) == 1:
             obsidlist = get_obsids(cursor, platform, stati)
-        # Check if no observers are in the list multiple times and if every observer has the correct target adapter installed:
+        if not obsidlist or (len(obsidlist) == 0):
+            print("No observer ID found.")
+            errcnt = errcnt + 1
+        # Remove dupllicates and check if every observer has the correct target adapter installed:
         obsidlist = list(set(obsidlist))
         (obsids, duplicates, allInList) = checkObsids(tree, '//d:targetConf/d:obsIds', ns, obsidlist)
         if duplicates:
@@ -573,16 +479,14 @@ def main(argv):
                             LEFT JOIN `tbl_serv_tg_adapt_list` AS `c` ON `a`.`slot_2_tg_adapt_list_fk` = `c`.`serv_tg_adapt_list_key`
                             LEFT JOIN `tbl_serv_tg_adapt_list` AS `d` ON `a`.`slot_3_tg_adapt_list_fk` = `d`.`serv_tg_adapt_list_key`
                             LEFT JOIN `tbl_serv_tg_adapt_list` AS `e` ON `a`.`slot_4_tg_adapt_list_fk` = `e`.`serv_tg_adapt_list_key`
-                            WHERE 
-                                (`a`.`observer_id` = %s)
-                                AND (`a`.`status` IN (%s))
+                            WHERE (`a`.`observer_id` = %s)
+                            AND (`a`.`status` IN (%s))
                         """
             sql_platf = """SELECT COUNT(*)
                             FROM `tbl_serv_tg_adapt_types` AS `a` 
                             LEFT JOIN `tbl_serv_platforms` AS `b` ON `a`.`platforms_fk` = `b`.`serv_platforms_key`
-                            WHERE 
-                                (`a`.`serv_tg_adapt_types_key` = %s)
-                                AND (LOWER(`b`.`name`) = LOWER('%s'))
+                            WHERE (`a`.`serv_tg_adapt_types_key` = %s)
+                            AND (LOWER(`b`.`name`) = LOWER('%s'))
                         """
             sql_cores = """SELECT core, optional
                             FROM `tbl_serv_platforms` AS `b` 
@@ -808,7 +712,7 @@ def main(argv):
     logger.debug("Validation finished (%u errors)." % errcnt)
     
     if errcnt == 0:
-        ret = SUCCESS
+        ret = flocklab.SUCCESS
     else:
         err_str = "Number of errors: %d. It is possible that there are more errors which could not be detected due to dependencies from above listed errors."%errcnt
         logger.debug(err_str)

@@ -23,27 +23,6 @@ def usage():
 
 ##############################################################################
 #
-# get_config - read user.ini and return it to caller.
-#
-##############################################################################
-def get_config():
-    """Arguments: 
-            none
-       Return value:
-            The configuration object on success
-            none otherwise
-    """
-    try: 
-        config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        flocklab.config.read(os.path.dirname(os.path.abspath(sys.argv[0])) + '/user.ini')
-    except:
-        syslog(LOG_WARNING, "Could not read %s/user.ini because: %s: %s" %(str(os.path.dirname(os.path.abspath(sys.argv[0]))), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-    return config
-### END get_config()
-
-
-##############################################################################
-#
 # Main
 #
 ##############################################################################
@@ -54,11 +33,11 @@ def main(argv):
     core = 0
     
     # Open the log and create logger:
-    try:
-        logger = flocklab.get_logger()
-    except:
-        syslog.syslog(syslog.LOG_ERR, "%s: Could not open logger because: %s: %s" %(os.path.basename(__file__), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        
+    logger = flocklab.get_logger()
+    if not logger:
+        print("Failed to init logger.")
+        sys.exit(errno.EINVAL)
+    
     # Get the config file:
     if flocklab.load_config() != flocklab.SUCCESS:
         logger.warn("Could not read configuration file. Exiting...")
@@ -83,7 +62,7 @@ def main(argv):
             core = int(arg)
         elif opt in ("-h", "--help"):
             usage()
-            sys.exit(SUCCESS)
+            sys.exit(flocklab.SUCCESS)
         elif opt in ("-q", "--quiet"):
             quiet = True
         else:
@@ -99,13 +78,7 @@ def main(argv):
             usage()
         logger.warn("Wrong API usage")
         sys.exit(errno.EINVAL)
-        
-    # Get the config file:
-    config = get_config()
-    if not config:
-        logger.warn("Could not read configuration file. Exiting...")
-        sys.exit(errno.EAGAIN)
-        
+    
     # Connect to the DB:
     try:
         db = MySQLdb.connect(host=flocklab.config.get('database','host'), user=flocklab.config.get('database','user'), passwd=flocklab.config.get('database','password'), db=flocklab.config.get('database','database')) 
@@ -113,13 +86,13 @@ def main(argv):
     except:
         logger.warn("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         sys.exit(errno.EAGAIN)
-        
+    
     # Check if platform is registered in database and get platform architecture:
     sql = """SELECT `a`.`architecture` FROM `tbl_serv_platforms` LEFT JOIN `tbl_serv_architectures` `a` ON `tbl_serv_platforms`.`serv_platforms_key` = `a`.`platforms_fk`  WHERE LOWER(name) = '%s' and `core`=%d;"""
     cursor.execute(sql %(str(platform).lower(), core))
     ret = cursor.fetchone()
     if not ret:
-        err_str = "Could not find platform %s in database. Exiting..." %(str(platform)) 
+        err_str = "Could not find platform %s in database. Exiting..." % (str(platform)) 
         logger.warn(err_str)
         if not quiet:
             print(err_str)
@@ -132,11 +105,11 @@ def main(argv):
     # Validate the image. This is dependent on the architecture of the target platform:
     errcnt = 0
     if arch == 'msp430':
-        p = subprocess.Popen([flocklab.config.get('targetimage', 'msp430'), '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
+        p = subprocess.Popen([flocklab.config.get('targetimage', 'binutils_msp430') + "/msp430-readelf", '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
         if p.wait() != 0:
             errcnt += 1
     elif arch == 'arm':
-        p = subprocess.Popen([flocklab.config.get('targetimage', 'arm'), '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
+        p = subprocess.Popen([flocklab.config.get('targetimage', 'binutils_arm') + "/arm-angstrom-linux-gnueabi-readelf", '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
         if p.wait() != 0:
             errcnt += 1
     else:
@@ -148,7 +121,7 @@ def main(argv):
     if errcnt == 0:
         if not quiet:
             print("Target image validation successful.")
-        ret = SUCCESS
+        ret = flocklab.SUCCESS
     else:
         err_str = "Target image validation failed. Please check your target image."
         logger.debug(err_str)

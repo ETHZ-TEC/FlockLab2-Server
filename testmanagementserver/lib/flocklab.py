@@ -59,7 +59,7 @@ def load_config():
 
 ##############################################################################
 #
-# get_config - read user.ini and return it to caller.
+# get_config - read config file and return it to caller.
 #
 ##############################################################################
 def get_config(configpath=None):
@@ -159,6 +159,83 @@ def connect_to_db():
         raise Exception
     return (cn, cur)
 ### END connect_to_db()
+
+
+##############################################################################
+#
+# is_user_admin - Check if a user ID belongs to an admin.
+#
+##############################################################################
+def is_user_admin(cursor=None, userid=0):
+    global logger
+    # Check the arguments:
+    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
+        return False
+    # Get the addresses from the database:
+    try:
+        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" %userid)
+        rs = cursor.fetchone()
+        if ((rs != None) and (rs[0] == 'admin')):
+            return True
+    except:
+        if not logger:
+            logger = get_logger()
+        logger.error("Failed to fetch user role from database: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        return False
+    return False
+### END is_user_admin()
+
+
+##############################################################################
+#
+# is_user_internal - Check if an ID belongs to an internal user.
+#
+##############################################################################
+def is_user_internal(cursor=None, userid=0):
+    global logger
+    # Check the arguments:
+    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
+        return False
+    # Get the addresses from the database:
+    try:
+        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" %userid)
+        rs = cursor.fetchone()
+        if ((rs != None) and (rs[0] == 'internal')):
+            return True
+    except:
+        # There was an error in the database connection:
+        if not logger:
+            logger = get_logger()
+        logger.error("Failed to fetch user role from database: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        return False
+    return False
+### END is_user_internal()
+
+
+##############################################################################
+#
+# get_user_role - Get the user role (user, admin or internal).
+#
+##############################################################################
+def get_user_role(cursor=None, userid=0):
+    global logger
+    # Check the arguments:
+    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
+        return None
+    # Get the addresses from the database:
+    try:
+        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" %userid)
+        rs = cursor.fetchone()
+        if (rs != None):
+            return rs[0]
+    except:
+        # There was an error in the database connection:
+        if not logger:
+            logger = get_logger()
+        logger.error("Failed to fetch user role from database: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        return None
+    return None
+### END get_user_role()
 
 
 ##############################################################################

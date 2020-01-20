@@ -466,7 +466,7 @@ function validate_test($test_config_file, &$errors) {
         $test_config_file = $CONFIG['testmanagementserver']['tempdir']."/".basename($test_config_file);
     }
     // execute XML validation script in the python virtual environment on the testmanagement server as user flocklab
-    $cmd = $CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['tests']['testvalidator']." -x ".$test_config_file." -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key'];
+    $cmd = $CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['dispatcher']['validationscript']." -x ".$test_config_file." -s ".$CONFIG['xml']['schemapath']." -u " . $_SESSION['serv_users_key'];
     exec("ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$cmd."' 2>&1", $output, $ret);
     if ($ret) {
         foreach ($output as $error) {
