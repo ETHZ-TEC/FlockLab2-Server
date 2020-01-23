@@ -13,7 +13,7 @@ from email.utils import formatdate, make_msgid
 
 ### Global variables ###
 SUCCESS = 0
-FAILED  = -1
+FAILED  = -2    # note: must be negative, and -1 (= 255) is reserved for SSH error
 scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
 scriptname = os.path.basename(os.path.abspath(sys.argv[0]))   # name of caller script
 configfile = "/home/flocklab/flocklab_config.ini"
@@ -397,15 +397,15 @@ def get_test_obs(cursor=None, testid=0):
             2 if there was an error in processing the request
     """
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(testid) != int) or (testid <= 0) or (check_test_id(cursor, testid) != 0)):
-        return 1
+        return FAILED
 
     try:
         cursor.execute("SELECT `a`.serv_observer_key, `a`.observer_id, `b`.node_id \
-FROM tbl_serv_observer AS `a` \
-LEFT JOIN tbl_serv_map_test_observer_targetimages AS `b` \
-ON `a`.serv_observer_key = `b`.observer_fk \
-WHERE `b`.test_fk = %d \
-ORDER BY `a`.observer_id" %testid)
+                        FROM tbl_serv_observer AS `a` \
+                        LEFT JOIN tbl_serv_map_test_observer_targetimages AS `b` \
+                        ON `a`.serv_observer_key = `b`.observer_fk \
+                        WHERE `b`.test_fk = %d \
+                        ORDER BY `a`.observer_id" % testid)
         rs = cursor.fetchall()
         
         obsdict_bykey = {}
@@ -418,7 +418,7 @@ ORDER BY `a`.observer_id" %testid)
     except:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return 2
+        return FAILED
 ### END get_test_obs()
 
 
@@ -436,11 +436,11 @@ def get_fetcher_pid(testid):
         if (p.returncode == 0):
             return int(out)
         else:
-            return -1
+            return FAILED
     except:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return -2
+        return FAILED
 ### END get_fetcher_pid()
 
 

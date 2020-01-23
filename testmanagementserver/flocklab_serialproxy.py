@@ -89,7 +89,7 @@ def obs_connect_process(conreqQueue, condoneQueue, _stopevent):
                 worklist.remove(w)
             except ConnectionRefusedError:
                 logger.info("Could not connect to observer %s on port %d, will retry later.." % (w[0],w[1]))
-                time.sleep(2)
+                time.sleep(5)
             except Exception:
                 logger.info("Could not connect to observer %s on port %d: %s, %s\n%s" % (w[0], w[1], str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
                 pass

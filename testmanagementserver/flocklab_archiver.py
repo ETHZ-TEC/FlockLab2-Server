@@ -60,7 +60,6 @@ def main(argv):
         elif opt in ("-e", "--email"):
             send_email = True
         elif opt in ("-d", "--debug"):
-            logger.debug("Detected debug flag.")
             logger.setLevel(logging.DEBUG)
         elif opt in ("-t", "--testid"):
             try:

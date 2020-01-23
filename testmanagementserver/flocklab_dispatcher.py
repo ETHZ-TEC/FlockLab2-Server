@@ -10,18 +10,6 @@ debug  = False
 
 ##############################################################################
 #
-# Error classes
-#
-##############################################################################
-class Error(Exception):
-    """ Base class for exception. """
-    pass
-### END Error classes
-
-
-
-##############################################################################
-#
 # StopTestThread
 #
 ##############################################################################
@@ -56,7 +44,7 @@ class StopTestThread(threading.Thread):
                     if ("No such file or directory" in err):
                         msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test." % (self._obsdict_key[self._obskey][1])
                     else:
-                        msg = "Observer ID %s is not reachable (returned: %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
+                        msg = "Observer ID %s is not reachable (returned %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
                 else:
                     msg = "Observer ID %s is not responsive (SSH returned %d)." % (self._obsdict_key[self._obskey][1], rs)
                 errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))
@@ -83,10 +71,11 @@ class StopTestThread(threading.Thread):
                     errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))
                     logger.error(msg)
                 else:
-                    errors.append(("Test stop script on observer ID %s failed with error code %s." % (str(self._obsdict_key[self._obskey][1]), str(errno.errorcode[rs])), rs, self._obsdict_key[self._obskey][1]))
-                    logger.error("Test stop script on observer ID %s failed with error message:\n%s" % (str(self._obsdict_key[self._obskey][1]), str(out)))
+                    errors.append(("Test stop script on observer ID %s failed with error code %d." % (str(self._obsdict_key[self._obskey][1]), rs), rs, self._obsdict_key[self._obskey][1]))
+                    logger.error("Test stop script on observer ID %s failed with error code %d and message:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out)))
                     logger.error("Tried to execute: %s" % (" ".join(cmd)))
-        except Error:
+        except:
+            logger.debug("Exception: %s, %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
             # Main thread requested abort.
             # Close a possibly still running subprocess:
             if (p is not None) and (p.poll() is not None):
@@ -172,26 +161,24 @@ class StartTestThread(threading.Thread):
                     logger.error(msg)
                 else:
                     logger.debug("Upload of target image and config XML to observer ID %s succeeded." % (self._obsdict_key[self._obskey][1]))
-                    # Start the script on the observer which starts the test:
+                    # Run the script on the observer which starts the test:
                     remote_cmd = flocklab.config.get("observer", "starttestscript") + " --testid=%d --xml=%s/%s --serialport=%d" % (self._testid, testconfigfolder, os.path.basename(self._xmldict_key[self._obskey][0]), obsdataport)
                     if debug:
                         remote_cmd += " --debug"
                     cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), remote_cmd]
-                    #DEBUG logger.debug("execute %s" %(str(cmd)))
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
                     while p.returncode == None:
                         self._abortEvent.wait(1.0)
                         p.poll()
                     if self._abortEvent.is_set():
                         p.kill()
-                        flocklab.debug("Abort is set, start test process for observer %s killed." % (self._obsdict_key[self._obskey][1]))
+                        logger.debug("Abort is set, start test process for observer %s killed." % (self._obsdict_key[self._obskey][1]))
                     else:
                         out, err = p.communicate()
                     rs = p.wait()
                     if rs != flocklab.SUCCESS:
-                        errors.append(("Test start script on observer ID %s failed with error code %s." % (self._obsdict_key[self._obskey][1], errno.errorcode[rs]), rs, self._obsdict_key[self._obskey][1]))
-                        logger.error("Test start script on observer ID %s failed with error message:\n%s" % (str(self._obsdict_key[self._obskey][1]), str(out)))
-                        logger.error("Tried to execute: %s" % (" ".join(cmd)))
+                        errors.append(("Test start script on observer ID %s failed with error code %d." % (self._obsdict_key[self._obskey][1], rs), rs, self._obsdict_key[self._obskey][1]))
+                        logger.error("Test start script on observer ID %s failed with error code %d and message:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out)))
                     else:
                         logger.debug("Test start script on observer ID %s succeeded." % (self._obsdict_key[self._obskey][1]))
                     # Remove image file and xml on server:
@@ -202,7 +189,8 @@ class StartTestThread(threading.Thread):
                             os.remove(image[0])
                             logger.debug("Removed target image %s for observer ID %s" % (self._imagedict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
             
-        except Error:
+        except:
+            logger.debug("Exception: %s, %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
             # Main thread requested abort.
             # Close a possibly still running subprocess:
             if (p is not None) and (p.poll() is not None):
@@ -714,6 +702,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
         if len(errors) == 0:
             if serialProxyUsed:
                 # Start serial proxy:
+                logger.debug("Starting serial proxy...")
                 cmd = [flocklab.config.get("dispatcher", "serialproxyscript"), "--notify"]
                 if debug: 
                     cmd.append("--debug")
@@ -1213,16 +1202,15 @@ def main(argv):
         elif opt in ("-d", "--debug"):
             debug = True
             logger.setLevel(logging.DEBUG)
-            logger.debug("Detected debug flag.")
         elif opt in ("-h", "--help"):
             usage()
             sys.exit(flocklab.SUCCESS)
         elif opt in ("-t", "--testid"):
             try:
                 testid = int(arg)
-                if testid <= 0:
-                    raise Error
             except:
+                testid = 0
+            if testid <= 0:
                 logger.warn("Wrong API usage: testid has to be a positive number")
                 sys.exit(errno.EINVAL)
         else:
