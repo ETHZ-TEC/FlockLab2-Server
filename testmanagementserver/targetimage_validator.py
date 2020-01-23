@@ -34,14 +34,9 @@ def main(argv):
     
     # Open the log and create logger:
     logger = flocklab.get_logger()
-    if not logger:
-        print("Failed to init logger.")
-        sys.exit(errno.EINVAL)
     
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        logger.warn("Could not read configuration file. Exiting...")
-        sys.exit(errno.EAGAIN)
+    flocklab.load_config()
     
     # Get command line parameters.
     try:
@@ -81,26 +76,30 @@ def main(argv):
     
     # Connect to the DB:
     try:
-        db = MySQLdb.connect(host=flocklab.config.get('database','host'), user=flocklab.config.get('database','user'), passwd=flocklab.config.get('database','password'), db=flocklab.config.get('database','database')) 
-        cursor = db.cursor()
+        (cn, cur) = flocklab.connect_to_db()
     except:
-        logger.warn("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        sys.exit(errno.EAGAIN)
+        flocklab.error_logandexit("Could not connect to the database.")
     
     # Check if platform is registered in database and get platform architecture:
-    sql = """SELECT `a`.`architecture` FROM `tbl_serv_platforms` LEFT JOIN `tbl_serv_architectures` `a` ON `tbl_serv_platforms`.`serv_platforms_key` = `a`.`platforms_fk`  WHERE LOWER(name) = '%s' and `core`=%d;"""
-    cursor.execute(sql %(str(platform).lower(), core))
-    ret = cursor.fetchone()
+    sql = """SELECT `a`.`architecture` FROM `tbl_serv_platforms`
+             LEFT JOIN `tbl_serv_architectures` `a` ON `tbl_serv_platforms`.`serv_platforms_key` = `a`.`platforms_fk`
+             WHERE LOWER(name) = '%s' and `core`=%d;
+          """
+    cur.execute(sql %(str(platform).lower(), core))
+    ret = cur.fetchone()
     if not ret:
         err_str = "Could not find platform %s in database. Exiting..." % (str(platform)) 
         logger.warn(err_str)
         if not quiet:
             print(err_str)
-        db.close()
+        cn.close()
         sys.exit(errno.EINVAL)
     else:
         arch = ret[0]
         arch = arch.lower()
+    
+    cur.close()
+    cn.close()
     
     # Validate the image. This is dependent on the architecture of the target platform:
     errcnt = 0

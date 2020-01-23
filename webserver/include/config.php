@@ -18,7 +18,7 @@
     if ($CONFIG === FALSE) {
         die("Failed to parse config file!");
     }
-    if (!file_exists ($CONFIG['webserver']['sessiondir'])) {
+    if (!file_exists($CONFIG['webserver']['sessiondir'])) {
         mkdir ($CONFIG['webserver']['sessiondir']);
     }
     session_save_path($CONFIG['webserver']['sessiondir']);

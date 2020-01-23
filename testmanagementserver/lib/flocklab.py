@@ -1,29 +1,23 @@
 #!/usr/bin/env python3
 
-import sys, os, smtplib, MySQLdb, configparser, time, re, errno, random, subprocess, string, logging, traceback, numpy, calendar
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from struct import *
-import syslog
-import logging.config
+##############################################################################
+# FlockLab library, runs on the test management server
+##############################################################################
+
+import sys, os, smtplib, MySQLdb, MySQLdb.cursors, configparser, time, re, errno, random, subprocess, string, logging, logging.config, traceback, numpy, calendar, matplotlib.figure, matplotlib.backends.backend_agg, tempfile, lxml.etree
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email import encoders
 from email.utils import formatdate, make_msgid
-from lxml import etree
-import tempfile
-from MySQLdb.constants import ER as MySQLErrors
-import MySQLdb.cursors
 
 ### Global variables ###
-# Error code to return if there was no error:
 SUCCESS = 0
 FAILED  = -1
 scriptpath = os.path.dirname(os.path.abspath(sys.argv[0]))
 scriptname = os.path.basename(os.path.abspath(sys.argv[0]))   # name of caller script
-configpath = "/home/flocklab"
-configname = "flocklab_config.ini"
+configfile = "/home/flocklab/flocklab_config.ini"
+loggerconf = scriptpath + '/logging.conf'
 config = None
 logger = None
 debug = True
@@ -35,25 +29,30 @@ time.tzset()
 
 ##############################################################################
 #
+# log_fallback - a way to log errors if the regular log file is unavailable
+#
+##############################################################################
+def log_fallback(msg):
+    #syslog.syslog(syslog.LOG_ERR, msg)    # -> requires 'import syslog'
+    #print(msg, file=sys.stderr)
+    print(msg)
+### END log_fallback()
+
+
+##############################################################################
+#
 # load_config - loads the config from the ini file and stores it in a global variable
 #
 ##############################################################################
 def load_config():
-    global config, logger
+    global config
     if config:
-        logger.warn("Config already loaded")
+        if logger:
+            logger.warn("Config already loaded")
         return SUCCESS
-    try:
-        config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        config.read(configpath + '/' + configname)
-        #logger.debug("Config file '%s' loaded." % (configpath + '/' + configname))
-    except:
-        if not logger:
-            logger = get_logger()
-        logger.error("Could not read file '%s/%s' because: %s: %s" %(str(configpath), configname, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        config = None
-        return FAILED
-    return SUCCESS
+    config = get_config()
+    if not config:
+        error_logandexit("Could not load config file.")
 ### END load_config()
 
 
@@ -62,19 +61,17 @@ def load_config():
 # get_config - read config file and return it to caller.
 #
 ##############################################################################
-def get_config(configpath=None):
-    global scriptpath, scriptname, config
+def get_config():
+    global config
     # if already loaded, return
     if config:
         return config
-    if not configpath:
-        configpath = scriptpath
     try:
         config = configparser.SafeConfigParser(comment_prefixes=('#', ';'), inline_comment_prefixes=(';'))
-        config.read(configpath + '/' + configname)
+        config.read(configfile)
     except:
         logger = get_logger()
-        logger.error("Could not read %s/%s because: %s: %s" %(str(configpath), configname, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.error("Could not read '%s' because: %s, %s" % (configfile, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         config = None
     return config
 ### END get_config()
@@ -85,29 +82,14 @@ def get_config(configpath=None):
 # init_logger - Open a logger and keep it in a global variable.
 #
 ##############################################################################
-def init_logger(loggername=None):
+def init_logger(loggername=scriptname):
     global logger
     if logger:
         logger.warn("Logger already initialized.")
         return SUCCESS        # already initialized
-    loggerpath = scriptpath
-    if not loggername:
-        loggername = scriptname
-    if not os.path.isfile(loggerpath + '/logging.conf'):
-        # fallback: write to syslog
-        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): file '%s' not found." % (loggerpath + '/logging.conf'))
-        return FAILED
-    try:
-        logging.config.fileConfig(loggerpath + '/logging.conf')
-        logger = logging.getLogger(loggername)
-        if debug:
-            logger.setLevel(logging.DEBUG)
-        #logger.debug("Logger for %s initialized with config file '%s'." % (loggername, loggerpath + '/logging.conf'))
-    except:
-        # fallback: write to syslog
-        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): %s: Could not open logger because: %s: %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        logger = None
-    return SUCCESS
+    logger = get_logger(loggername)
+    if not logger:
+        error_logandexit("Failed to init logger.")
 ### END init_logger()
 
 
@@ -116,27 +98,50 @@ def init_logger(loggername=None):
 # get_logger - Open a logger for the caller.
 #
 ##############################################################################
-def get_logger(loggername=None, loggerpath=None):
+def get_logger(loggername=scriptname, debug=False):
     global logger
     # if it already exists, return logger
     if logger:
         return logger
-    if not loggerpath:
-        loggerpath = scriptpath
-    if not loggername:
-        loggername = scriptname
-    if not os.path.isfile(loggerpath + '/logging.conf'):
-        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): file '%s' not found." % (loggerpath + '/logging.conf'))
+    if not os.path.isfile(loggerconf):
+        log_fallback("[FlockLab] File '%s' not found." % (loggerconf))
         return None
     try:
-        logging.config.fileConfig(loggerpath + '/logging.conf')
+        logging.config.fileConfig(loggerconf)
         logger = logging.getLogger(loggername)
+        if debug:
+            logger.setLevel(logging.DEBUG)
     except:
-        # fallback: write to syslog
-        syslog.syslog(syslog.LOG_ERR, "[FlockLab] Error in get_logger(): %s: Could not open logger because: %s: %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        log_fallback("[FlockLab %s] Could not open logger because: %s, %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         logger = None
     return logger
 ### END get_logger()
+
+
+##############################################################################
+#
+# logging helpers
+#
+##############################################################################
+def log_info(msg=""):
+    global logger
+    logger.info(msg)
+### END log_info()
+
+def log_error(msg=""):
+    global logger
+    logger.error(msg)
+### END log_error()
+
+def log_warning(msg=""):
+    global logger
+    logger.warn(msg)
+### END log_warning()
+
+def log_debug(msg=""):
+    global logger
+    logger.debug(msg)
+### END log_debug()
 
 
 ##############################################################################
@@ -145,16 +150,16 @@ def get_logger(loggername=None, loggerpath=None):
 #
 ##############################################################################
 def connect_to_db():
-    global config, logger
+    global config
+    # if config not yet available, then load it
     if not config or not isinstance(config, configparser.SafeConfigParser):
-        return (None, None)
+        load_config()
     try:
         cn = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database'), charset='utf8', use_unicode=True) 
         cur = cn.cursor()
         #cur.execute("SET sql_mode=''")     # TODO check whether this is needed
     except:
-        if not logger:
-            logger = get_logger()
+        logger = get_logger()
         logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         raise Exception
     return (cn, cur)
@@ -167,7 +172,6 @@ def connect_to_db():
 #
 ##############################################################################
 def is_user_admin(cursor=None, userid=0):
-    global logger
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
         return False
@@ -178,8 +182,7 @@ def is_user_admin(cursor=None, userid=0):
         if ((rs != None) and (rs[0] == 'admin')):
             return True
     except:
-        if not logger:
-            logger = get_logger()
+        logger = get_logger()
         logger.error("Failed to fetch user role from database: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return False
     return False
@@ -192,7 +195,6 @@ def is_user_admin(cursor=None, userid=0):
 #
 ##############################################################################
 def is_user_internal(cursor=None, userid=0):
-    global logger
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
         return False
@@ -204,8 +206,7 @@ def is_user_internal(cursor=None, userid=0):
             return True
     except:
         # There was an error in the database connection:
-        if not logger:
-            logger = get_logger()
+        logger = get_logger()
         logger.error("Failed to fetch user role from database: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return False
     return False
@@ -218,20 +219,18 @@ def is_user_internal(cursor=None, userid=0):
 #
 ##############################################################################
 def get_user_role(cursor=None, userid=0):
-    global logger
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(userid) != int) or (userid <= 0)):
         return None
     # Get the addresses from the database:
     try:
-        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" %userid)
+        cursor.execute("SELECT `role` FROM `tbl_serv_users` WHERE `serv_users_key` = %d" % userid)
         rs = cursor.fetchone()
-        if (rs != None):
+        if rs:
             return rs[0]
     except:
         # There was an error in the database connection:
-        if not logger:
-            logger = get_logger()
+        logger = get_logger()
         logger.error("Failed to fetch user role from database: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return None
     return None
@@ -442,6 +441,7 @@ def get_fetcher_pid(testid):
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return -2
+### END get_fetcher_pid()
 
 
 ##############################################################################
@@ -450,34 +450,22 @@ def get_fetcher_pid(testid):
 #
 ##############################################################################
 def get_test_owner(cursor=None, testid=0):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-            testid: test ID
-       Return value:
-            On success, tuple with information
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
-
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(testid) != int) or (testid <= 0)):
         return FAILED
-    
     try:
-        sql = "    SELECT `a`.serv_users_key, `a`.lastname, `a`.firstname, `a`.username, `a`.email, `a`.disable_infomails \
-                FROM tbl_serv_users AS `a` \
-                LEFT JOIN tbl_serv_tests AS `b` \
-                    ON `a`.serv_users_key = `b`.owner_fk WHERE `b`.serv_tests_key=%d;"
-        cursor.execute(sql %testid)
+        sql = "SELECT `a`.serv_users_key, `a`.lastname, `a`.firstname, `a`.username, `a`.email, `a`.disable_infomails \
+               FROM tbl_serv_users AS `a` \
+               LEFT JOIN tbl_serv_tests AS `b` \
+               ON `a`.serv_users_key = `b`.owner_fk WHERE `b`.serv_tests_key=%d;"
+        cursor.execute(sql % testid)
         rs = cursor.fetchone()
-        
-        return (rs[0], rs[1], rs[2], rs[3], rs[4], rs[5])    
+        return (rs[0], rs[1], rs[2], rs[3], rs[4], rs[5])
     except:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return (2)
+        return FAILED
 ### END get_test_owner()
-
 
 
 ##############################################################################
@@ -517,7 +505,6 @@ def get_pinmappings(cursor=None):
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return 2
 ### END get_pinmappings()
-
 
 
 ##############################################################################
@@ -613,7 +600,6 @@ def get_slot(cursor=None, obs_fk=None, platname=None):
 ### END get_slot()
 
 
-
 ##############################################################################
 #
 # get_slot_calib - Get calibration values for a slot
@@ -687,6 +673,33 @@ def get_obs_from_id(cursor=None, obsid=0):
         return (2)
 ### END get_obs_from_id()
 
+
+##############################################################################
+#
+# get_obsids - Get a list of currently available observer IDs of a certain platform.
+#
+##############################################################################
+def get_obsids(cursor=None, platform=None, status=None):
+    if not cursor or not platform or not status:
+        return None
+    cursor.execute("""
+                   SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
+                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
+                   WHERE obs.status IN (%s) AND '%s' IN (slot1.name, slot2.name, slot3.name, slot4.name)
+                   ORDER BY obs.observer_id;
+                   """ % (status, platform))
+    obslist = []
+    for rs in cursor.fetchall():
+        obslist.append(rs[0])
+    return obslist
+### END get_obsids()
 
 
 ##############################################################################
@@ -803,6 +816,7 @@ def get_test_status(cursor=None, conn=None, testid=0):
     return status
 ### END get_test_status()
 
+
 ##############################################################################
 #
 # set_test_dispatched - Set the dispatched flag of a test in the flocklab database.
@@ -834,6 +848,7 @@ def set_test_dispatched(cursor=None, conn=None, testid=0):
     return(0)
 ### END set_test_dispatched()
 
+
 ##############################################################################
 #
 # acquire_db_lock - try to get db lock on the specified key
@@ -859,7 +874,7 @@ def acquire_db_lock(cursor, conn, key, expiry_time=10):
                 time.sleep(1)
                 spin = True
             except MySQLdb.OperationalError as e: # retry if deadlock
-                if e.args[0] == MySQLErrors.LOCK_DEADLOCK:
+                if e.args[0] == MySQLdb.constants.ER.LOCK_DEADLOCK:
                     time.sleep(1)
                     spin = True
                 else:
@@ -871,6 +886,7 @@ def acquire_db_lock(cursor, conn, key, expiry_time=10):
         raise
     return(0)
 ### END acquire_db_lock()
+
 
 ##############################################################################
 #
@@ -891,7 +907,7 @@ def release_db_lock(cursor, conn, key, expiry_time=10):
                 cursor.execute("DELETE FROM `tbl_serv_locks` WHERE (`name`='%s');" %(key))
                 conn.commit()
             except MySQLdb.OperationalError as e: # retry if deadlock
-                if e.args[0] == MySQLErrors.LOCK_DEADLOCK:
+                if e.args[0] == MySQLdb.constants.ER.LOCK_DEADLOCK:
                     time.sleep(1)
                     spin = True
                 else:
@@ -904,23 +920,13 @@ def release_db_lock(cursor, conn, key, expiry_time=10):
     return(0)
 ### END release_db_lock()
 
+
 ##############################################################################
 #
 # write_errorlog - Writes a message to the errorlog table tbl_serv_errorlog.
 #
 ##############################################################################
 def write_errorlog(cursor=None, conn=None, testid=0, obsid=0, message="", timestamp=0.0):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-            conn:   database connection
-            testid: test ID
-            obsid: observer ID
-            message: message to write to the database
-       Return value:
-            0 on success
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
     # Check the arguments:
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(conn) != MySQLdb.connections.Connection) or (type(testid) != int) or (type(obsid) != int) or (type(message) != str) or (len(message) <= 0) or (type(timestamp) != float) or (timestamp < 0.0)):
         return FAILED
@@ -969,9 +975,10 @@ def error_logandexit(message=None, exitcode=FAILED):
     if (type(message) != str) or (message == "") or (type(exitcode) != int):
         return FAILED
     # Log error - if available, use logger, otherwise get it first:
-    if not logger:
-        logger = get_logger()
-    logger.error(message)
+    if logger:
+        logger.error(message)
+    else:
+        log_fallback(message)
     # Send email to admin:
     try:
         admin_emails = get_admin_emails()
@@ -980,14 +987,17 @@ def error_logandexit(message=None, exitcode=FAILED):
             if logger:
                 logger.error(msg)
             else:
-                logger = get_logger()
                 logger.error(msg)
             raise Exception
         send_mail(subject="[FlockLab %s]" % (scriptname.replace('.', '_').split('_')[1].capitalize()), message=message, recipients=admin_emails)
     except:
-        logger.error("error_logandexit(): Failed to send email to admin.")
+        if logger:
+            logger.error("error_logandexit(): Failed to send email to admin.")
+        else:
+            log_fallback("error_logandexit(): Failed to send email to admin.")
     # Exit program
-    logger.debug("Exiting with error code %u." % exitcode)
+    if logger:
+        logger.debug("Exiting with error code %u." % exitcode)
     sys.exit(exitcode)
 ### END error_logandexit()
 
@@ -1018,7 +1028,6 @@ def count_running_instances(scriptname=None):
 ### END count_running_instances()
 
 
-
 ##############################################################################
 #
 # get_admin_emails - Get the email addresses of all admins from the FlockLab database or the config file if admin_email is present.
@@ -1046,7 +1055,6 @@ def get_admin_emails(cursor=None):
         return FAILED
     return email_list
 ### END get_admin_emails()
-
 
 
 ##############################################################################
@@ -1080,16 +1088,21 @@ def is_test_running(cursor=None):
         return None
 ### is_test_running())
 
-            
+
+##############################################################################
+#
+# VIZ stuff
+#
+##############################################################################
 def viz_plot(t, d, testdir, obsid, imgdir):
-    fig = Figure(figsize=(2*(t[len(t)-1] - t[0]), 1))
+    fig = matplotlib.figure.Figure(figsize=(2*(t[len(t)-1] - t[0]), 1))
     ax = fig.add_axes([0., 0., 1., 1.])
     ax.patch.set_facecolor(None)
     fig.patch.set_alpha(0.)
     ax.set_frame_on(False)
     ax.axes.get_yaxis().set_visible(False)
     ax.axes.get_xaxis().set_visible(False)
-    canvas = FigureCanvasAgg(fig)    
+    canvas = matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
     ax.plot(t, d, '-', color = '#001050', linewidth=2)
     ax.axis((t[0], t[len(t)-1], -1, 40))
     canvas.get_renderer().clear() 
@@ -1100,6 +1113,8 @@ def viz_plot(t, d, testdir, obsid, imgdir):
         if exception.errno != errno.EEXIST:
             raise
     canvas.print_figure('%s/%s/power_%d_%d.png' % (imgdir, testdir, obsid, t[0]*1e3), pad_inches=0, dpi=50, transparent=True)
+### END viz_plot()
+
 
 def viz_powerprofiling(testid, owner_fk, values, obsid, imgdir, logger):
     #logger.debug("Viz %i values" % len(values[0]))
@@ -1131,6 +1146,8 @@ def viz_powerprofiling(testid, owner_fk, values, obsid, imgdir, logger):
             #logger.debug("Viz time spent %f" % (time.time() - start))
     except: 
         logger.error("Error in viz_powerprofiling: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+### END viz_powerprofiling()
+
 
 def viz_gpio_monitor(testid, owner_fk, values, obsid, imgdir, logger):
     # gpio; edge; timestamp;
@@ -1157,7 +1174,7 @@ def viz_gpio_monitor(testid, owner_fk, values, obsid, imgdir, logger):
                 f.write('{"t":%d,"p":%s,"l":%s},\n' % (int(round((float(e[2]) - starttime) * 1e3)), e[0], e[1]))
     except: 
         logger.error("Error in viz_gpio_monitor: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-    
+### END viz_gpio_monitor()
 
 
 ##############################################################################
@@ -1165,7 +1182,6 @@ def viz_gpio_monitor(testid, owner_fk, values, obsid, imgdir, logger):
 # scheduleLinkTest - try to schedule a link test for every platform, according to config file
 #
 ##############################################################################
-        
 def schedule_linktest(cur, cn, debug=False):
     global config, logger
     # Check the arguments:
@@ -1203,8 +1219,8 @@ def schedule_linktest(cur, cn, debug=False):
                 for linktestfile in listing:
                     if re.search("\.xml$", os.path.basename(linktestfile)) is not None:
                         # read platform
-                        parser = etree.XMLParser(remove_comments=True)
-                        tree = etree.parse("%s/%s" % (config.get("linktests", "testfolder"),linktestfile), parser)
+                        parser = lxml.etree.XMLParser(remove_comments=True)
+                        tree = lxml.etree.parse("%s/%s" % (config.get("linktests", "testfolder"),linktestfile), parser)
                         ns = {'d': config.get('xml', 'namespace')}
                         pl = tree.xpath('//d:platform', namespaces=ns)
                         platform = pl[0].text.strip()
@@ -1262,14 +1278,16 @@ def schedule_linktest(cur, cn, debug=False):
                 # Delete the lockfile:
                 os.remove(lockfile)
                 logger.debug("Removed lockfile %s"%lockfile)
-    
+### END schedule_linktest()
+
+
 ##############################################################################
 #
-# getXmlTimestamp
+# get_xml_timestamp
 # Converts XML timestamps to python taking timezone into account.
 #
 ##############################################################################
-def getXmlTimestamp(datetimestring):
+def get_xml_timestamp(datetimestring):
   #is there a timezone?
   m = re.match('([0-9]{4,4}-[0-9]{1,2}-[0-9]{1,2}T[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2})([+-])([0-9]{2,2}):([0-9]{2,2})',datetimestring)
   if m == None:
@@ -1282,5 +1300,4 @@ def getXmlTimestamp(datetimestring):
     else:
       timestamp = timestamp - offset
   return timestamp
-### END getXmlTimestamp()
-
+### END get_xml_timestamp()

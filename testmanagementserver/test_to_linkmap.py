@@ -227,18 +227,11 @@ def main(argv):
     errors = []
     _serial_service_file = None
     
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-    
     # Get logger:
     logger = flocklab.get_logger()
     
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-    #logger.debug("Read configuration file.")
+    flocklab.load_config()
     
     # Get the arguments:
     try:

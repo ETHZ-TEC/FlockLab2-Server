@@ -30,18 +30,11 @@ def main(argv):
     ### Global Variables ###
     global logger
 
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-    
     # Get logger:
     logger = flocklab.get_logger()
     
     # Get config ---
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-    #logger.debug("Read configuration file.")
+    flocklab.load_config()
     
     # Get the arguments:
     try:
@@ -93,10 +86,10 @@ def main(argv):
     else:
         try:
             # Check for tests to delete ---
-            sql =     """    SELECT `serv_tests_key`, `time_start_wish`
-                        FROM `tbl_serv_tests` 
-                        WHERE (`test_status` = 'todelete')
-                    """
+            sql = """SELECT `serv_tests_key`, `time_start_wish`
+                     FROM `tbl_serv_tests` 
+                     WHERE (`test_status` = 'todelete')
+                  """
             #logger.info("Looking in DB for tests which are marked to be deleted...")
             if ( cur.execute(sql) <= 0 ):
                 logger.info("No tests found which are marked to be deleted.")

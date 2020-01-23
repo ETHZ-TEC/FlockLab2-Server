@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil, lxml
+import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil, lxml.etree
 import lib.daemon as daemon
 import lib.flocklab as flocklab
 
@@ -231,28 +231,23 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
                 msg = "%s: Packet size (%i) did not match payload size (%i) @ %d." %(obsdbfile_path, err.expectedSize, err.actualSize, err.fpos)
                 _errors.append((msg, errno.EIO, obsid))
                 logqueue.put_nowait((loggername, logging.ERROR, msg))
-            except:
-                raise
-        try:
-            if (len(conv_values) > 0):
-                # There is still data left. Do a last commit:
-                if (viz_f != None) and (len(viz_values) > 0):
-                    #logqueue.put_nowait((loggername, logging.DEBUG, "Viz started..."))
-                    viz_f(testid, owner_fk, viz_values, obsid, vizimgdir, logger)
-                    #logqueue.put_nowait((loggername, logging.DEBUG, "Viz done."))
-                # Write data to file:
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Opening file %s for final writing..."%(resultfile_path)))
-                resultfile_lock.acquire()
-                f = open(resultfile_path, 'a')
-                f.writelines(conv_values)
-                f.close()
-                resultfile_lock.release()
-                logqueue.put_nowait((loggername, logging.DEBUG, "Committed final results to %s after %d rows"%(resultfile_path, rows)))
-            # Remove processed file:
-            #logqueue.put_nowait((loggername, logging.DEBUG, "Remove %s"%(obsdbfile_path)))
-            os.unlink(obsdbfile_path)
-        except:
-            raise
+        if (len(conv_values) > 0):
+            # There is still data left. Do a last commit:
+            if (viz_f != None) and (len(viz_values) > 0):
+                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz started..."))
+                viz_f(testid, owner_fk, viz_values, obsid, vizimgdir, logger)
+                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz done."))
+            # Write data to file:
+            #logqueue.put_nowait((loggername, logging.DEBUG, "Opening file %s for final writing..."%(resultfile_path)))
+            resultfile_lock.acquire()
+            f = open(resultfile_path, 'a')
+            f.writelines(conv_values)
+            f.close()
+            resultfile_lock.release()
+            logqueue.put_nowait((loggername, logging.DEBUG, "Committed final results to %s after %d rows"%(resultfile_path, rows)))
+        # Remove processed file:
+        #logqueue.put_nowait((loggername, logging.DEBUG, "Remove %s"%(obsdbfile_path)))
+        os.unlink(obsdbfile_path)
     except:
         msg = "Error in worker process: %s: %s\n%s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, errno.ECOMM, obsid))
@@ -405,16 +400,16 @@ class FetchObsThread(threading.Thread):
     def __init__(self, obsid, obsethernet, dirname, debugdirname, config, logger, workQueue, stopEvent):
         threading.Thread.__init__(self) 
         self._obsid            = obsid
-        self._obsethernet    = obsethernet
-        self._obsfiledir    = dirname
-        self._obsfiledebugdir    = debugdirname
+        self._obsethernet      = obsethernet
+        self._obsfiledir       = dirname
+        self._obsfiledebugdir  = debugdirname
         self._workQueue        = workQueue
         self._stopEvent        = stopEvent
-        self._logger        = logger
+        self._logger           = logger
         
         self._min_sleep        = flocklab.config.getint("fetcher", "min_sleeptime")
         self._max_randsleep    = flocklab.config.getint("fetcher", "max_rand_sleeptime")
-        self._obsdbfolder    = "%s/%d" % (flocklab.config.get("observer", "obsdbfolder"), testid)
+        self._obstestresfolder = "%s/%d" % (flocklab.config.get("observer", "testresultfolder"), testid)
         
     def run(self):
         try:
@@ -436,7 +431,7 @@ class FetchObsThread(threading.Thread):
                     removelast = False
                 #self._logger.debug(self._loggerprefix + "Woke up")
                 # Get list of available files
-                cmd = ['ssh' ,'%s'%(self._obsethernet), "ls %s/" % self._obsdbfolder]
+                cmd = ['ssh' ,'%s'%(self._obsethernet), "ls %s/" % self._obstestresfolder]
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)  # universal_newlines makes sure that a string is returned instead of a byte object
                 out, err = p.communicate(None)
                 rs = p.returncode
@@ -450,7 +445,7 @@ class FetchObsThread(threading.Thread):
                         # Check name and append to corresponding list
                         for service in services.values():
                             if service.matchFileName(dbfile):
-                                service.addFile("%s/%s" % (self._obsdbfolder, dbfile))
+                                service.addFile("%s/%s" % (self._obstestresfolder, dbfile))
                                 break
                     copyfilelist = []
                     # Remove latest from each list as the observer might still be writing into it (unless stop event has been set).
@@ -492,7 +487,7 @@ class FetchObsThread(threading.Thread):
                             #DEBUG self._logger.debug(self._loggerprefix + "Put all files onto queue.")
                             # Remove remote files if any are left:
                             if (len(copyfilelist) > 0):
-                                cmd = ['ssh' ,'%s'%(self._obsethernet), "cd %s;"%self._obsdbfolder, "rm"]
+                                cmd = ['ssh' ,'%s'%(self._obsethernet), "cd %s;"%self._obstestresfolder, "rm"]
                                 cmd.extend(copyfilelist)
                                 self._logger.debug(self._loggerprefix + "Removing files on observer...")
                                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -506,7 +501,7 @@ class FetchObsThread(threading.Thread):
                         self._logger.debug(self._loggerprefix + "No files to download from observer.")
                     
                     if removelast == False: # this is the last execution of the while loop
-                        cmd = ['ssh' ,'%s'%(self._obsethernet), "rm -rf %s" % self._obsdbfolder]
+                        cmd = ['ssh' ,'%s'%(self._obsethernet), "rm -rf %s" % self._obstestresfolder]
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                         out, err = p.communicate(None)
                         rs = p.wait()
@@ -554,8 +549,7 @@ def start_fetcher():
     try:
         (cn, cur) = flocklab.connect_to_db()
     except:
-        msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN)
+        flocklab.error_logandexit("Could not connect to database", errno.EAGAIN)
     try:
         cur.execute("""    SELECT `a`.observer_id, `a`.ethernet_address 
                         FROM `tbl_serv_observer` AS `a` 
@@ -623,7 +617,7 @@ def stop_fetcher():
         if (pid > 0):
             # Do not stop this instance if it is the only one running:
             if (pid == os.getpid()):
-                raise
+                return flocklab.FAILED
             logger.debug("Sending SIGTERM signal to process %d" %pid)
             try:
                 os.kill(pid, signal.SIGTERM)
@@ -638,7 +632,7 @@ def stop_fetcher():
             except:
                 pass
         else:
-            raise
+            return flocklab.FAILED
     except (ValueError):
         logger.debug("Fetcher daemon was not running, thus it cannot be stopped.")
         # Set DB status in order to allow dispatcher and scheduler to go on.:
@@ -747,21 +741,14 @@ def main(argv):
     
     stop = False
     
-    # Set timezone to UTC ---
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-    
     # Get logger:
     logger = flocklab.get_logger()
         
     # Get the config file ---
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-    #logger.debug("Read configuration file.")
+    flocklab.load_config()
 
     # Get command line parameters ---
-    try:                                
+    try:
         opts, args = getopt.getopt(argv, "hedt:", ["help", "stop", "debug", "testid="])
     except getopt.GetoptError as err:
         print(str(err))

@@ -172,10 +172,6 @@ def main(argv):
     observer = ""
     status = "'online', 'internal', 'develop'"
 
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-
     # Get logger:
     logger = flocklab.get_logger()
 
@@ -236,9 +232,7 @@ def main(argv):
             sys.exit(errno.EINVAL)
 
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        logger.warn("Could not read configuration file. Exiting...")
-        sys.exit(errno.EAGAIN)
+    flocklab.load_config()
 
     # Check if a test is preparing, running or cleaning up. If yes, exit program.
     try:

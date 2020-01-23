@@ -232,9 +232,13 @@ function get_admin_emails() {
 #
 ##############################################################################
 */
-function get_user_role($username) {
+function get_user_role($username=null) {
     $db = db_connect();
-    $sql = "SELECT role FROM tbl_serv_users WHERE username = '" . mysqli_real_escape_string($db, $username) . "'";
+    if ($username == null || $username == "") {
+        $sql = "SELECT role FROM tbl_serv_users WHERE serv_users_key=" . $_SESSION['serv_users_key'];
+    } else {
+        $sql = "SELECT role FROM tbl_serv_users WHERE username = '" . mysqli_real_escape_string($db, $username) . "'";
+    }
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot authenticate because: ' . mysqli_error($db));
     $rows = mysqli_fetch_array($rs);
     if ($rows) {
@@ -509,7 +513,6 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
     else {
         $this_runtime = $testconfig->generalConf->scheduleAsap->durationSecs / 60;
     }
-    $db = db_connect();
     // check quota
     // 1. get scheduled tests / time for this user
     $db = db_connect();
@@ -614,19 +617,19 @@ function add_test_mappings($testId, $testconfig) {
             $dbImageId = Array('null');
         for($i = 0; $i<count($observerIds);$i++) {
             $sql =  "SELECT `serv_observer_key`
-                    FROM `tbl_serv_observer`
-                    WHERE `observer_id` = ".$observerIds[$i];
-            $res = mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database because: ' . mysqli_error($db));
+                     FROM `tbl_serv_observer`
+                     WHERE `observer_id` = ".$observerIds[$i];
+            $res = mysqli_query($db, $sql) or flocklab_die('Cannot retrieve observer key from database because: ' . mysqli_error($db));
             $row = mysqli_fetch_assoc($res);
             $obsKey = $row['serv_observer_key'];
             foreach ($dbImageId as $img) {
                 $sql =  "INSERT INTO `tbl_serv_map_test_observer_targetimages` (`observer_fk`, `test_fk`, `targetimage_fk`, `node_id`)
-                    VALUES (
-                    " . $obsKey. ", 
-                    " . $testId . ", 
-                    " . $img . ",
-                    " . mysqli_real_escape_string($db, trim($targedIds[$i])).")";
-                mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database because: ' . mysqli_error($db));
+                         VALUES (
+                        " . $obsKey. ", 
+                        " . $testId . ", 
+                        " . $img . ",
+                        " . mysqli_real_escape_string($db, trim($targedIds[$i])).")";
+                mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database table tbl_serv_map_test_observer_targetimages because: ' . mysqli_error($db));
             }
         }
     }
@@ -698,8 +701,49 @@ function countries() {
     ); 
 }
 
-function explodeobsids($obsids) {
-    return explode(' ', trim(preg_replace('/\s\s+/',' ',$obsids)));
+##############################################################################
+#
+# get_obsids()
+#    generates a string of all available observers of a platform
+#
+##############################################################################
+function get_obsids($platform_fk) {
+    $obsids = "";
+    $userrole = get_user_role("rdaforno");
+    $status = "'online'";
+    if (stripos($userrole, "admin") !== false) {
+        $status .= ", 'develop', 'internal'";
+    } else if (stripos($userrole, "admin") !== false) {
+        $status .= ", 'internal'";
+    }
+    $db = db_connect();
+    $sql = "SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
+            LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
+            WHERE obs.status IN ($status) AND '$platform_fk' IN (slot1.platforms_fk, slot2.platforms_fk, slot3.platforms_fk, slot4.platforms_fk)
+            ORDER BY obsid;";
+    $res = mysqli_query($db, $sql);
+    if ($res) {
+        $obsids = implode(" ", array_column(mysqli_fetch_all($res, MYSQLI_ASSOC), "obsid"));
+    }
+    mysqli_close($db);
+    return $obsids;
+}
+
+function explodeobsids($obsids, $platform_fk=null) {
+    if ($platform_fk != null) {
+        // replace "ALL" with a list of available observers
+        if (stripos($obsids, "ALL") !== false) {
+            $obsids = str_replace("ALL", get_obsids($platform_fk), $obsids);
+        }
+    }
+    return explode(' ', trim(preg_replace('/\s\s+/', ' ', $obsids)));
 }
 
 ##############################################################################
@@ -771,9 +815,9 @@ function resource_freq($duration, $targetnodes) {
 function resource_multiplexer($duration, $targetnodes, $xmlconfig) {
     global $CONFIG;
     $resources = Array();
-    $ignoreObs = Array();
+    //$ignoreObs = Array();
     # get the services which use the mux for the whole test
-    $serviceConfNames = Array('serialConf','gpioTracingConf','gpioActuationConf','powerProfilingConf');
+    /*$serviceConfNames = Array('serialConf','gpioTracingConf','gpioActuationConf','powerProfilingConf');
     foreach($xmlconfig->children() as $c) {
         if (in_array($c->getName(), $serviceConfNames)) {
             if ($c->getName() == 'serialConf' && (!$c->port || $c->port == 'usb'))
@@ -785,12 +829,10 @@ function resource_multiplexer($duration, $targetnodes, $xmlconfig) {
                 }
             }
         }
-    }
+    }*/
     
-//     TODO: if DAQ is used
     foreach($targetnodes as $tn) {
-        if (! in_array($tn['obsid'], $ignoreObs)) {
-// NOTE: for now, just reserve mux for whole duration of test, until a single observer can properly handle parallel tests
+        //if (! in_array($tn['obsid'], $ignoreObs)) {
             if ($duration > ($CONFIG['tests']['guard_starttime'] + $CONFIG['tests']['guard_stoptime']) * 60) {
                 array_push($resources, Array('time_start'=>0, 'time_end'=>($CONFIG['tests']['setuptime'] + $CONFIG['tests']['guard_starttime'])*60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
                 array_push($resources, Array('time_start'=>($CONFIG['tests']['setuptime'] -  $CONFIG['tests']['guard_stoptime']) * 60 + $duration, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'])*60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
@@ -798,7 +840,7 @@ function resource_multiplexer($duration, $targetnodes, $xmlconfig) {
             else {
                 array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'])*60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
             }
-        }
+        //}
     }
     return $resources;
 }
@@ -994,7 +1036,7 @@ function add_resource_allocation($testId, $resources, $starttime) {
                 " . $testId . ",
                 " . $r['obskey'] . ",
                 '" .$r['restype']."')";
-        mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database because: ' . mysqli_error($db));
+        mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database table tbl_serv_resource_allocation because: ' . mysqli_error($db) . '\r\nSQL: ' . $sql);
     }
     mysqli_close($db);
 }
@@ -1118,13 +1160,13 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 foreach($testconfig->targetConf as $tc) {
                     if (count($tc->embeddedImageId)>0) {
                         $eId = trim($tc->embeddedImageId[0]);
-                        foreach (explodeobsids($tc->obsIds) as $obsid)
-                            array_push($targetnodes, Array('obsid'=>(int)$obsid,'platform'=>$embeddedImages[$eId]['platform']));
-                    }
-                    else if (count($tc->dbImageId)>0) {
+                        $pkey = $embeddedImages[$eId]['platform'];
+                    } else if (count($tc->dbImageId)>0) {
                         $dbId = (int)trim($tc->dbImageId[0]);
-                        foreach (explodeobsids($tc->obsIds) as $obsid)
-                            array_push($targetnodes, Array('obsid'=>(int)$obsid,'platform'=>$dbImages[$dbId]['platform']));
+                        $pkey = $dbImages[$dbId]['platform'];
+                    }
+                    foreach (explodeobsids($tc->obsIds, $pkey) as $obsid) {
+                        array_push($targetnodes, Array('obsid' => (int)$obsid, 'platform' => $pkey));
                     }
                 }
                 if (isset($testconfig->generalConf->scheduleAsap->durationSecs)) {
@@ -1148,22 +1190,24 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                     }
                 }
                 else {
-                    $resources = array_merge($resources, resource_slots($duration,$targetnodes));
+                    $resources = array_merge($resources, resource_slots($duration, $targetnodes));
                     # 1b. freq
-                    $resources = array_merge($resources, resource_freq($duration,$targetnodes));
+                    $resources = array_merge($resources, resource_freq($duration, $targetnodes));
                     # 1c. multiplexer
-                    $resources = array_merge($resources, resource_multiplexer($duration,$targetnodes, $testconfig));
+                    $resources = array_merge($resources, resource_multiplexer($duration, $targetnodes, $testconfig));
                 }
                 #flocklab_log('Try to schedule test. Needed resources are: '. print_r($resources, $return = True));
                 # fetch observer keys
                 $db = db_connect();
-                $obskeys=Array();
+                $obskeys = Array();
                 $sql = "select `serv_observer_key`, `observer_id` from tbl_serv_observer";
                 $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch observer information from database because: ' . mysqli_error($db));
-                while ($row = mysqli_fetch_assoc($res))
+                while ($row = mysqli_fetch_assoc($res)) {
                     $obskeys[$row['observer_id']] = $row['serv_observer_key'];
-                foreach ($resources as $i => $r)
+                }
+                foreach ($resources as $i => $r) {
                     $resources[$i]['obskey'] = $obskeys[$r['obsid']];
+                }
                 $locktime = microtime(true);
                 acquire_db_lock('resource_allocation');
                 $r = schedule_test($testconfig, $resources, $existing_test_id);
@@ -1179,7 +1223,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         // update test entry
                         $end = $r['end_time'];
                         $sql = 'UPDATE `tbl_serv_tests` SET `time_end_wish`="'.mysqli_real_escape_string($db, $end->format(DATE_ISO8601)).'", `test_status`="aborting" WHERE `serv_tests_key`='.$existing_test_id;
-                        mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database because: ' . mysqli_error($db));
+                        mysqli_query($db, $sql) or flocklab_die('Cannot remove resource allocation from database: ' . mysqli_error($db));
                         $testId = $existing_test_id;
                         mysqli_close($db);
                         add_resource_allocation($testId, $resources, $r['start_time']);
@@ -1196,7 +1240,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         // strip all embedded images from xml config
                         // add embedded images to db
                         $comment = '';
-                        while(count($testconfig->imageConf) > 0) {
+                        while (count($testconfig->imageConf) > 0) {
                             $imgEId = trim($testconfig->imageConf[0]->embeddedImageId);
                             if ($embeddedImages[$imgEId]['used']) {
                                 $imgId = check_image_duplicate($embeddedImages[$imgEId]);
@@ -1213,15 +1257,17 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                                 // just strip it
                                 unset($embeddedImages[$imgEId]);
                                 $comment.="<!-- stripped embedded image '".$imgEId."', image is not used in this test -->\n";
-                            }    
+                            }
                             unset($testconfig->imageConf[0]);
                         }
                         $xml_config = $testconfig->asXML();
-                        $xml_config = preg_replace('#</testConf>#s',$comment.'</testConf>', $xml_config);
+                        $xml_config = preg_replace('#</testConf>#s', $comment.'</testConf>', $xml_config);
                         foreach ($embeddedImages as $im) {
                             // replace embedded image id with db id
-                            $xml_config = preg_replace('#(<)embedded(ImageId\s*[^>]*>)\s*'.$im['embeddedImageId'].'\s*(</)embedded(ImageId\s*>)#s','${1}db${2}'.$im['dbimgid'].'${3}db${4}',$xml_config);
+                            $xml_config = preg_replace('#(<)embedded(ImageId\s*[^>]*>)\s*'.$im['embeddedImageId'].'\s*(</)embedded(ImageId\s*>)#s', '${1}db${2}'.$im['dbimgid'].'${3}db${4}', $xml_config);
                         }
+                        // replace list of observer IDs
+                        $xml_config = preg_replace('#<obsIds>[^<]*ALL[^<]*</obsIds>#si', '<obsIds>'.implode(" ", array_column($targetnodes, "obsid")).'</obsIds>', $xml_config);
                         // add test to db
                         $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
                         $start->setTimeZone(new DateTimeZone("UTC"));
@@ -1235,14 +1281,14 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                             mysqli_query($db, $sql) or flocklab_die('Cannot modify test: ' . mysqli_error($db));
                             // update test entry
                             $sql =  'UPDATE `tbl_serv_tests` SET
-                            `title`="'.mysqli_real_escape_string($db, trim($testconfig->generalConf->name)).'",
-                            `description`="'.mysqli_real_escape_string($db, trim($testconfig->generalConf->description)).'",
-                            `testconfig_xml`="'.mysqli_real_escape_string($db, trim($xml_config)).'",
-                            `time_start_wish`="'.mysqli_real_escape_string($db, $start->format(DATE_ISO8601)) .'",
-                            `time_end_wish`="'.mysqli_real_escape_string($db, $end->format(DATE_ISO8601)).'",
-                            `test_status`="planned"
-                            WHERE `serv_tests_key`='.$existing_test_id;
-                            mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database because: ' . mysqli_error($db));
+                                     `title`="'.mysqli_real_escape_string($db, trim($testconfig->generalConf->name)).'",
+                                     `description`="'.mysqli_real_escape_string($db, trim($testconfig->generalConf->description)).'",
+                                     `testconfig_xml`="'.mysqli_real_escape_string($db, trim($xml_config)).'",
+                                     `time_start_wish`="'.mysqli_real_escape_string($db, $start->format(DATE_ISO8601)) .'",
+                                     `time_end_wish`="'.mysqli_real_escape_string($db, $end->format(DATE_ISO8601)).'",
+                                     `test_status`="planned"
+                                     WHERE `serv_tests_key`='.$existing_test_id;
+                            mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database table tbl_serv_tests because: ' . mysqli_error($db));
                             $testId = $existing_test_id;
                             mysqli_close($db);
                         }
@@ -1250,15 +1296,15 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                             // add test entry
                             $db = db_connect();
                             $sql =  "INSERT INTO `tbl_serv_tests` (`title`, `description`, `owner_fk`, `testconfig_xml`, `time_start_wish`, `time_end_wish`, `test_status`)
-                            VALUES (
-                            '" . mysqli_real_escape_string($db, trim($testconfig->generalConf->name)) . "', 
-                            '" . mysqli_real_escape_string($db, trim($testconfig->generalConf->description)) . "', 
-                            '" . mysqli_real_escape_string($db, $_SESSION['serv_users_key']) . "',
-                            '" . mysqli_real_escape_string($db, trim($xml_config)) . "',
-                            '" . mysqli_real_escape_string($db, $start->format(DATE_ISO8601)) . "',
-                            '" . mysqli_real_escape_string($db, $end->format(DATE_ISO8601)) . "',
-                            'planned')";
-                            mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database because: ' . mysqli_error($db));
+                                     VALUES (
+                                     '" . mysqli_real_escape_string($db, trim($testconfig->generalConf->name)) . "', 
+                                     '" . mysqli_real_escape_string($db, trim($testconfig->generalConf->description)) . "', 
+                                     '" . mysqli_real_escape_string($db, $_SESSION['serv_users_key']) . "',
+                                     '" . mysqli_real_escape_string($db, trim($xml_config)) . "',
+                                     '" . mysqli_real_escape_string($db, $start->format(DATE_ISO8601)) . "',
+                                     '" . mysqli_real_escape_string($db, $end->format(DATE_ISO8601)) . "',
+                                     'planned')";
+                            mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database table tbl_serv_tests (2) because: ' . mysqli_error($db));
                             $testId = mysqli_insert_id($db);
                             mysqli_close($db);
                         }

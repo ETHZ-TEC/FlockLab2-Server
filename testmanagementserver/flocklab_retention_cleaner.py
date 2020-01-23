@@ -30,18 +30,11 @@ def main(argv):
     ### Global Variables ###
     global logger
 
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-    
     # Get logger:
     logger = flocklab.get_logger()
     
     # Get config ---
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-    #logger.debug("Read configuration file.")
+    flocklab.load_config()
     
     # Get the arguments:
     try:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, os, getopt, errno, subprocess, time, calendar, MySQLdb, tempfile, base64, syslog, re, configparser, traceback, lxml, logging
+import sys, os, getopt, errno, subprocess, time, calendar, MySQLdb, tempfile, base64, syslog, re, configparser, traceback, lxml.etree, logging
 import lib.flocklab as flocklab
 
 
@@ -9,12 +9,12 @@ debug = False
 
 ##############################################################################
 #
-# checkObsids
+# check_obsids
 #    Checks if every observer ID returned by the xpath evaluation is only used
 #    once and if every observer ID is in the list provided in obsidlist.
 #
 ##############################################################################
-def checkObsids(tree, xpathExpr, namespace, obsidlist=None):
+def check_obsids(tree, xpathExpr, namespace, obsidlist=None):
     duplicates = False
     allInList  = True
     
@@ -45,29 +45,7 @@ def checkObsids(tree, xpathExpr, namespace, obsidlist=None):
         return (None, duplicates, allInList)
     else:
         return (sorted(foundObsids), duplicates, allInList)
-### END checkObsids()
-
-
-##############################################################################
-#
-# getXmlTimestamp
-#    Converts XML timestamps to python taking timezone into account.
-#
-##############################################################################
-def getXmlTimestamp(datetimestring):
-    #is there a timezone?
-    m = re.match('([0-9]{4,4}-[0-9]{1,2}-[0-9]{1,2}T[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2})([+-])([0-9]{2,2}):([0-9]{2,2})',datetimestring)
-    if m == None:
-        timestamp = calendar.timegm(time.strptime(datetimestring, "%Y-%m-%dT%H:%M:%SZ"))
-    else:
-        timestamp = calendar.timegm(time.strptime('%s' % (m.group(1)), "%Y-%m-%dT%H:%M:%S"))
-        offset = int(m.group(3))*3600 + int(m.group(4)) * 60
-        if m.group(2)=='-':
-            timestamp = timestamp + offset;
-        else:
-            timestamp = timestamp - offset;
-    return timestamp
-### END getXmlTimestamp()
+### END check_obsids()
 
 
 ##############################################################################
@@ -90,34 +68,6 @@ def usage():
 
 ##############################################################################
 #
-# get_obsids - Get a list of currently available observer IDs of a certain platform.
-#
-##############################################################################
-def get_obsids(cursor=None, platform=None, status=None):
-    if not cursor or not platform or not status:
-        return None
-    cursor.execute("""
-                   SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
-                   LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
-                   WHERE obs.status IN (%s) AND '%s' IN (slot1.name, slot2.name, slot3.name, slot4.name)
-                   ORDER BY obs.observer_id;
-                   """ % (status, platform))
-    obslist = []
-    for rs in cursor.fetchall():
-        obslist.append(rs[0])
-    return obslist
-### END get_obsids()
-
-
-##############################################################################
-#
 # Main
 #
 ##############################################################################
@@ -130,19 +80,10 @@ def main(argv):
     userrole   = ""
     
     # Open the log and create logger:
-    logger = flocklab.get_logger()
-    if not logger:
-        print("Failed to init logger.")
-        sys.exit(errno.EINVAL)
-    if debug:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
+    logger = flocklab.get_logger(debug=debug)
     
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        logger.warn("Could not read configuration file. Exiting...")
-        sys.exit(errno.EAGAIN)
+    flocklab.load_config()
     
     # Get command line parameters.
     try:
@@ -214,16 +155,16 @@ def main(argv):
     
     # Connect to the DB:
     try:
-        db = MySQLdb.connect(host=flocklab.config.get('database','host'), user=flocklab.config.get('database','user'), passwd=flocklab.config.get('database','password'), db=flocklab.config.get('database','database')) 
-        cursor = db.cursor()
+        (cn, cur) = flocklab.connect_to_db()
     except:
-        logger.warn("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        sys.exit(errno.EAGAIN)
-        
+        flocklab.error_logandexit("Could not connect to database", errno.EAGAIN)
+    
     # Check if the user is admin:
-    userrole = flocklab.get_user_role(cursor, userid)
+    if userid is None:
+        userid = flocklab.get_test_owner(cur, testid)[0]
+    userrole = flocklab.get_user_role(cur, userid)
     if userrole is None:
-        logger.warn("Could not determine user role.")
+        logger.warn("Could not determine role for user ID %d." % userid)
         sys.exit(errno.EAGAIN)
     
     # Valid stati for observers based on used permissions
@@ -235,8 +176,6 @@ def main(argv):
     
     # Initialize error counter and set timezone to UTC:
     errcnt = 0;
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
     
     logger.debug("Checking xml flocklab.config...")
     
@@ -246,8 +185,8 @@ def main(argv):
     if testid:
         # Get the XML from the database, put it into a temp file and set the xmlpath accordingly:
         (fd, xmlpath) = tempfile.mkstemp()
-        cursor.execute("SELECT `testconfig_xml`, `owner_fk` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
-        ret = cursor.fetchone()
+        cur.execute("SELECT `testconfig_xml`, `owner_fk` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
+        ret = cur.fetchone()
         if not ret:
             if not quiet:
                 print(("No test found in database with testid %d. Exiting..." %testid))
@@ -316,14 +255,14 @@ def main(argv):
             # The start date and time have to be in the future:
             rs = tree.xpath('//d:generalConf/d:scheduleAbsolute/d:start', namespaces=ns)
             now = time.time()
-            testStart = getXmlTimestamp(rs[0].text)
+            testStart = flocklab.get_xml_timestamp(rs[0].text)
             if (testStart <= now):
                 if not quiet:
                     print("Element generalConf: Start time has to be in the future.")
                 errcnt = errcnt + 1
             # The end date and time have to be in the future and after the start:
             rs = tree.xpath('//d:generalConf/d:scheduleAbsolute/d:end', namespaces=ns)
-            testEnd = getXmlTimestamp(rs[0].text)
+            testEnd = flocklab.get_xml_timestamp(rs[0].text)
             if (testEnd <= testStart):
                 if not quiet:
                     print("Element generalConf: End time has to be after start time.")
@@ -344,11 +283,11 @@ def main(argv):
         obsidlist = []
         obsiddict = {}
         targetconfs = tree.xpath('//d:targetConf', namespaces=ns)
-        platform = None
         for targetconf in targetconfs:
             targetids = None
             dbimageid = None
             embimageid = None
+            platform = None
             # Get elements:
             obsids = targetconf.xpath('d:obsIds', namespaces=ns)[0].text.split()
             ret = targetconf.xpath('d:targetIds', namespaces=ns)
@@ -364,11 +303,6 @@ def main(argv):
                 embimageid = [o.text for o in ret]
                 embimageid_line = [o.sourceline for o in ret]
             
-            # Put obsids into obsidlist:
-            for obsid in obsids:
-                if obsid != "ALL":
-                    obsidlist.append(obsid)
-                
             # If target ids are present, there need to be as many as observer ids:
             if (targetids and (len(targetids) != len(obsids))):
                 if not quiet:
@@ -387,8 +321,8 @@ def main(argv):
                                 WHERE (a.`serv_targetimages_key` = %s AND a.`binary` IS NOT NULL)""" %(dbimg)
                     if "admin" not in userrole:
                         sql += " AND (a.`owner_fk` = %s)"%(userid)
-                    cursor.execute(sql)
-                    ret = cursor.fetchone()
+                    cur.execute(sql)
+                    ret = cur.fetchone()
                     if not ret:
                         if not quiet:
                             print(("Line %d: element dbImageId: The image with ID %s does not exist in the database or does not belong to you." %(line, str(dbimg))))
@@ -456,16 +390,24 @@ def main(argv):
                             errcnt = errcnt + 1
                         # Remove temporary file:
                         os.remove(imagefilename)
-        
+            
+            # Put obsids into obsidlist:
+            for obsid in obsids:
+                if obsid == "ALL":
+                    # expand
+                    rs = flocklab.get_obsids(cur, platform, stati)
+                    if rs:
+                        obsidlist.extend(rs)
+                else:
+                    obsidlist.append(obsid)
+                
         # if there is just one target config and a list of observers is not provided, then fetch a list of all observers from the database
-        if (len(obsidlist) == 0) and len(targetconfs) == 1:
-            obsidlist = get_obsids(cursor, platform, stati)
         if not obsidlist or (len(obsidlist) == 0):
             print("No observer ID found.")
             errcnt = errcnt + 1
-        # Remove dupllicates and check if every observer has the correct target adapter installed:
+        # Remove duplicates and check if every observer has the correct target adapter installed:
         obsidlist = list(set(obsidlist))
-        (obsids, duplicates, allInList) = checkObsids(tree, '//d:targetConf/d:obsIds', ns, obsidlist)
+        (obsids, duplicates, allInList) = check_obsids(tree, '//d:targetConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
                 print("Element targetConf: Some observer IDs have been used more than once.")
@@ -511,8 +453,8 @@ def main(argv):
                 else:
                     platf = None
                 # Get tg_adapt_types_fk of installed target adaptors on observer:
-                cursor.execute(sql_adap %(obsid, stati))
-                adaptTypesFk = cursor.fetchone()
+                cur.execute(sql_adap %(obsid, stati))
+                adaptTypesFk = cur.fetchone()
                 # If no results are returned, it most probably means that the observer is not active at the moment.
                 if not adaptTypesFk:
                     if not quiet:
@@ -526,8 +468,8 @@ def main(argv):
                     for adapt in adaptTypesFk:
                         # Only check for entries which are not null:
                         if adapt:
-                            cursor.execute(sql_platf %(adapt, platf))
-                            rs = cursor.fetchone()
+                            cur.execute(sql_platf %(adapt, platf))
+                            rs = cur.fetchone()
                             if (rs[0] > 0):
                                 adaptFound = True
                                 break
@@ -536,8 +478,8 @@ def main(argv):
                             print(("Element targetConf: Observer ID %s has currently no target adapter for %s installed." %(obsid, platf)))
                         errcnt = errcnt + 1
                 if platf is not None:
-                    cursor.execute(sql_cores %(platf))
-                    core_info = cursor.fetchall()
+                    cur.execute(sql_cores %(platf))
+                    core_info = cur.fetchall()
                     all_cores = [row[0] for row in core_info]
                     required_cores = [row[0] for row in [row for row in core_info if row[1]==0]]
                     provided_cores = list(obsiddict[obsid].keys())
@@ -559,7 +501,7 @@ def main(argv):
         #    * check port depending on platform 
         
         # Check observer ids:
-        (ids, duplicates, allInList) = checkObsids(tree, '//d:serialConf/d:obsIds', ns, obsidlist)
+        (ids, duplicates, allInList) = check_obsids(tree, '//d:serialConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
                 print("Element serialConf: Some observer IDs have been used more than once.")
@@ -574,7 +516,7 @@ def main(argv):
         #    * Every (pin, edge) combination can only be used once.
 
         # Check observer ids:
-        (ids, duplicates, allInList) = checkObsids(tree, '//d:gpioTracingConf/d:obsIds', ns, obsidlist)
+        (ids, duplicates, allInList) = check_obsids(tree, '//d:gpioTracingConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
                 print("Element gpioTracingConf: Some observer IDs have been used more than once.")
@@ -596,15 +538,15 @@ def main(argv):
                 if not quiet:
                     print(("Line %d: element gpioTracingConf: Every (pin, edge) combination can only be used once per observer configuration." %(gpiomonconf.sourceline)))
                 errcnt = errcnt + 1
-                            
-                            
+        
+        
         # gpioActuationConf additional validation ---------------------------
         #    * observer ids need to have a targetConf associated and must be unique
         #    * relative timing commands cannot be after the test end
         #    * absolute timing commands need to be between test start and end and are not allowed for ASAP test scheduling
         
         # Check observer ids:
-        (ids, duplicates, allInList) = checkObsids(tree, '//d:gpioActuationConf/d:obsIds', ns, obsidlist)
+        (ids, duplicates, allInList) = check_obsids(tree, '//d:gpioActuationConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
                 print("Element gpioActuationConf: Some observer IDs have been used more than once.")
@@ -628,7 +570,7 @@ def main(argv):
                     print(("Line %d: element absoluteDateTime: For test scheduling method ASAP, only relative timed actions are allowed." %(elem.sourceline)))
                 errcnt = errcnt + 1
             else:
-                eventTime = getXmlTimestamp(elem.text)
+                eventTime = flocklab.get_xml_timestamp(elem.text)
                 if (eventTime > testEnd):
                     if not quiet:
                         print(("Line %d: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
@@ -645,7 +587,7 @@ def main(argv):
         #    * absolute timing commands need to be between test start and end and are not allowed for ASAP test scheduling
 
         # Check observer ids:
-        (ids, duplicates, allInList) = checkObsids(tree, '//d:powerProfilingConf/d:obsIds', ns, obsidlist)
+        (ids, duplicates, allInList) = check_obsids(tree, '//d:powerProfilingConf/d:obsIds', ns, obsidlist)
         if duplicates:
             if not quiet:
                 print("Element powerProfilingConf: Some observer IDs have been used more than once.")
@@ -680,7 +622,7 @@ def main(argv):
                 errcnt = errcnt + 1
             else:
                 ppMicroSecs = elem.getparent().find('d:absoluteMicrosecs', namespaces=ns)
-                eventTime = getXmlTimestamp(elem.text)
+                eventTime = flocklab.get_xml_timestamp(elem.text)
                 if ppMicroSecs is not None:
                     ppStart = float(ppMicroSecs.text) / 1000000 + eventTime
                 else:
@@ -702,8 +644,8 @@ def main(argv):
     #===========================================================================
     # All additional tests finished. Clean up and exit.
     #===========================================================================
-    if db.open:
-        db.close()
+    if cn.open:
+        cn.close()
     
     # If there is a temp XML file, delete it:
     if testid:

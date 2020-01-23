@@ -30,21 +30,20 @@ def test_startstopabort(testid=None, mode='stop',delay=0):
     
     # change status of test that the next scheduler will skip this test
     try:
-        conn = MySQLdb.connect(host=flocklab.config.get('database','host'), user=flocklab.config.get('database','user'), passwd=flocklab.config.get('database','password'), db=flocklab.config.get('database','database')) 
-        cursor = conn.cursor()
+        (conn, cursor) = flocklab.connect_to_db()
     except:
-        logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.error("Could not connect to the database.")
     
     flocklab.set_test_dispatched(cursor, conn, testid)
 
     # wait for the actual start time of the test
     time.sleep(delay)
     
-    logger.info("Found test ID %d which should be %sed."%(testid, mode))
+    logger.info("Found test ID %d which should be %sed." % (testid, mode))
     # Add testid to logger name
     logger.name += " (Test %d)"%testid
     # Call the dispatcher:
-    cmd = [flocklab.config.get("dispatcher", "dispatcherscript"), '--testid=%d'%testid, '--%s'%mode]
+    cmd = [flocklab.config.get("dispatcher", "dispatcherscript"), '--testid=%d' % testid, '--%s' % mode]
     # Make sure no other instance of the scheduler is running for the same task:
     cmd2 = ['pgrep', '-o', '-f', ' '.join(cmd)]
     p = subprocess.Popen(cmd2, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -60,7 +59,7 @@ def test_startstopabort(testid=None, mode='stop',delay=0):
         p.wait()
         rs = p.returncode
     if (rs != flocklab.SUCCESS):
-        logger.error("Dispatcher to %s test returned with error %d" %(mode, rs))
+        logger.error("Dispatcher to %s test returned with error %d" % (mode, rs))
         logger.debug("Command executed was: %s"%(str(cmd)))
         conn.close()
         return errno.EFAULT
@@ -95,19 +94,12 @@ def main(argv):
     ### Global Variables ###
     global logger
     global debug
-
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
     
     # Get logger:
     logger = flocklab.get_logger()
-    if not logger:
-        flocklab.error_logandexit("Failed to init logger.")
     
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        flocklab.error_logandexit("Could not read configuration file.", errno.EAGAIN)
+    flocklab.load_config()
     
     # Get the arguments:
     try:

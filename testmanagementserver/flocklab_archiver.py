@@ -35,19 +35,12 @@ def main(argv):
     send_email = False
     testid = -1
     
-    # Set timezone to UTC ---
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-    
     # Get logger ---
     logger = flocklab.get_logger()
         
     # Get config ---
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-    #logger.debug("Read configuration file.")
-            
+    flocklab.load_config()
+    
     # Get arguments ---
     try:
         opts, args = getopt.getopt(argv, "ehdt:", ["email", "help", "debug", "testid=" ])

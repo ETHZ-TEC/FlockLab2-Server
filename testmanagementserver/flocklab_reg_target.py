@@ -32,10 +32,6 @@ def main(argv):
     adapterid = None
     platform = None
     ret = flocklab.SUCCESS
-
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
     
     # Get command line parameters.
     try:
@@ -69,9 +65,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
 
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        print("Could not read configuration file.")
-        sys.exit(errno.EAGAIN)
+    flocklab.load_config()
 
     # Check if a test is preparing, running or cleaning up. If yes, exit program.
     try:

@@ -1,13 +1,11 @@
 #! /usr/bin/env python3
 
-import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib, lxml, MySQLdb
+import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib, lxml.etree, MySQLdb
 import lib.flocklab as flocklab
 
 
-PIDFILE = None
-logger  = None
-debug   = False
-
+logger = None
+debug  = False
 
 
 ##############################################################################
@@ -33,14 +31,14 @@ class StopTestThread(threading.Thread):
     def __init__(self, obskey, obsdict_key, errors_queue, testid):
         threading.Thread.__init__(self) 
         self._obskey        = obskey
-        self._obsdict_key    = obsdict_key
-        self._errors_queue    = errors_queue
+        self._obsdict_key   = obsdict_key
+        self._errors_queue  = errors_queue
         self._abortEvent    = threading.Event()
         self._testid        = testid
         
     def run(self):
         try:
-            logger.debug("Start StopTestThread for observer ID %d"%(self._obsdict_key[self._obskey][1]))
+            logger.debug("Start StopTestThread for observer ID %d" % (self._obsdict_key[self._obskey][1]))
             errors = []
             # First test if the observer is online and if the SD card is mounted: 
             cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), "mount | grep /dev/mmcblk0p1"]
@@ -56,11 +54,11 @@ class StopTestThread(threading.Thread):
             if (rs != 0):
                 if (rs == 1):
                     if ("No such file or directory" in err):
-                        msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test."%(self._obsdict_key[self._obskey][1])
+                        msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test." % (self._obsdict_key[self._obskey][1])
                     else:
-                        msg = "Observer ID %s is not reachable (returned: %d: %s, %s)."%(self._obsdict_key[self._obskey][1], rs, out, err)
+                        msg = "Observer ID %s is not reachable (returned: %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
                 else:
-                    msg = "Observer ID %s is not responsive (SSH returned %d)."%(self._obsdict_key[self._obskey][1], rs)
+                    msg = "Observer ID %s is not responsive (SSH returned %d)." % (self._obsdict_key[self._obskey][1], rs)
                 errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))
                 logger.error(msg)
             else:
@@ -79,22 +77,21 @@ class StopTestThread(threading.Thread):
                     out, err = p.communicate()
                 rs = p.returncode
                 if (rs == flocklab.SUCCESS):
-                    logger.debug("Test-stop script on observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
+                    logger.debug("Test stop script on observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
                 elif (rs == 255):
-                    msg = "Observer ID %s is not reachable, thus not able to stop test. Dataloss occurred possibly for this observer."%(self._obsdict_key[self._obskey][1])
+                    msg = "Observer ID %s is not reachable, thus not able to stop test. Dataloss occurred possibly for this observer." % (self._obsdict_key[self._obskey][1])
                     errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))
                     logger.error(msg)
                 else:
-                    msg = "Test-stop script on observer ID %s failed with error code %s and error message %s" %(str(self._obsdict_key[self._obskey][1]), str(errno.errorcode[rs]), str(out))
-                    errors.append((msg, rs, self._obsdict_key[self._obskey][1]))
-                    logger.error(msg)
-                    logger.error("Tried to execute %s"%str(cmd))
+                    errors.append(("Test stop script on observer ID %s failed with error code %s." % (str(self._obsdict_key[self._obskey][1]), str(errno.errorcode[rs])), rs, self._obsdict_key[self._obskey][1]))
+                    logger.error("Test stop script on observer ID %s failed with error message:\n%s" % (str(self._obsdict_key[self._obskey][1]), str(out)))
+                    logger.error("Tried to execute: %s" % (" ".join(cmd)))
         except Error:
             # Main thread requested abort.
             # Close a possibly still running subprocess:
             if (p is not None) and (p.poll() is not None):
                 p.kill()
-            msg = "StopTestThread for observer ID %d aborted."%(self._obsdict_key[self._obskey][1])
+            msg = "StopTestThread for observer ID %d aborted." % (self._obsdict_key[self._obskey][1])
             errors.append((msg, errno.ECOMM, self._obsdict_key[self._obskey][1]))
             logger.error(msg)
         finally:
@@ -128,12 +125,12 @@ class StartTestThread(threading.Thread):
         
     def run(self):
         errors = []
-        testconfigfolder  = "%s/%d" % (flocklab.config.get("observer", "testconfigfolder"), self._testid)
-        obsdataport       = flocklab.config.getint('serialproxy', 'obsdataport')
+        testconfigfolder = "%s/%d" % (flocklab.config.get("observer", "testconfigfolder"), self._testid)
+        obsdataport      = flocklab.config.getint('serialproxy', 'obsdataport')
         try:
             logger.debug("Start StartTestThread for observer ID %d" % (self._obsdict_key[self._obskey][1]))
             # First test if the observer is online and if the SD card is mounted: 
-            cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), "ls ~/mmc/ && mkdir %s" % testconfigfolder]
+            cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), "ls ~/data/ && mkdir %s" % testconfigfolder]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
             while p.returncode == None:
                 self._abortEvent.wait(1.0)
@@ -146,11 +143,11 @@ class StartTestThread(threading.Thread):
             if (rs != 0):
                 if (rs == 1):
                     if ("No such file or directory" in err):
-                        msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test."%(self._obsdict_key[self._obskey][1])
+                        msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test." % (self._obsdict_key[self._obskey][1])
                     else:
-                        msg = "Observer ID %s is not reachable, it will thus be omitted for this test (returned: %d: %s, %s)."%(self._obsdict_key[self._obskey][1], rs, out, err)
+                        msg = "Observer ID %s is not reachable, it will thus be omitted for this test (returned: %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
                 else:
-                    msg = "Observer ID %s is not responsive, it will thus be omitted for this test (SSH returned %d). Command: %s"%(self._obsdict_key[self._obskey][1], rs, " ".join(cmd))
+                    msg = "Observer ID %s is not responsive, it will thus be omitted for this test (SSH returned %d). Command: %s" % (self._obsdict_key[self._obskey][1], rs, " ".join(cmd))
                 errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))
                 logger.error(msg)
             else:
@@ -170,12 +167,11 @@ class StartTestThread(threading.Thread):
                     p.kill()
                 rs = p.returncode
                 if (rs != flocklab.SUCCESS):
-                    msg = "Upload of target image and config XML to observer ID %s failed with error number %d" %(self._obsdict_key[self._obskey][1], rs)
+                    msg = "Upload of target image and config XML to observer ID %s failed with error number %d\nTried to execute: %s" % (self._obsdict_key[self._obskey][1], rs, (" ".join(cmd)))
                     errors.append((msg, rs, self._obsdict_key[self._obskey][1]))
                     logger.error(msg)
-                    logger.error("Tried to execute %s" %(str(cmd)))
                 else:
-                    logger.debug("Upload of target image and config XML to observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
+                    logger.debug("Upload of target image and config XML to observer ID %s succeeded." % (self._obsdict_key[self._obskey][1]))
                     # Start the script on the observer which starts the test:
                     remote_cmd = flocklab.config.get("observer", "starttestscript") + " --testid=%d --xml=%s/%s --serialport=%d" % (self._testid, testconfigfolder, os.path.basename(self._xmldict_key[self._obskey][0]), obsdataport)
                     if debug:
@@ -188,31 +184,30 @@ class StartTestThread(threading.Thread):
                         p.poll()
                     if self._abortEvent.is_set():
                         p.kill()
+                        flocklab.debug("Abort is set, start test process for observer %s killed." % (self._obsdict_key[self._obskey][1]))
                     else:
                         out, err = p.communicate()
                     rs = p.wait()
                     if rs != flocklab.SUCCESS:
-                        msg = "Test-start script on observer ID %s failed with error code %s and error message %s" %(self._obsdict_key[self._obskey][1], errno.errorcode[rs], str(out))
-                        errors.append((msg, rs, self._obsdict_key[self._obskey][1]))
-                        logger.error(msg)
-                        logger.error("Tried to execute %s" %(str(cmd)))
+                        errors.append(("Test start script on observer ID %s failed with error code %s." % (self._obsdict_key[self._obskey][1], errno.errorcode[rs]), rs, self._obsdict_key[self._obskey][1]))
+                        logger.error("Test start script on observer ID %s failed with error message:\n%s" % (str(self._obsdict_key[self._obskey][1]), str(out)))
+                        logger.error("Tried to execute: %s" % (" ".join(cmd)))
                     else:
-                        logger.debug("Test-start script on observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
-                        # Remove image file and xml on server:
-                        os.remove(self._xmldict_key[self._obskey][0])
-                        logger.debug("XML FILE %s NOT REMOVED" % self._xmldict_key[self._obskey][0])    # TODO
-                        #DEBUG logger.debug("Removed XML config %s for observer ID %s"%(self._xmldict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
-                        if self._obskey in list(self._imagedict_key.keys()):
-                            for image in self._imagedict_key[self._obskey]:
-                                os.remove(image[0])
-                                #DEBUG logger.debug("Removed target image %s for observer ID %s"%(self._imagedict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
+                        logger.debug("Test start script on observer ID %s succeeded." % (self._obsdict_key[self._obskey][1]))
+                    # Remove image file and xml on server:
+                    os.remove(self._xmldict_key[self._obskey][0])
+                    logger.debug("Removed XML config %s for observer ID %s" % (self._xmldict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
+                    if self._obskey in list(self._imagedict_key.keys()):
+                        for image in self._imagedict_key[self._obskey]:
+                            os.remove(image[0])
+                            logger.debug("Removed target image %s for observer ID %s" % (self._imagedict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
             
         except Error:
             # Main thread requested abort.
             # Close a possibly still running subprocess:
             if (p is not None) and (p.poll() is not None):
                 p.kill()
-            msg = "StartTestThread for observer ID %d aborted."%(self._obsdict_key[self._obskey][1])
+            msg = "StartTestThread for observer ID %d aborted." % (self._obsdict_key[self._obskey][1])
             errors.append((msg, errno.ECOMM, self._obsdict_key[self._obskey][1]))
             logger.error(msg)
         finally:
@@ -243,8 +238,8 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
         out, err = p.communicate()
         rs = p.returncode
         if rs != 0:
-            logger.error("Error %s returned from %s"%(str(rs), flocklab.config.get('dispatcher','validationscript')))
-            logger.error("Tried to execute %s"%str(cmd))
+            logger.error("Error %s returned from %s" % (str(rs), flocklab.config.get('dispatcher','validationscript')))
+            logger.error("Tried to execute: %s" % (" ".join(cmd)))
             errors.append("Validation of XML failed. Output of script was: %s %s" % (str(out), str(err)))
         
         if len(errors) == 0:
@@ -255,7 +250,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             # Get start/stop time ---
             cur.execute("SELECT `time_start_wish`, `time_end_wish`, `owner_fk` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" %testid)
             # Times are going to be of datetime type:
-            ret = cur.fetchone() 
+            ret = cur.fetchone()
             starttime = ret[0]
             stoptime  = ret[1]
             owner_fk = ret[2]
@@ -318,15 +313,15 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             rs = p.wait()
                             if rs != 0:
                                 logger.error("Error %d returned from %s" % (rs, set_symbols_tool))
-                                logger.error("Tried to execute %s"%str(cmd))
+                                logger.error("Tried to execute: %s" % (" ".join(cmd)))
                                 errors.append("Could not set node ID %s for target image %s" %(str(node_id), str(tgimage_key)))
                             else:
                                 logger.debug("Set symbols and converted file to ihex.")
                                 # Remove the temporary exe file
                                 os.remove("%s.exe"%imagepath)
-                                #logger.debug("Removed intermediate image %s.exe"%(str(imagepath)))
+                                #logger.debug("Removed intermediate image %s.exe" % (str(imagepath)))
                         except OSError as err:
-                            msg = "Error in subprocess: tried calling %s. Error was: %s"%(str(cmd), str(err))
+                            msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
                             logger.error(msg)
                             errors.append(msg)
                             removeimage = False
@@ -337,12 +332,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             rs = p.wait()
                             if rs != 0:
                                 logger.error("Error %d returned from msp430-objcopy" %rs)
-                                logger.error("Tried to execute %s"%str(cmd))
+                                logger.error("Tried to execute: %s" % (" ".join(cmd)))
                                 errors.append("Could not convert target image %s to ihex" %str(tgimage_key))
                             else:
                                 logger.debug("Converted file to ihex.")
                         except OSError as err:
-                            msg = "Error in subprocess: tried calling %s. Error was: %s"%(str(cmd), str(err))
+                            msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
                             logger.error(msg)
                             errors.append(msg)
                             removeimage = False
@@ -366,12 +361,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             rs = p.wait()
                             if rs != 0:
                                 logger.error("Error %d returned from %s" % (rs, set_symbols_tool))
-                                logger.error("Tried to execute %s"%str(cmd))
+                                logger.error("Tried to execute: %s" % (" ".join(cmd)))
                                 errors.append("Could not set node ID %s for target image %s" %(str(node_id), str(tgimage_key)))
                             else:
                                 logger.debug("Set symbols and converted file to bin.")
                         except OSError as err:
-                            msg = "Error in subprocess: tried calling %s. Error was: %s"%(str(cmd), str(err))
+                            msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
                             logger.error(msg)
                             errors.append(msg)
                             removeimage = False
@@ -381,7 +376,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         rs = p.wait()
                         if rs != 0:
                             logger.error("Error %d returned from arm-linux-gnu-objcopy" %rs)
-                            logger.error("Tried to execute %s"%str(cmd))
+                            logger.error("Tried to execute: %s" % (" ".join(cmd)))
                             errors.append("Could not convert target image %s to bin" %str(tgimage_key))
                         else:
                             logger.debug("Converted file to bin.")
@@ -399,9 +394,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 # Remove the original file which is not used anymore:
                 if removeimage:
                     os.remove(imagepath)
-                    #logger.debug("Removed image %s"%(str(imagepath)))
+                    #logger.debug("Removed image %s" % (str(imagepath)))
                 else:
-                    logger.warn("Image %s has not been removed."%(str(imagepath)))
+                    logger.warn("Image %s has not been removed." % (str(imagepath)))
                 
                 
                 # Slot detection ---
@@ -410,7 +405,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 ret = flocklab.get_slot(cur, int(obs_fk), platname)
                 if ret in range(1,5):
                     slot = ret
-                    logger.debug("Found adapter for %s on observer ID %s in slot %d"%(platname, obs_id, slot))
+                    logger.debug("Found adapter for %s on observer ID %s in slot %d" % (platname, obs_id, slot))
                 elif ret == 0:
                     slot = None
                     msg = "Could not find an adapter for %s on observer ID %s" %(platname, obs_id)
@@ -438,8 +433,8 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 errors.append(msg)
                 logger.error(msg)
             else:
-                parser = xml.etree.XMLParser(remove_comments=True)
-                tree = xml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+                parser = lxml.etree.XMLParser(remove_comments=True)
+                tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
                 ns = {'d': flocklab.config.get('xml', 'namespace')}
                 logger.debug("Got XML from database.")
                 # Create XML files ---
@@ -476,14 +471,14 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         xmldict_key[obskey][1].write("\t<voltage>%s</voltage>\n"%voltage)
                         if noImageSlot:
                             slot = noImageSlot
-                            xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n"%(slot))
+                            xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (slot))
                         else:
-                            xmldict_key[obskey][1].write("\t<firmware>%s</firmware>\n"%(imagedict_key[obskey][0][4]))
+                            xmldict_key[obskey][1].write("\t<firmware>%s</firmware>\n" % (imagedict_key[obskey][0][4]))
                             for coreimage in imagedict_key[obskey]:
-                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s%d/%s</image>\n"%(coreimage[5], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
-                            xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n"%(imagedict_key[obskey][0][1]))
-                            xmldict_key[obskey][1].write("\t<platform>%s</platform>\n"%(imagedict_key[obskey][0][2]))
-                            xmldict_key[obskey][1].write("\t<os>%s</os>\n"%(imagedict_key[obskey][0][3]))
+                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s%d/%s</image>\n" % (coreimage[5], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
+                            xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (imagedict_key[obskey][0][1]))
+                            xmldict_key[obskey][1].write("\t<platform>%s</platform>\n" % (imagedict_key[obskey][0][2]))
+                            xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][3]))
                             slot = imagedict_key[obskey][0][1]
                         xmldict_key[obskey][1].write("</obsTargetConf>\n\n")
                         #logger.debug("Wrote obsTargetConf XML for observer ID %s" %obsid)
@@ -700,12 +695,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             # Get all errors (if any). Observers which return errors are not regarded as a general error. In this
             # case, the test is just started without the faulty observers if there is at least 1 observer that succeeded:
             obs_error = []
-            if not errors_queue.empty():
-                logger.error("Queue with errors from test start thread is not empty. Getting errors...")
+            #if not errors_queue.empty():
+                #logger.error("Queue with errors from test start thread is not empty. Getting errors...")
             while not errors_queue.empty():
                 errs = errors_queue.get()
                 for err in errs[1]:
-                    logger.error("Error from test start thread for observer %s: %s" %(str(err[2]), str(err[0])))
+                    #logger.error("Error from test start thread for observer %s: %s" %(str(err[2]), str(err[0])))
                     obs_error.append(err[2])
                     warnings.append(err[0])
             # Check if there is at least 1 observer which succeeded:
@@ -725,10 +720,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 rs = p.wait()
                 if (rs != 0):
-                    msg = "Serial proxy for test ID %d could not be started. Serial proxy returned %d."%(testid, rs)
+                    msg = "Serial proxy for test ID %d could not be started (error code %d)." % (testid, rs)
                     errors.append(msg)
                     logger.error(msg)
-                    logger.debug("Executed command was: %s"%(str(cmd)))
+                    logger.debug("Executed command was: %s" % (str(cmd)))
                 else:
                     logger.debug("Started serial proxy.")
     
@@ -741,17 +736,17 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             p = subprocess.Popen(cmd)
             rs = p.wait()
             if rs != 0:
-                msg = "Could not start database fetcher for test ID %d. Fetcher returned error %d"%(testid, rs)
+                msg = "Could not start database fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
                 errors.append(msg)
                 logger.error(msg)
-                logger.error("Tried to execute %s"%str(cmd))
+                logger.error("Tried to execute: %s" % (" ".join(cmd)))
 
         # check if we're still in time
         # 
         now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
         cur.execute("SELECT `serv_tests_key` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d AND `time_start_wish` <= '%s'" % (testid, now))
         if cur.fetchone() is not None:
-            msg = "Setup for test ID %d took too much time."%(testid)
+            msg = "Setup for test ID %d took too much time." % (testid)
             errors.append(msg)
             logger.error(msg)
 
@@ -783,15 +778,15 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             out, err = p.communicate()
             rs = p.returncode
             if rs == 0:
-                #logger.debug("Output of atq is: %s"%(out))
+                #logger.debug("Output of atq is: %s" % (out))
                 stopTimeString = str(stoptime).split()[1]
                 if not out or stopTimeString not in out:
-                    logger.debug("Scheduling scheduler for %s +%ds using at command..."%(stoptime, lag))
+                    logger.debug("Scheduling scheduler for %s +%ds using at command..." % (stoptime, lag))
                     (fd, tmppath) = tempfile.mkstemp()
                     tmpfile = os.fdopen(fd, 'w')
                     # The at command can only schedule with a minute resolution. Thus let the script sleep for the time required and add some slack:
-                    tmpfile.write("sleep %d;\n"%(stoptime.second+lag))
-                    tmpfile.write("%s "%(flocklab.config.get("dispatcher", "schedulerscript")))
+                    tmpfile.write("sleep %d;\n" % (stoptime.second+lag))
+                    tmpfile.write("%s " % (flocklab.config.get("dispatcher", "schedulerscript")))
                     if debug:
                         tmpfile.write("--debug ")
                     tmpfile.write(">> /dev/null 2>&1\n")
@@ -803,13 +798,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     # Delete the temp script:
                     os.unlink(tmppath)
                     if rs != 0:
-                        msg = "Could not schedule scheduler for test ID %d. at command returned error %d"%(testid, rs)
+                        msg = "Could not schedule scheduler for test ID %d. at command returned error %d" % (testid, rs)
                         warnings.append(msg)
                         logger.error(msg)
-                        logger.error("Tried to execute %s"%str(cmd))
-                    else:
-                        logger.debug("Scheduled scheduler.")
-
+                        logger.error("Tried to execute: %s" % (" ".join(cmd)))
                 else:
                     logger.debug("Already scheduler scheduled for %s"%stoptime)
             else:
@@ -817,7 +809,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
 
         return (errors, warnings)
     except Exception:
-        msg = "Unexpected error: %s: %s\n%s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        msg = "Unexpected error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         print(msg)
         logger.warn(msg)
         raise
@@ -854,8 +846,8 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             errors.append(msg)
             logger.error(msg)
         else:
-            parser = xml.etree.XMLParser(remove_comments=True)
-            tree = xml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+            parser = lxml.etree.XMLParser(remove_comments=True)
+            tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
             ns = {'d': flocklab.config.get('xml', 'namespace')}
             logger.debug("Got XML from database.")
             # only stop serialproxy if remote IP specified in xml
@@ -868,10 +860,10 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 rs = p.wait()
                 if (rs != 0):
-                    msg = "Serial proxy for test ID %d could not be stopped. Serial proxy returned %d."%(testid, rs)
+                    msg = "Serial proxy for test ID %d could not be stopped. Serial proxy returned %d." % (testid, rs)
                     errors.append(msg)
                     logger.error(msg)
-                    logger.debug("Executed command was: %s"%(str(cmd)))
+                    logger.debug("Executed command was: %s" % (str(cmd)))
                 else:
                     logger.debug("Stopped serial proxy.")
         
@@ -919,18 +911,18 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         p = subprocess.Popen(cmd)
         rs = p.wait()
         if rs not in (flocklab.SUCCESS, errno.ENOPKG): # flocklab.SUCCESS (0) is successful stop, ENOPKG (65) means the service was not running. 
-            msg = "Could not stop database fetcher for test ID %d. Fetcher returned error %d"%(testid, rs)
+            msg = "Could not stop database fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
             errors.append(msg)
             logger.error(msg)
-            logger.error("Tried to execute %s"%str(cmd))
+            logger.error("Tried to execute: %s" % (" ".join(cmd)))
     
         # Get all errors (if any). Observers which return errors are not regarded as a general error.
-        if not errors_queue.empty():
-            logger.error("Queue with errors from test stop thread is not empty. Getting errors...")
+        #if not errors_queue.empty():
+            #logger.error("Queue with errors from test stop thread is not empty. Getting errors...")
         while not errors_queue.empty():
             errs = errors_queue.get()
             for err in errs[1]:
-                logger.error("Error from test stop thread: %s" %(str(err[0])))
+                #logger.error("Error from test stop thread: %s" %(str(err[0])))
                 warnings.append(err[0])
         
         # Set stop time in DB ---
@@ -939,7 +931,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         
         return (errors, warnings)
     except Exception:
-        msg = "Unexpected error: %s: %s\n%s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        msg = "Unexpected error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         print(msg)
         logger.warn(msg)
         raise
@@ -969,8 +961,8 @@ def prepare_testresults(testid, cur):
     cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
     ret = cur.fetchone()
     if ret:
-        parser = xml.etree.XMLParser(remove_comments=True)
-        tree = xml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
+        parser = lxml.etree.XMLParser(remove_comments=True)
+        tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
         ns = {'d': flocklab.config.get('xml', 'namespace')}
         logger.debug("Got XML from database.")
         # Check if user wants results as email
@@ -999,9 +991,9 @@ def prepare_testresults(testid, cur):
         p = subprocess.Popen(cmd)
         rs = p.wait()
         if rs not in (flocklab.SUCCESS, errno.EUSERS): # flocklab.SUCCESS (0) is successful stop, EUSERS (87) means the maximum number of allowed instances is reached. 
-            msg = "Could not trigger archiver. Archiver returned error %d"%(rs)
+            msg = "Could not trigger archiver. Archiver returned error %d" % (rs)
             logger.error(msg)
-            logger.error("Tried to execute %s"%str(cmd))
+            logger.error("Tried to execute: %s" % (" ".join(cmd)))
             errors.append(msg)
             return errors
         if rs == errno.EUSERS:
@@ -1028,7 +1020,7 @@ def evalute_linkmeasurement(testid, cur):
     if ret and ret[0]==flocklab.config.get('linktests', 'user'):
         logger.debug("Evaluating link measurements.")
         cmd = [flocklab.config.get('dispatcher', 'testtolinkmapscript')]
-        p = subprocess.Popen(cmd)                
+        p = subprocess.Popen(cmd)
         rs = p.wait()
         if rs != flocklab.SUCCESS:
             msg = "Error %s returned from testtolinkmap script" % str(rs)
@@ -1090,7 +1082,7 @@ def inform_user(testid, cur, job, errors, warnings):
         disable_infomails = int(rs[5])
         # Only send email to test owner if she didn't disable reception of info mails or if there were warnings/errors:
         if ((len(warnings) != 0) or (len(errors) != 0) or (disable_infomails != 1)):
-            flocklab.send_mail(subject="[FlockLab %s] %s"%(name, subj), message=msg, recipients=owner_email)
+            flocklab.send_mail(subject="[FlockLab Dispatcher] %s" % (subj), message=msg, recipients=owner_email)
     else:
         msg = "Error %s returned when trying to get test owner information" % str(rs)
         logger.error(msg)
@@ -1098,21 +1090,6 @@ def inform_user(testid, cur, job, errors, warnings):
     
     return ret
 ### END inform_user()
-
-
-##############################################################################
-#
-# write_errwarn
-#
-##############################################################################
-def write_errwarn(testid, cur, cn, errors, warnings):
-    for warn in warnings:
-        logger.warn(warn)
-        flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=warn)
-    for err in errors:
-        logger.error(err)
-        flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=err)
-### END write_errwarn()
 
 
 ##############################################################################
@@ -1129,6 +1106,7 @@ def relative2absolute_time(starttime, relative_secs, relative_microsecs):
     return (absolute_microsecs, absolute_datetime)
 ### END relative2absolute_time()
 
+
 ##############################################################################
 #
 # absolute2absoluteUTC_time -  Convert a absolute time string with time zone from the XML config into 
@@ -1136,7 +1114,7 @@ def relative2absolute_time(starttime, relative_secs, relative_microsecs):
 #
 ##############################################################################
 def absolute2absoluteUTC_time(timestring):
-  tempdatetime = flocklab.getXmlTimestamp(timestring)
+  tempdatetime = flocklab.get_xml_timestamp(timestring)
   absolute_datetime = time.strftime(flocklab.config.get("observer", "timeformat"), time.gmtime(tempdatetime))
   
   return absolute_datetime
@@ -1197,26 +1175,21 @@ def usage():
 #
 ##############################################################################
 def main(argv):
-    global PIDFILE
     global logger
     global debug
+    
     testid = None
     action = None
     errors = []
     warnings = []
-        
-    # Set timezone to UTC:
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
     
     # Get logger:
     logger = flocklab.get_logger()
     
     # Get the config file:
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-    PIDFILE = "%s/%s" %(flocklab.config.get("tests", "pidfolder"), "flocklab_dispatcher.pid")
+    flocklab.load_config()
+    
+    pidfile = "%s/%s" %(flocklab.config.get("tests", "pidfolder"), "flocklab_dispatcher.pid")
     
     # Get the arguments:
     try:
@@ -1261,195 +1234,195 @@ def main(argv):
         logger.warn("Wrong API usage")
         sys.exit(errno.EINVAL)
 
-    try:            
-        #logger.info("Called dispatcher with test ID %d" %testid)
+    # Add testid to logger name
+    logger.name += " (Test %d)"%testid
         
-        # Add testid to logger name
-        logger.name += " (Test %d)"%testid
-            
-        # Get PID of process and write it to pid file:
-        if not os.path.isdir(os.path.dirname(PIDFILE)):
-            shutil.rmtree(PIDFILE, ignore_errors=True)
-        if not os.path.exists(os.path.dirname(PIDFILE)):
-            os.makedirs(os.path.dirname(PIDFILE))
-        open(PIDFILE,'w').write("%d"%(os.getpid()))
-        #logger.debug("Wrote pid %d into file %s" %(os.getpid(), PIDFILE))
+    # Get PID of process and write it to pid file:
+    if not os.path.isdir(os.path.dirname(pidfile)):
+        shutil.rmtree(pidfile, ignore_errors=True)
+    if not os.path.exists(os.path.dirname(pidfile)):
+        os.makedirs(os.path.dirname(pidfile))
+    open(pidfile,'w').write("%d" % (os.getpid()))
+    #logger.debug("Wrote pid %d into file %s" %(os.getpid(), pidfile))
+    
+    # Connect to the database:
+    try:
+        (cn, cur) = flocklab.connect_to_db()
+    except:
+        msg = "Could not connect to database"
+        flocklab.error_logandexit(msg, errno.EAGAIN)
+    #logger.debug("Connected to database")
         
-        # Connect to the database:
+    # Check test ID:
+    ret = flocklab.check_test_id(cur, testid)
+    if (ret != 0):
+        cur.close()
+        cn.close()
         try:
-            (cn, cur) = flocklab.connect_to_db()
-        except:
-            msg = "Could not connect to database"
-            flocklab.error_logandexit(msg, errno.EAGAIN)
-        #logger.debug("Connected to database")
-            
-        # Check test ID:
-        ret = flocklab.check_test_id(cur, testid)
-        if (ret != 0):
-            cur.close()
-            cn.close()
-            try:
-                os.remove(PIDFILE)
-            except OSError:
-                pass        
-            if ret == 3:
-                msg = "Test ID %d does not exist in database." %testid
-                flocklab.error_logandexit(msg, errno.EINVAL)
-            else:
-                msg = "Error when trying to get test ID from database: %s: %s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-                flocklab.error_logandexit(msg, errno.EIO)
-        else:
-            logger.debug("Checking test ID %d passed"%testid)
-            
-        # Build obsdict_key, obsdict_id ---
-        # Get all observers which are used in the test and build a dictionary out of them:
-        sql =      """    SELECT `a`.serv_observer_key, `a`.observer_id, `a`.ethernet_address
-                    FROM `tbl_serv_observer` AS `a` 
-                    LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `b` 
-                        ON `a`.serv_observer_key = `b`.observer_fk 
-                    WHERE `b`.test_fk = %d;
-                """
-        cur.execute(sql%testid)
-        ret = cur.fetchall()
-        if not ret:
-            logger.debug("No used observers found in database for test ID %d. Exiting..." %testid)
-            logger.debug("Setting test status in DB to 'failed'...")
-            status = 'failed'
-            flocklab.set_test_status(cur, cn, testid, status)
-            cur.close()
-            cn.close()
-            try:
-                os.remove(PIDFILE)
-            except OSError:
-                pass
-            sys.exit(errno.EINVAL)
-        obsdict_key = {}
-        obsdict_id = {}
-        for obs in ret:
-            # Dict searchable by serv_observer_key:
-            obsdict_key[obs[0]] = (obs[0], obs[1], obs[2])
-            # Dict searchable by observer_id:
-            obsdict_id[obs[1]] = (obs[0], obs[1], obs[2])
-        
-        
-        # Start/stop/abort test ---
-        if (action == 'start'):
-            # Try to start test:
-            starttime = time.time()
-            errors, warnings = start_test(testid, cur, cn, obsdict_key, obsdict_id)
-            # Record time needed to set up test for statistics in DB:
-            time_needed = time.time() - starttime
-            sql =      """    UPDATE `tbl_serv_tests`
-                        SET `setuptime` = %d
-                        WHERE `serv_tests_key` = %d;
-                    """
-            cur.execute(sql%(int(time_needed), testid))
-            cn.commit()
-            if len(errors) != 0:
-                # Test start failed. Make it abort:
-                logger.warn("Going to abort test because of errors when trying to start it.")
-            # Write errors and warnings to DB:
-            write_errwarn(testid, cur, cn, errors, warnings)
-            # Inform user:
-            ret = inform_user(testid, cur, action, errors, warnings)
-        elif ((action == 'stop') or (action == 'abort')):
-            # Stop test:
-            if action == 'abort':
-                abort = True
-            else:
-                abort = False
-            starttime = time.time()
-            errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
-            # Record time needed to set up test for statistics in DB:
-            time_needed = time.time() - starttime
-            sql =      """    UPDATE `tbl_serv_tests`
-                        SET `cleanuptime` = %d
-                        WHERE `serv_tests_key` = %d;
-                    """
-            cur.execute(sql%(int(time_needed), testid))
-            cn.commit()
-            # Inform user:
-            ret = inform_user(testid, cur, action, errors, warnings)
-            # Write errors and warnings to DB:
-            write_errwarn(testid, cur, cn, errors, warnings)
-            # Wait until test has status synced or no more fetcher is running:
-            status = flocklab.get_test_status(cur, cn, testid)
-            while (status not in ('synced', 'finished', 'failed')):
-                logger.debug("Fetcher has not yet set test status to 'synced', 'finished' or 'failed' (currently in status '%s'). Going to sleep 5s..."%(status))
-                # Disconnect from database (important to avoid timeout for longer processing)
-                try:
-                    cur.close()
-                    cn.close()
-                except:
-                    pass
-                time.sleep(5)
-                # Reconnect to the database:
-                try:
-                    (cn, cur) = flocklab.connect_to_db()
-                except:
-                    msg = "Could not connect to database"
-                    flocklab.error_logandexit(msg, errno.EAGAIN)
-                    continue # try to connect again in 5s
-                status = flocklab.get_test_status(cur, cn, testid)
-                if (flocklab.get_fetcher_pid(testid) < 0):
-                    # no fetcher is running: set test status to failed
-                    status = 'failed'
-                    break
-            logger.debug("Fetcher has set test status to '%s'."%status)
-            
-            # Check the actual runtime: if < 0, test failed
-            cur.execute("SELECT TIME_TO_SEC(TIMEDIFF(`time_end_act`, `time_start_act`)) FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
-            test_runtime = int(cur.fetchone()[0])
-            if test_runtime < 0:
-                logger.info("Negative runtime detected, marking test as 'failed'.")
-            
-            # Prepare testresults:
-            if (len(errors) == 0) and (test_runtime > 0):
-                err = prepare_testresults(testid, cur)
-                for e in err:
-                    errors.append(e)
-                # Evaluate link measurement:
-                err = evalute_linkmeasurement(testid, cur)
-                for e in err:
-                    errors.append(e)
-            # Update DB status and statistics:
-            if (len(errors) == 0) and (test_runtime > 0):
-                status = 'finished'
-            else:
-                status = 'failed'
-            logger.debug("Setting test status in DB to '%s'..."%status)
-            flocklab.set_test_status(cur, cn, testid, status)
-            logger.info("Test %d is stopped."%testid)
-            
-        # Close db connection ---
-        try:
-            cur.close()
-            cn.close()
-        except:
+            os.remove(pidfile)
+        except OSError:
             pass
+        if ret == 3:
+            msg = "Test ID %d does not exist in database." %testid
+            flocklab.error_logandexit(msg, errno.EINVAL)
+        else:
+            msg = "Error when trying to get test ID from database: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+            flocklab.error_logandexit(msg, errno.EIO)
+    else:
+        logger.debug("Checking test ID %d passed"%testid)
         
-        # Inform admins of errors and exit ---
-        if ((len(errors) > 0) or (len(warnings) > 0)):
-            msg = "The test %s with ID %d reported the following errors/warnings:\n\n" %(action, testid)
-            for error in errors:
-                msg = msg + "\t * ERROR: %s\n" %(str(error))
-            for warn in warnings:
-                msg = msg +  "\t * WARNING: %s\n" %(str(warn))
-            logger.debug("Finished with %d errors and %d warnings"%(len(errors), len(warnings)))
-            flocklab.error_logandexit(msg, errno.EFAULT)
-    except Exception:
-        msg = "Unexpected error: %s: %s\n%s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        print(msg)
-        flocklab.error_logandexit(msg, errno.EFAULT)
+    # Build obsdict_key, obsdict_id ---
+    # Get all observers which are used in the test and build a dictionary out of them:
+    sql =      """    SELECT `a`.serv_observer_key, `a`.observer_id, `a`.ethernet_address
+                FROM `tbl_serv_observer` AS `a` 
+                LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `b` 
+                    ON `a`.serv_observer_key = `b`.observer_fk 
+                WHERE `b`.test_fk = %d;
+            """
+    cur.execute(sql%testid)
+    ret = cur.fetchall()
+    if not ret:
+        logger.debug("No used observers found in database for test ID %d. Exiting..." %testid)
+        logger.debug("Setting test status in DB to 'failed'...")
+        status = 'failed'
+        flocklab.set_test_status(cur, cn, testid, status)
+        cur.close()
+        cn.close()
+        try:
+            os.remove(pidfile)
+        except OSError:
+            pass
+        sys.exit(errno.EINVAL)
+    obsdict_key = {}
+    obsdict_id = {}
+    for obs in ret:
+        # Dict searchable by serv_observer_key:
+        obsdict_key[obs[0]] = (obs[0], obs[1], obs[2])
+        # Dict searchable by observer_id:
+        obsdict_id[obs[1]] = (obs[0], obs[1], obs[2])
+    
+    # Start/stop/abort test ---
+    if (action == 'start'):
+        # Try to start test:
+        starttime = time.time()
+        errors, warnings = start_test(testid, cur, cn, obsdict_key, obsdict_id)
+        # Record time needed to set up test for statistics in DB:
+        time_needed = time.time() - starttime
+        sql =      """    UPDATE `tbl_serv_tests`
+                    SET `setuptime` = %d
+                    WHERE `serv_tests_key` = %d;
+                """
+        cur.execute(sql%(int(time_needed), testid))
+        cn.commit()
+        if len(errors) != 0:
+            # Test start failed. Make it abort:
+            logger.warn("Going to abort test because of errors when trying to start it.")
+        # Write errors and warnings to DB:
+        for warn in warnings:
+            flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=warn)
+        for err in errors:
+            flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=err)
+        # Inform user:
+        ret = inform_user(testid, cur, action, errors, warnings)
+    
+    elif ((action == 'stop') or (action == 'abort')):
+        # Stop test:
+        if action == 'abort':
+            abort = True
+        else:
+            abort = False
+        starttime = time.time()
+        errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
+        # Record time needed to set up test for statistics in DB:
+        time_needed = time.time() - starttime
+        sql =      """    UPDATE `tbl_serv_tests`
+                    SET `cleanuptime` = %d
+                    WHERE `serv_tests_key` = %d;
+                """
+        cur.execute(sql%(int(time_needed), testid))
+        cn.commit()
+        # Write errors and warnings to DB:
+        for warn in warnings:
+            flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=warn)
+        for err in errors:
+            flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=err)
+        # Inform user:
+        ret = inform_user(testid, cur, action, errors, warnings)
+        # Wait until test has status synced or no more fetcher is running:
+        status = flocklab.get_test_status(cur, cn, testid)
+        while (status not in ('synced', 'finished', 'failed')):
+            logger.debug("Fetcher has not yet set test status to 'synced', 'finished' or 'failed' (currently in status '%s'). Going to sleep 5s..." % (status))
+            # Disconnect from database (important to avoid timeout for longer processing)
+            try:
+                cur.close()
+                cn.close()
+            except:
+                pass
+            time.sleep(5)
+            # Reconnect to the database:
+            try:
+                (cn, cur) = flocklab.connect_to_db()
+            except:
+                msg = "Could not connect to database"
+                flocklab.error_logandexit(msg, errno.EAGAIN)
+                continue # try to connect again in 5s
+            status = flocklab.get_test_status(cur, cn, testid)
+            if (flocklab.get_fetcher_pid(testid) < 0):
+                # no fetcher is running: set test status to failed
+                status = 'failed'
+                break
+        logger.debug("Fetcher has set test status to '%s'."%status)
+        
+        # Check the actual runtime: if < 0, test failed
+        cur.execute("SELECT TIME_TO_SEC(TIMEDIFF(`time_end_act`, `time_start_act`)) FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
+        test_runtime = int(cur.fetchone()[0])
+        if test_runtime < 0:
+            logger.info("Negative runtime detected, marking test as 'failed'.")
+        
+        # Prepare testresults:
+        if (len(errors) == 0) and (test_runtime > 0):
+            err = prepare_testresults(testid, cur)
+            for e in err:
+                errors.append(e)
+            # Evaluate link measurement:
+            err = evalute_linkmeasurement(testid, cur)
+            for e in err:
+                errors.append(e)
+        # Update DB status and statistics:
+        if (len(errors) == 0) and (test_runtime > 0):
+            status = 'finished'
+        else:
+            status = 'failed'
+        logger.debug("Setting test status in DB to '%s'..."%status)
+        flocklab.set_test_status(cur, cn, testid, status)
+        logger.info("Test %d is stopped."%testid)
+        
+    # Close db connection ---
+    try:
+        cur.close()
+        cn.close()
+    except:
+        pass
+    
+    # Inform admins of errors and exit ---
+    if ((len(errors) > 0) or (len(warnings) > 0)):
+        msg = "The test %s with ID %d reported the following errors/warnings:\n\n" % (action, testid)
+        for error in errors:
+            msg = msg + "\t * ERROR: %s\n" %(str(error))
+        for warn in warnings:
+            msg = msg +  "\t * WARNING: %s\n" %(str(warn))
+        flocklab.error_logandexit(msg)
+
     sys.exit(flocklab.SUCCESS)
         
 ### END main()
+
 
 if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Exception:
         msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN)
+        flocklab.error_logandexit(msg)
 
 

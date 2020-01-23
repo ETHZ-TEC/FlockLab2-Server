@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import os, sys, getopt, traceback, MySQLdb, signal, time, errno, subprocess, logging, __main__, multiprocessing, queue, threading, select, socket, io, lxml
+import os, sys, getopt, traceback, MySQLdb, signal, time, errno, subprocess, logging, __main__, multiprocessing, queue, threading, select, socket, io, lxml.etree
 import lib.daemon as daemon
 import lib.flocklab as flocklab
 
@@ -89,6 +89,7 @@ def obs_connect_process(conreqQueue, condoneQueue, _stopevent):
                 worklist.remove(w)
             except ConnectionRefusedError:
                 logger.info("Could not connect to observer %s on port %d, will retry later.." % (w[0],w[1]))
+                time.sleep(2)
             except Exception:
                 logger.info("Could not connect to observer %s on port %d: %s, %s\n%s" % (w[0], w[1], str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
                 pass
@@ -109,6 +110,7 @@ def update_configuration_from_db():
     proxystartport = flocklab.config.getint('serialproxy', 'startport')
     obsdataport = flocklab.config.getint('serialproxy', 'obsdataport')
     proxyConfig = []
+    logger.debug("Updating configuration from DB...")
     try:
         (cn, cur) = flocklab.connect_to_db()
         cur.execute('SET time_zone="+0:00"')
@@ -393,7 +395,7 @@ def start_proxy():
     # Catch kill signals ---
     signal.signal(signal.SIGTERM, sigterm_handler)
     signal.signal(signal.SIGINT,  sigterm_handler)
-    logger.info("Daemon started")
+    logger.info("Serial proxy daemon started.")
     proxy = ProxyConnections()
     proxy.reloadConfiguration(proxyConfig)
     proxy.run()
@@ -407,40 +409,36 @@ def start_proxy():
 ##############################################################################
 def sig_proxy(signum):
     # Get oldest running instance of the proxy for the selected test ID which is the main process and send it the terminate signal:
-    try:
-        searchterm = "%s" % __file__
-        cmd = ['pgrep', '-o', '-f', searchterm]
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-        out, err = p.communicate()
-        if (p.returncode == 0):
-            pid = int(out)
-            # Do not stop this instance if it is the only one running:
-            if (pid == os.getpid()):
-                raise
-        else:
-            logger.warn("Command failed: %s" % (str(cmd)))
-            raise
-        # Signal the process to stop:
-        if (pid > 0):
-            logger.debug("Sending signal %d to process %d" %(signum, pid))
-            try:
-                os.kill(pid, signum)
-                if signum == signal.SIGTERM:
-                    logger.debug("Waiting for process to finish...")
-                    # wait for process to finish (timeout..)
-                    shutdown_timeout = flocklab.config.getint("serialproxy", "shutdown_timeout")
-                    pidpath = "/proc/%d"%pid
-                    while os.path.exists(pidpath) & (shutdown_timeout>0):
-                        time.sleep(1)
-                        shutdown_timeout = shutdown_timeout - 1
-                    if os.path.exists(pidpath):
-                        logger.warn("Serial proxy is still running, sending it the SIGKILL signal...")
-                        os.kill(pid, signal.SIGKILL)
-            except:
-                logger.warn("Failed to send SIGKILL: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-    except (ValueError):
-        logger.debug("Serial proxy daemon was not running, thus it cannot be stopped.")
+    searchterm = "%s" % __file__
+    cmd = ['pgrep', '-o', '-f', searchterm]
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    out, err = p.communicate()
+    if (p.returncode == 0):
+        pid = int(out)
+        # Do not stop this instance if it is the only one running:
+        if (pid == os.getpid()):
+            return errno.ENOPKG
+    else:
+        logger.warn("Command failed: %s" % (str(cmd)))
         return errno.ENOPKG
+    # Signal the process to stop:
+    if (pid > 0):
+        logger.debug("Sending signal %d to process %d" %(signum, pid))
+        try:
+            os.kill(pid, signum)
+            if signum == signal.SIGTERM:
+                logger.debug("Waiting for process to finish...")
+                # wait for process to finish (timeout..)
+                shutdown_timeout = flocklab.config.getint("serialproxy", "shutdown_timeout")
+                pidpath = "/proc/%d"%pid
+                while os.path.exists(pidpath) & (shutdown_timeout>0):
+                    time.sleep(1)
+                    shutdown_timeout = shutdown_timeout - 1
+                if os.path.exists(pidpath):
+                    logger.warn("Serial proxy is still running, sending it the SIGKILL signal...")
+                    os.kill(pid, signal.SIGKILL)
+        except:
+            logger.warn("Failed to send SIGKILL: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
     
     return flocklab.SUCCESS
 ### END sig_proxy
@@ -477,18 +475,12 @@ def main(argv):
     start = False
     notify = False
     
-    # Set timezone to UTC ---
-    os.environ['TZ'] = 'UTC'
-    time.tzset()
-    
     # Get logger:
-    logger = flocklab.get_logger()
-        
+    logger = flocklab.get_logger(debug=debug)
+    
     # Get the config file ---
-    if flocklab.load_config() != flocklab.SUCCESS:
-        msg = "Could not read configuration file. Exiting..."
-        flocklab.error_logandexit(msg, errno.EAGAIN)
-
+    flocklab.load_config()
+    
     # Get command line parameters ---
     try:
         opts, args = getopt.getopt(argv, "hnsed", ["help", "notify", "start", "stop", "debug"])
@@ -498,15 +490,14 @@ def main(argv):
         usage()
         sys.exit(errno.EINVAL)
     except:
-        msg = "Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-        flocklab.error_logandexit(msg, errno.EAGAIN)
+        logger.error("Error when getting arguments: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])), errno.EAGAIN)
+        sys.exit(errno.EINVAL)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
             usage()
             sys.exit(flocklab.SUCCESS)
         elif opt in ("-d", "--debug"):
             debug = True
-            logger.debug("Detected debug flag.")
             logger.setLevel(logging.DEBUG)
         elif opt in ("-e", "--stop"):
             stop = True
@@ -523,16 +514,20 @@ def main(argv):
     ret = flocklab.SUCCESS
     if stop:
         ret = sig_proxy(signal.SIGTERM)
+        logger.debug("SIGTERM sent to serial proxy daemon.")
     elif notify:
         ret = sig_proxy(signal.SIGINT)
-    if start or notify and ret == errno.ENOPKG:
+        logger.debug("SIGINT sent to serial proxy daemon.")
+    
+    if start or (notify and ret == errno.ENOPKG):
         # Start the proxy processes:
         ret = flocklab.SUCCESS
         try:
+            logger.debug("Starting serial proxy...")
             start_proxy()
         except Exception:
-            logger.info(traceback.format_exc())
-            raise
+            logger.error("Failed to start serial proxy daemon.\n%s" % traceback.format_exc())
+            ret = flocklab.FAILED
         
     sys.exit(ret)
 ### END main()
@@ -542,5 +537,4 @@ if __name__ == "__main__":
     try:
         main(sys.argv[1:])
     except Exception:
-        msg = "Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv))
-        flocklab.error_logandexit(msg, errno.EAGAIN)
+        flocklab.error_logandexit("Encountered error: %s: %s\n%s\nCommand line was: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc(), str(sys.argv)))
