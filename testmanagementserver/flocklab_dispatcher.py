@@ -673,13 +673,13 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 thread.join(timeout=(flocklab.config.getint('tests','setuptime')*0.75*60))
                 if thread.isAlive():
                     # Timeout occurred. Signal the thread to abort:
-                    logger.error("Telling thread for test start on observer ID %s to abort..." %(str(obsdict_key[obskey][1])))
+                    logger.error("Telling thread for test start on observer ID %s to abort..." % (str(obsdict_key[obskey][1])))
                     thread.abort()
             # Wait again for the aborted threads:
             for (thread, obskey) in thread_list:    
                 thread.join(timeout=10)
                 if thread.isAlive():
-                    msg = "Thread for test start on observer ID %s is still alive but should be aborted now." %(str(obsdict_key[obskey][1]))
+                    msg = "Thread for test start on observer ID %s timed out and will be aborted now." % (str(obsdict_key[obskey][1]))
                     errors.append(msg)
                     logger.error(msg)
             # -- END OF CRITICAL SECTION where dispatcher accesses used observers

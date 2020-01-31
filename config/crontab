@@ -4,7 +4,7 @@
 CRONLOG=/home/flocklab/logs/cron.log
 
 * *       * * *  /home/flocklab/testmanagementserver/flocklab_scheduler.py --debug >> $CRONLOG 2>&1
-*/10 *    * * *  /home/flocklab/testmanagementserver/flocklab_cleaner.py --debug >> $CRONLOG 2>&1
+0 *       * * *  /home/flocklab/testmanagementserver/flocklab_cleaner.py --debug >> $CRONLOG 2>&1
 0 5       * * *  /home/flocklab/testmanagementserver/flocklab_retention_cleaner.py --debug >> $CRONLOG 2>&1
 0 0       * * *  /usr/sbin/logrotate --state /home/flocklab/logrotate.state /home/flocklab/logrotate >> $CRONLOG 2>&1
 0 2       * * 1  php /home/flocklab/webserver/update_stats.php >> $CRONLOG 2>&1
