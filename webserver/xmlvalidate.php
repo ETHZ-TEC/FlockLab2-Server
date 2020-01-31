@@ -8,9 +8,6 @@
      * __id__          = "$Id$"
      * __source__      = "$URL$" 
      */
-     
-    //DEBUG ini_set('display_errors', 1);
-    //DEBUG error_reporting(E_ALL); 
 ?>
 <?php require_once('include/layout.php');require_once('include/presets.php'); ?>
 <?php

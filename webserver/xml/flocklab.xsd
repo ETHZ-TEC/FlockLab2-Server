@@ -405,8 +405,7 @@
 <!-- Type definition for samling divider of a power profile -->
 <xs:simpleType name="powerProfSamplingDividerType">
   <xs:restriction base="xs:integer">
-    <xs:minInclusive value="1"/>
-    <xs:maxInclusive value="128"/>
+    <xs:pattern value="1|2|4|8|16|32|64|640|6400|64000"/>
   </xs:restriction>
 </xs:simpleType>
 
