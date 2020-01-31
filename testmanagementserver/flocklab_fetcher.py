@@ -52,7 +52,7 @@ class ServiceInfo():
     def __init__(self, servicename):
         self.servicename = servicename
         self.files = []
-        self.pattern = "^%s_[0-9]*\.db$" % servicename
+        self.pattern = "^%s_[0-9]+\.[a-z]+$" % servicename
     
     def matchFileName(self, filename):
         return re.search(self.pattern, os.path.basename(filename)) is not None
@@ -158,7 +158,7 @@ def convert_error_log(obsdata, observer_id, node_id):
 #
 # read_from_db_file: Read from an open DB file from an observer
 #
-##############################################################################        
+##############################################################################
 def read_from_db_file(dbfile):
     _buf = dbfile.read(4)
     if len(_buf) < 4:
@@ -269,18 +269,22 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
 def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, slotcalib_factor=1, slotcalib_offset=0, vizimgdir=None, viz_f=None, logqueue=None):
     try:
         _errors = []
-        #cur_p = multiprocessing.current_process()
+        cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
-        obsdbfile_path = "%s/%s" % (fdir,f)
-        #loggername = "(%s).(Observer %d)" % (cur_p.name, obsid)
+        obsdbfile_path = "%s/%s" % (fdir, f)
+        loggername = "(%s).(Observer %d)" % (cur_p.name, obsid)
 
         with open(resultfile_path, "a") as outfile:
-                infile = open(obsdbfile_path, "r")
-                for line in infile:
-                        outfile.write("%s,%s,%s" % (obsid, nodeid, str(line)))
-                infile.close()
-
-        #os.remove(obsdbfile_path)
+            infile = open(obsdbfile_path, "r")
+            for line in infile:
+                try:
+                    (timestamp, pin, level) = line.split(',')
+                    outfile.write("%s,%s,%s,%s,%s" % (timestamp, obsid, nodeid, pin, level))
+                except ValueError:
+                    logqueue.put_nowait((loggername, logging.ERROR, "Could not parse line '%s' in gpiotracing worker process." % line))
+                    break
+            infile.close()
+        os.remove(obsdbfile_path)
 
         processeditem = list(queueitem)
         processeditem[0] = ITEM_PROCESSED
@@ -309,9 +313,13 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcali
         _errors = []
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
-        obsdbfile_path = "%s/%s" % (fdir,f)
-        loggername = "(%s).(Observer %d)" % (cur_p.name, obsid)
-        
+        obsdbfile_path = "%s/%s" % (fdir, f)
+        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
+        resultsfile = "%s_%s.%s" % (os.path.splitext(resultfile_path)[0], obsid, os.path.splitext(resultfile_path)[1])
+        # TODO for now, just move the file without modifying it
+        os.rename(obsdbfile_path, resultsfile)
+        logger.debug("File '%s' moved to '%s'." % (obsdbfile_path, resultsfile))
+        '''
         with open(resultfile_path, "a") as outfile:
             infile = open(obsdbfile_path, "r")
             for line in infile:
@@ -319,7 +327,7 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcali
             infile.close()
         
         os.remove(obsdbfile_path)
-        logger.debug("Finished with powerprof collection.")
+        '''
         processeditem = list(queueitem)
         processeditem[0] = ITEM_PROCESSED
         
@@ -383,7 +391,7 @@ class LogQueueThread(threading.Thread):
                 self._logger.log(loglevel, loggername + msg)
             except queue.Empty:
                 pass
-                        
+        
         # Stop the process:
         self._logger.info("LogQueueThread stopped")
 ### END LogQueueThread
@@ -413,7 +421,7 @@ class FetchObsThread(threading.Thread):
         
     def run(self):
         try:
-            self._loggerprefix = "(FetchObsThread).(Observer %d): "%self._obsid
+            self._loggerprefix = "(FetchObsThread.Obs%d) "%self._obsid
             self._logger.info(self._loggerprefix + "FetchObsThread starting...")
             removelast = True
                 
@@ -437,7 +445,7 @@ class FetchObsThread(threading.Thread):
                 rs = p.returncode
                 if (rs == flocklab.SUCCESS):
                     services = {}
-                    for servicename in [ "gpio_setting","gpio_monitor","powerprofiling","serial" ]:
+                    for servicename in [ "gpio_setting", "gpio_monitor", "powerprofiling", "serial" ]:
                         services[servicename] = ServiceInfo(servicename)
                         services["error_%s"%servicename] = ServiceInfo("error_%s"%servicename)
                     # Read filenames
@@ -454,14 +462,14 @@ class FetchObsThread(threading.Thread):
                         for dbfile in service.files:
                             copyfilelist.append(dbfile)
                         #if (len(service.files) > 0):
-                        #    self._logger.debug(self._loggerprefix + "Will process files %s for service %s" % (service.files, service.servicename))
+                        #    self._logger.debug(self._loggerprefix + "Will process files %s for service %s" % (" ".join(service.files), service.servicename))
                     
                     if len(copyfilelist) > 0:
                         # Download the database files:
-                        self._logger.debug(self._loggerprefix + "Downloading database files...")
+                        self._logger.debug(self._loggerprefix + "Downloading database files %s" % (" ".join(copyfilelist)))
                         cmd = ['scp', '-q' ]
                         cmd.extend(["%s:%s" % (self._obsethernet, x) for x in copyfilelist])
-                        cmd.append("%s/"%self._obsfiledir)
+                        cmd.append("%s/" % self._obsfiledir)
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                         out, err = p.communicate(None)
                         rs = p.wait()
@@ -469,7 +477,7 @@ class FetchObsThread(threading.Thread):
                             self._logger.debug(self._loggerprefix + "Could not download all DB files from observer. Dataloss occurred for this observer.")
                             self._logger.debug(self._loggerprefix + "Tried to execute %s, result was %d, stdout: %s, error: %s" % (str(cmd), rs, out, err))
                         else:
-                            #self._logger.debug("Downloaded all observer DB files from observer.")
+                            self._logger.debug("Downloaded result DB files from observer.")
                             # put a copy to the debug directory
                             for f in copyfilelist:
                                 fname = os.path.basename(f)
@@ -505,7 +513,8 @@ class FetchObsThread(threading.Thread):
                         out, err = p.communicate(None)
                         rs = p.wait()
                         if (rs != flocklab.SUCCESS):
-                            self._logger.error(self._loggerprefix + "Could not remove db directory from observer, result was %d, stdout: %s, error: %s" % (rs, out, err))
+                            self._logger.error(self._loggerprefix + "Could not remove results directory from observer, result was %d, stdout: %s, error: %s" % (rs, out, err))
+                    
                 else:
                     self._logger.error(self._loggerprefix + "SSH to observer did not succeed, result was %d, error: %s" % (rs, err))
                     break   # abort
@@ -541,11 +550,11 @@ def start_fetcher():
     except:
         flocklab.error_logandexit("Could not connect to database", errno.EAGAIN)
     try:
-        cur.execute("""    SELECT `a`.observer_id, `a`.ethernet_address 
-                        FROM `tbl_serv_observer` AS `a` 
-                            LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `b` ON `a`.serv_observer_key = `b`.observer_fk 
-                        WHERE `b`.test_fk = %d GROUP BY `a`.observer_id;
-                    """ %testid)
+        cur.execute("""SELECT `a`.observer_id, `a`.ethernet_address 
+                       FROM `tbl_serv_observer` AS `a` 
+                       LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `b` ON `a`.serv_observer_key = `b`.observer_fk 
+                       WHERE `b`.test_fk = %d GROUP BY `a`.observer_id;
+                    """ % testid)
     except MySQLdb.Error as err:
         msg = str(err)
         flocklab.error_logandexit(msg, errno.EIO)
@@ -561,10 +570,10 @@ def start_fetcher():
         
     # Start fetcher threads ---
     # Create a directory structure to store the downloaded files from the DB:
-    obsfiledir = "%s/%d" %(flocklab.config.get('fetcher', 'obsfile_dir'), testid)
+    obsfiledir = "%s/%d" % (flocklab.config.get('fetcher', 'obsfile_dir'), testid)
     if not os.path.exists(obsfiledir):
         os.makedirs(obsfiledir)
-    obsfiledebugdir = "%s/%d" %(flocklab.config.get('fetcher', 'obsfile_debug_dir'), testid)
+    obsfiledebugdir = "%s/%d" % (flocklab.config.get('fetcher', 'obsfile_debug_dir'), testid)
     if not os.path.exists(obsfiledebugdir):
         os.makedirs(obsfiledebugdir)
         #DEBUG logger.debug("Created %s"%obsfiledir)
@@ -618,13 +627,15 @@ def stop_fetcher():
                     time.sleep(1)
                     shutdown_timeout = shutdown_timeout - 1
                 if os.path.exists(pidpath):
-                    logger.warn("Fetcher is still running.")
+                    logger.error("Fetcher is still running, killing process...")
+                    # send kill signal
+                    os.kill(pid, signal.SIGKILL)
+                    raise ValueError
             except:
                 pass
         else:
             raise ValueError
-    except (ValueError):
-        logger.debug("Fetcher daemon was not running, thus it cannot be stopped.")
+    except ValueError:
         # Set DB status in order to allow dispatcher and scheduler to go on.:
         logger.debug("Setting test status in DB to 'synced'...")
         try:
@@ -878,9 +889,9 @@ def main(argv):
             tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
             ns = {'d': flocklab.config.get('xml', 'namespace')}
             for service, xmlname in servicesUsed_dict.items():
-                if tree.xpath('//d:%s'%xmlname, namespaces=ns):
+                if tree.xpath('//d:%s' % xmlname, namespaces=ns):
                     servicesUsed_dict[service] = True
-                    logger.debug("Usage of %s detected."%service)
+                    logger.debug("Usage of %s detected." % service)
                 else:
                     servicesUsed_dict[service] = False
         except:
@@ -912,10 +923,10 @@ def main(argv):
         testresultsdir = "%s/%d" %(flocklab.config.get('fetcher', 'testresults_dir'), testid)
         if not os.path.exists(testresultsdir):
             os.makedirs(testresultsdir)
-            logger.debug("Created %s"%testresultsdir)
+            logger.debug("Created %s" % testresultsdir)
         manager = multiprocessing.Manager()
         for service in ('errorlog', 'gpiotracing', 'gpioactuation', 'powerprofiling', 'serial', 'powerprofilingstats'):
-            path = "%s/%s.csv" %(testresultsdir, service)
+            path = "%s/%s.csv" % (testresultsdir, service)
             lock = manager.Lock()
             testresultsfile_dict[service] = (path, lock)
             # Create file and write header:
@@ -1015,14 +1026,21 @@ def main(argv):
         vizimgdir = flocklab.config.get('viz','imgdir')
         commitsize = flocklab.config.getint('fetcher', 'commitsize')
         enableviz = flocklab.config.getint('viz','enablepreview')
-        loggerprefix = "(Mainloop): " 
+        loggerprefix = "(Mainloop) "
         workmanager = WorkManager()
         # Main loop ---
         while 1:
-            if mainloop_stop and workmanager.finished() and FetchObsThread_queue.empty():
-                # exit main loop
-                logger.debug("work manager has nothing more to do, finishing up..")
-                break
+            if mainloop_stop:
+                if workmanager.finished() and FetchObsThread_queue.empty():
+                    # exit main loop
+                    logger.debug("Work manager has nothing more to do, finishing up..")
+                    break
+                else:
+                    if FetchObsThread_queue.empty():
+                        logger.debug("Received stop signal, but the fetcher queue is not yet empty...")
+                    else:
+                        logger.debug("Received stop signal, but workmanager is still busy...")
+                    time.sleep(5)
             # Wait for FetchObsThreads to put items on queue:
             try:
                 item = FetchObsThread_queue.get(block=True, timeout=5)
@@ -1044,48 +1062,38 @@ def main(argv):
             nodeid = obsdict_byid[obsid][0]
             callback_f = worker_callback
             worker_f = worker_convert_and_aggregate
-            quick_test = False
             # Match the filename against the patterns and schedule an appropriate worker function:
             if (re.search("^gpio_setting_[0-9]{14}\.db$", f) != None):
-                #logger.debug(loggerprefix + "File %s contains GPIO setting results"%f)
                 pool        = service_pools_dict['gpioactuation']
-                worker_args    = [nextitem, nodeid, testresultsfile_dict['gpioactuation'][0], testresultsfile_dict['gpioactuation'][1], commitsize, vizimgdir, parse_gpio_setting, convert_gpio_setting, None, logqueue]
-            elif (re.search("^gpio_monitor_[0-9]{14}\.db$", f) != None):
-                #logger.debug(loggerprefix + "File %s contains GPIO monitoring results"%f)
+                worker_args = [nextitem, nodeid, testresultsfile_dict['gpioactuation'][0], testresultsfile_dict['gpioactuation'][1], commitsize, vizimgdir, parse_gpio_setting, convert_gpio_setting, None, logqueue]
+            elif (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
                 pool        = service_pools_dict['gpiotracing']
+                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], obsdict_byid[obsid][1][1], obsdict_byid[obsid][1][0], vizimgdir, None, logqueue]
+                worker_f    = worker_gpiotracing
                 logger.debug(loggerprefix + "resultfile_path: %s" % str(testresultsfile_dict['gpiotracing'][0]))
                 logger.debug(loggerprefix + "queue item: %s" % str(nextitem))
                 logger.debug(loggerprefix + "node id: %s" % str(nodeid))
-                worker_args    = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], obsdict_byid[obsid][1][1], obsdict_byid[obsid][1][0], vizimgdir, None, logqueue]
-                worker_f    = worker_gpiotracing
-                quick_test = True
-                if (enableviz == 1):
-                    worker_args[6] = flocklab.viz_gpio_monitor
-            elif (re.search("^powerprofiling_[0-9]{14}\.db$", f) != None):
-                #logger.debug(loggerprefix + "File %s contains power profiling results"%f)
+                #if (enableviz == 1):
+                #    worker_args[6] = flocklab.viz_gpio_monitor
+            elif (re.search("^powerprofiling_[0-9]{14}\.rld$", f) != None):
                 # Power profiling has a special worker function which parses the whole file in a C module:
                 pool        = service_pools_dict['powerprofiling'] 
                 worker_args = [nextitem, nodeid, testresultsfile_dict['powerprofiling'][0], obsdict_byid[obsid][1][1], obsdict_byid[obsid][1][0], vizimgdir, None, logqueue, PpStatsQueue]
                 worker_f    = worker_powerprof
-                if (enableviz == 1):
-                    worker_args[6] = flocklab.viz_powerprofiling
+                #if (enableviz == 1):
+                #    worker_args[6] = flocklab.viz_powerprofiling
             elif (re.search("^serial_[0-9]{14}\.db$", f) != None):
                 #logger.debug(loggerprefix + "File %s contains serial service results"%f)
                 pool        = service_pools_dict['serial']
-                worker_args    = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, vizimgdir, parse_serial, convert_serial, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, vizimgdir, parse_serial, convert_serial, None, logqueue]
             elif (re.search("^error_.*_[0-9]{14}\.db$", f) != None):
                 logger.debug(loggerprefix + "File %s contains error logs"%f)
                 pool        = service_pools_dict['errorlog']
-                worker_args    =  [nextitem, nodeid, testresultsfile_dict['errorlog'][0], testresultsfile_dict['errorlog'][1], commitsize, vizimgdir, parse_error_log, convert_error_log, None, logqueue]
+                worker_args =  [nextitem, nodeid, testresultsfile_dict['errorlog'][0], testresultsfile_dict['errorlog'][1], commitsize, vizimgdir, parse_error_log, convert_error_log, None, logqueue]
             else:
                 logger.warn(loggerprefix + "DB file %s/%s from observer %s did not match any of the known patterns" %(fdir, f, obsid))
                 continue
             # Schedule worker function from the service's pool. The result will be reported to the callback function.
-            if quick_test:
-                logger.debug("GPIO MONITOR GETS STARTED")
-            else:
-                logger.debug("OTHER SERVICE DATA GETS COLLECTED")
-
             pool.apply_async(func=worker_f, args=tuple(worker_args), callback=callback_f)
         # Stop signal for main loop has been set ---
         # Stop worker pool:
@@ -1128,7 +1136,7 @@ def main(argv):
         if os.path.exists(flocklab.config.get('fetcher', 'obsfile_debug_dir')):
             for d in [fn for fn in os.listdir(flocklab.config.get('fetcher', 'obsfile_debug_dir')) if os.stat("%s/%s" % (flocklab.config.get('fetcher', 'obsfile_debug_dir'), fn)).st_mtime < int(time.time()) - int(flocklab.config.get('fetcher', 'obsfile_debug_dir_max_age_days')) * 24 * 3600]:
                 shutil.rmtree("%s/%s" % (flocklab.config.get('fetcher', 'obsfile_debug_dir'),d))
-        if len(errors) > 1:
+        if len(errors) > 0:
             msg = ""
             for error in errors:
                 msg += error

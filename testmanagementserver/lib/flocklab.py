@@ -111,6 +111,8 @@ def get_logger(loggername=scriptname, debug=False):
         logger = logging.getLogger(loggername)
         if debug:
             logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
     except:
         log_fallback("[FlockLab %s] Could not open logger because: %s, %s" %(str(loggername), str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         logger = None

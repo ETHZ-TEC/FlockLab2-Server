@@ -177,7 +177,7 @@ def main(argv):
     # Initialize error counter and set timezone to UTC:
     errcnt = 0;
     
-    logger.debug("Checking xml flocklab.config...")
+    logger.debug("Checking XML config...")
     
     #===========================================================================
     # If a testid was given, get the xml from the database

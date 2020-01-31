@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import sys, os, getopt, errno, traceback, logging, time, __main__, shutil, glob, datetime
+import sys, os, getopt, errno, traceback, logging, time, __main__, shutil, glob, datetime, subprocess
 import lib.flocklab as flocklab
 
 
@@ -90,7 +90,6 @@ def main(argv):
                      FROM `tbl_serv_tests` 
                      WHERE (`test_status` = 'todelete')
                   """
-            #logger.info("Looking in DB for tests which are marked to be deleted...")
             if ( cur.execute(sql) <= 0 ):
                 logger.info("No tests found which are marked to be deleted.")
             else:
@@ -133,9 +132,9 @@ def main(argv):
                     # Delete test itself ---
                     if delete_all:
                         # Delete test itself:
-                        sql =    """    DELETE FROM `tbl_serv_tests` 
-                                WHERE (`serv_tests_key` = %s)
-                            """
+                        sql =    """DELETE FROM `tbl_serv_tests` 
+                                    WHERE (`serv_tests_key` = %s)
+                                 """
                         starttime = time.time()
                         num_deleted_rows = cur.execute(sql%(testid))
                         cn.commit()
@@ -157,12 +156,61 @@ def main(argv):
                     logger.debug("Removing viz cache %s..."%path)
                     shutil.rmtree(path)
             
+            # Check for tests that are stuck for 60 minutes ---
+            sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
+                     WHERE `test_status` IN ('preparing', 'aborting', 'syncing', 'synced')
+                     AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, NOW()) > 60
+                  """
+            if cur.execute(sql) <= 0:
+                logger.info("No tests found which are marked to be deleted.")
+            else:
+                rs = cur.fetchall()
+                testids = []
+                for testid in rs:
+                    testids.append(str(testid[0]))
+                # set test status to failed
+                sql = "UPDATE `tbl_serv_tests` SET `test_status`='failed' WHERE `serv_tests_key` IN (%s)" % (", ".join(testids))
+                logger.debug("SQL query: %s" % sql)
+                cur.execute(sql)
+                cn.commit()
+                msg = "Found %d stuck tests in the database (IDs: %s). Test status set to 'failed'." % (len(rs), ", ".join(testids))
+                logger.debug(msg)
+                emails = flocklab.get_admin_emails(cur)
+                if emails != flocklab.FAILED:
+                    flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
+            
+            # Check for stuck threads that have been running for more than 1 day
+            cmd = ["ps", "-U", "flocklab", "-o", "pid:5=,cmd:50=,etime="]
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            out, err = p.communicate()
+            lines = out.strip().split("\n")
+            pids = []
+            for line in lines:
+                try:
+                    pid = int(line[0:6].strip())
+                    command = line[6:56].strip()
+                    runtime = line[56:].strip()
+                    if ("flocklab_fetcher" in command) and ("-" in runtime):
+                        pids.append(pid)
+                except:
+                    logger.debug("Failed to parse output from 'ps'. Line was: %s" % line)
+                    break
+            if len(pids) > 0:
+                # kill the stuck threads
+                for pid in pids:
+                    os.kill(pid, signal.SIGKILL)
+                msg = "%d stuck threads terminated (PIDs: %s" % (len(pids), ", ".join(pids))
+                logger.debug(msg)
+                emails = flocklab.get_admin_emails(cur)
+                if emails != flocklab.FAILED:
+                    flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
+            
         except:
             msg = "Encountered error: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             logger.error(msg)
-            emails = flocklab.get_admin_emails(cur, config)
+            emails = flocklab.get_admin_emails(cur)
             msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
-            flocklab.send_mail(subject="[FlockLab %s]"%name, message=msg, recipients=emails)
+            flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
         finally:
             cur.close()
             cn.close()

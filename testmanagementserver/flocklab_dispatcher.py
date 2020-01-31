@@ -463,7 +463,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         else:
                             xmldict_key[obskey][1].write("\t<firmware>%s</firmware>\n" % (imagedict_key[obskey][0][4]))
                             for coreimage in imagedict_key[obskey]:
-                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s%d/%s</image>\n" % (coreimage[5], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
+                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[5], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (imagedict_key[obskey][0][1]))
                             xmldict_key[obskey][1].write("\t<platform>%s</platform>\n" % (imagedict_key[obskey][0][2]))
                             xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][3]))
@@ -473,7 +473,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         # update test_image mapping with slot information
                         cur.execute("UPDATE `tbl_serv_map_test_observer_targetimages` SET `slot` = %s WHERE `observer_fk` = %d AND `test_fk`=%d" % (slot, obskey, testid))
                         cn.commit()
-    
                 
                 # serialConf ---
                 srconfs = tree.xpath('//d:serialConf', namespaces=ns)
@@ -504,40 +503,42 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             xmldict_key[obskey][1].write(xmlblock)
                             #logger.debug("Wrote obsSerialConf XML for observer ID %s" %obsid)
                 else:
-                    logger.debug("No <serialConf> found, not using serial service")
+                    logger.debug("No <serialConf> found, not using serial service.")
                 
                 # gpioTracingConf ---
                 gmconfs = tree.xpath('//d:gpioTracingConf', namespaces=ns)
-                for gmconf in gmconfs:
-                    obsids = gmconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
-                    pinconfs = gmconf.xpath('d:pinConf', namespaces=ns)
-                    xmlblock = "<obsGpioMonitorConf>\n"
-                    for pinconf in pinconfs:
-                        pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
-                        edge = pinconf.xpath('d:edge', namespaces=ns)[0].text.strip()
-                        mode = pinconf.xpath('d:mode', namespaces=ns)[0].text.strip()
-                        xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<edge>%s</edge>\n\t\t<mode>%s</mode>\n" %(pin, edge, mode)
-                        cb_gs_add = pinconf.xpath('d:callbackGpioActAdd', namespaces=ns)
-                        if cb_gs_add:
-                            pin = cb_gs_add[0].xpath('d:pin', namespaces=ns)[0].text.strip()
-                            level = cb_gs_add[0].xpath('d:level', namespaces=ns)[0].text.strip()
-                            offsets = cb_gs_add[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip()
-                            offsetms = cb_gs_add[0].xpath('d:offsetMicrosecs', namespaces=ns)[0].text.strip()
-                            xmlblock += "\t\t<callbackGpioSetAdd>\n\t\t\t<pin>%s</pin>\n\t\t\t<level>%s</level>\n\t\t\t<offsetSecs>%s</offsetSecs>\n\t\t\t<offsetMicrosecs>%s</offsetMicrosecs>\n\t\t</callbackGpioSetAdd>\n" %(pin, level, offsets, offsetms)
-                        cb_pp_add = pinconf.xpath('d:callbackPowerProfAdd', namespaces=ns)
-                        if cb_pp_add:
-                            duration = cb_pp_add[0].xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()
-                            offsets = cb_pp_add[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip()
-                            offsetms = cb_pp_add[0].xpath('d:offsetMicrosecs', namespaces=ns)[0].text.strip()
-                            xmlblock += "\t\t<callbackPowerprofAdd>\n\t\t\t<duration>%s</duration>\n\t\t\t<offsetSecs>%s</offsetSecs>\n\t\t\t<offsetMicrosecs>%s</offsetMicrosecs>\n\t\t</callbackPowerprofAdd>\n" %(duration, offsets, offsetms)
-                        xmlblock += "\t</pinConf>\n"
-                    xmlblock += "</obsGpioMonitorConf>\n\n"
-                    for obsid in obsids:
-                        obsid = int(obsid)
-                        obskey = obsdict_id[obsid][0]
-                        xmldict_key[obskey][1].write(xmlblock)
-                        #logger.debug("Wrote obsGpioMonitorConf XML for observer ID %s" %obsid)
-                        
+                if gmconfs:
+                    for gmconf in gmconfs:
+                        obsids = gmconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
+                        pinconfs = gmconf.xpath('d:pinConf', namespaces=ns)
+                        xmlblock = "<obsGpioMonitorConf>\n"
+                        for pinconf in pinconfs:
+                            pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
+                            edge = pinconf.xpath('d:edge', namespaces=ns)[0].text.strip()
+                            mode = pinconf.xpath('d:mode', namespaces=ns)[0].text.strip()
+                            xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<edge>%s</edge>\n\t\t<mode>%s</mode>\n" %(pin, edge, mode)
+                            cb_gs_add = pinconf.xpath('d:callbackGpioActAdd', namespaces=ns)
+                            if cb_gs_add:
+                                pin = cb_gs_add[0].xpath('d:pin', namespaces=ns)[0].text.strip()
+                                level = cb_gs_add[0].xpath('d:level', namespaces=ns)[0].text.strip()
+                                offsets = cb_gs_add[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip()
+                                offsetms = cb_gs_add[0].xpath('d:offsetMicrosecs', namespaces=ns)[0].text.strip()
+                                xmlblock += "\t\t<callbackGpioSetAdd>\n\t\t\t<pin>%s</pin>\n\t\t\t<level>%s</level>\n\t\t\t<offsetSecs>%s</offsetSecs>\n\t\t\t<offsetMicrosecs>%s</offsetMicrosecs>\n\t\t</callbackGpioSetAdd>\n" %(pin, level, offsets, offsetms)
+                            cb_pp_add = pinconf.xpath('d:callbackPowerProfAdd', namespaces=ns)
+                            if cb_pp_add:
+                                duration = cb_pp_add[0].xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()
+                                offsets = cb_pp_add[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip()
+                                offsetms = cb_pp_add[0].xpath('d:offsetMicrosecs', namespaces=ns)[0].text.strip()
+                                xmlblock += "\t\t<callbackPowerprofAdd>\n\t\t\t<duration>%s</duration>\n\t\t\t<offsetSecs>%s</offsetSecs>\n\t\t\t<offsetMicrosecs>%s</offsetMicrosecs>\n\t\t</callbackPowerprofAdd>\n" %(duration, offsets, offsetms)
+                            xmlblock += "\t</pinConf>\n"
+                        xmlblock += "</obsGpioMonitorConf>\n\n"
+                        for obsid in obsids:
+                            obsid = int(obsid)
+                            obskey = obsdict_id[obsid][0]
+                            xmldict_key[obskey][1].write(xmlblock)
+                          #logger.debug("Wrote obsGpioMonitorConf XML for observer ID %s" %obsid)
+                else:
+                    logger.debug("No <gpioTracingConf> found, not using GPIO tracing service.")
                         
                 # gpioActuationConf ---
                 # Create 2 pin settings for every observer used in the test: 
@@ -595,50 +596,54 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 xmlblock = "</obsGpioSettingConf>\n\n"
                 for obskey in obsdict_key.keys():
                     xmldict_key[obskey][1].write(xmlblock)
-                            
+                
                 # powerProfilingConf ---
                 ppconfs = tree.xpath('//d:powerProfilingConf', namespaces=ns)
-                for ppconf in ppconfs:
-                    obsids = ppconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
-                    profconfs = ppconf.xpath('d:profConf', namespaces=ns)
-                    xmlblock = "<obsPowerprofConf>\n"
-                    for profconf in profconfs:
-                        duration  = profconf.xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()
-                        xmlblock += "\t<profConf>\n\t\t<duration>%s</duration>" %duration
-                        abs_tim = profconf.xpath('d:absoluteTime', namespaces=ns)
-                        if abs_tim:
-                            absdatetime = absolute2absoluteUTC_time(abs_tim[0].xpath('d:absoluteDateTime', namespaces=ns)[0].text.strip()) # parse xml date
-                            ret = abs_tim[0].xpath('d:absoluteMicrosecs', namespaces=ns)
-                            if ret:
-                                absmicrosec = ret[0].text.strip()
-                            else: 
-                                absmicrosec = 0
-                        rel_tim = profconf.xpath('d:relativeTime', namespaces=ns)
-                        if rel_tim:
-                            relsec = int(rel_tim[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip())
-                            ret = rel_tim[0].xpath('d:offsetMicrosecs', namespaces=ns)
-                            if ret:
-                                relmicrosec = int(ret[0].text.strip())
+                if ppconfs:
+                    for ppconf in ppconfs:
+                        obsids = ppconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
+                        profconfs = ppconf.xpath('d:profConf', namespaces=ns)
+                        xmlblock = "<obsPowerprofConf>\n"
+                        for profconf in profconfs:
+                            duration  = profconf.xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()
+                            xmlblock += "\t<profConf>\n\t\t<duration>%s</duration>" %duration
+                            abs_tim = profconf.xpath('d:absoluteTime', namespaces=ns)
+                            if abs_tim:
+                                absdatetime = absolute2absoluteUTC_time(abs_tim[0].xpath('d:absoluteDateTime', namespaces=ns)[0].text.strip()) # parse xml date
+                                ret = abs_tim[0].xpath('d:absoluteMicrosecs', namespaces=ns)
+                                if ret:
+                                    absmicrosec = ret[0].text.strip()
+                                else: 
+                                    absmicrosec = 0
+                            rel_tim = profconf.xpath('d:relativeTime', namespaces=ns)
+                            if rel_tim:
+                                relsec = int(rel_tim[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip())
+                                ret = rel_tim[0].xpath('d:offsetMicrosecs', namespaces=ns)
+                                if ret:
+                                    relmicrosec = int(ret[0].text.strip())
+                                else:
+                                    relmicrosec = 0
+                                # Relative times need to be converted into absolute times:
+                                absmicrosec, absdatetime = relative2absolute_time(starttime, relsec, relmicrosec)
+                            xmlblock += "\n\t\t<absoluteTime>\n\t\t\t<absoluteDateTime>%s</absoluteDateTime>\n\t\t\t<absoluteMicrosecs>%s</absoluteMicrosecs>\n\t\t</absoluteTime>" %(absdatetime, absmicrosec)
+                            samplingdivider = profconf.xpath('d:samplingDivider', namespaces=ns)
+                            if samplingdivider:
+                                samplingdivider = samplingdivider[0].text.strip()
                             else:
-                                relmicrosec = 0
-                            # Relative times need to be converted into absolute times:
-                            absmicrosec, absdatetime = relative2absolute_time(starttime, relsec, relmicrosec)
-                        xmlblock += "\n\t\t<absoluteTime>\n\t\t\t<absoluteDateTime>%s</absoluteDateTime>\n\t\t\t<absoluteMicrosecs>%s</absoluteMicrosecs>\n\t\t</absoluteTime>" %(absdatetime, absmicrosec)
-                        samplingdivider = profconf.xpath('d:samplingDivider', namespaces=ns)
-                        if samplingdivider:
-                            samplingdivider = samplingdivider[0].text.strip()
-                        else:
-                            samplingdivider = flocklab.config.get('dispatcher', 'default_sampling_divider') 
-                        xmlblock += "\n\t\t<samplingDivider>%s</samplingDivider>"%samplingdivider
-                        xmlblock += "\n\t</profConf>\n"
-                    xmlblock += "</obsPowerprofConf>\n\n"
-                    for obsid in obsids:
-                        obsid = int(obsid)
-                        obskey = obsdict_id[obsid][0]
-                        xmldict_key[obskey][1].write(xmlblock)
-                        #logger.debug("Wrote obsPowerprofConf XML for observer ID %s" %obsid)
+                                samplingdivider = flocklab.config.get('dispatcher', 'default_sampling_divider') 
+                            xmlblock += "\n\t\t<samplingDivider>%s</samplingDivider>"%samplingdivider
+                            xmlblock += "\n\t</profConf>\n"
+                        xmlblock += "</obsPowerprofConf>\n\n"
+                        for obsid in obsids:
+                            obsid = int(obsid)
+                            obskey = obsdict_id[obsid][0]
+                            xmldict_key[obskey][1].write(xmlblock)
+                            #logger.debug("Wrote obsPowerprofConf XML for observer ID %s" %obsid)
+                else:
+                    logger.debug("No <powerProfilingConf> found, not using power profiling service.")
+                 
                 logger.debug("Wrote all observer XML configs.")
-                    
+                
                 # Close XML files ---
                 for xmlpath, xmlfhand in xmldict_key.values():
                     xmlfhand.write("</obsConf>\n")
