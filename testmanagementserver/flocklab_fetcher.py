@@ -136,16 +136,20 @@ def parse_error_log(buf):
 #
 ##############################################################################
 def convert_gpio_setting(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s,%s,%s\n" %(obsdata[2], obsdata[3], observer_id, node_id, pindict[obsdata[0]][0], obsdata[1])
+    return "%s,%s,%s,%s,%s,%s\n" % (obsdata[2], obsdata[3], observer_id, node_id, pindict[obsdata[0]][0], obsdata[1])
 
 def convert_gpio_monitor(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s,%s\n" %(obsdata[1], observer_id, node_id, obsdata[0], obsdata[2])
+    return "%s,%s,%s,%s,%s\n" % (obsdata[1], observer_id, node_id, obsdata[0], obsdata[2])
 
 def convert_serial(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s,%s\n" %(obsdata[2], observer_id, node_id, serialdict[obsdata[0]], obsdata[1])
+    try:
+        result = "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], obsdata[1].decode('utf8'))
+    except UnicodeDecodeError:
+        result = "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], str(obsdata[1]))
+    return result
 
 def convert_error_log(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s\n" %(obsdata[2], observer_id, node_id, obsdata[1])
+    return "%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, obsdata[1])
 
 
 
