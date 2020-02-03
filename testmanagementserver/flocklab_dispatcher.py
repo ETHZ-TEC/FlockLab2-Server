@@ -248,7 +248,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             # Image processing ---
             # Get all images from the database:
             imagedict_key = {}
-            sql_image =     """    SELECT `t`.`binary`, `m`.`observer_fk`, `m`.`node_id`, LOWER(`a`.`architecture`), LOWER(`o`.`name`) AS `osname`, `t`.`serv_targetimages_key`, LOWER(`p`.`name`) AS `platname`, `a`.`core` AS `core`
+            sql_image =     """    SELECT `t`.`binary`, `m`.`observer_fk`, `m`.`node_id`, LOWER(`a`.`architecture`), `t`.`serv_targetimages_key`, LOWER(`p`.`name`) AS `platname`, `a`.`core` AS `core`
                                 FROM `tbl_serv_targetimages` AS `t` 
                                 LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `m` 
                                     ON `t`.`serv_targetimages_key` = `m`.`targetimage_fk` 
@@ -265,13 +265,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             for r in ret:
                 binary      = r[0]
                 obs_fk      = r[1]
-                obs_id        = obsdict_key[obs_fk][1]
+                obs_id      = obsdict_key[obs_fk][1]
                 node_id     = r[2]
                 arch        = r[3]
-                osname      = r[4].lower()
-                tgimage_key = r[5]
-                platname    = r[6]
-                core        = r[7]
+                tgimage_key = r[4]
+                platname    = r[5]
+                core        = r[6]
                 
                 # Prepare image ---
                 (fd, imagepath) = tempfile.mkstemp()
@@ -280,17 +279,27 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 imagefile.write(binary)
                 imagefile.close()
                 removeimage = True
-                logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" %(str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
+                logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" % (str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
                 
                 # Convert image to binary format and, depending on operating system and platform architecture, write the node ID (if specified) to the image:
-                logger.debug("Found %s target platform architecture with %s operating system on platform %s for observer ID %s (node ID to be used: %s)." %(arch, osname, platname, str(obs_id), str(node_id)))
+                logger.debug("Found %s target architecture on platform %s for observer ID %s (node ID to be used: %s)." % (arch, platname, str(obs_id), str(node_id)))
                 set_symbols_tool = flocklab.config.get('targetimage', 'setsymbolsscript')
-                symbol_node_id = "FLOCKLAB_NODE_ID"
-                # keep <os> tag for backwards compatibility
-                if ((node_id != None) and (osname == 'tinyos')):
+                symbol_node_id = None
+                if (node_id != None):
+                    # for backwards compatiblity: check whether symbol TOS_NODE_ID exists in the binary
+                    p = subprocess.Popen(['objdump', '-t', imagepath], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                    (out, err) = p.communicate()
+                    if p.returncode == 0:
+                        if "TOS_NODE_ID" in out:
+                            logger.debug("Found symbol TOS_NODE_ID in binary file '%s'." % (imagepath))
+                            symbol_node_id = "TOS_NODE_ID"
+                        elif "FLOCKLAB_NODE_ID" in out:
+                            logger.debug("Found symbol FLOCKLAB_NODE_ID in binary file '%s'." % (imagepath))
+                            symbol_node_id = "FLOCKLAB_NODE_ID"
+                    else:
+                        logger.warn("Failed to search for TOS_NODE_ID in binary file '%s'." % (imagepath))
                     symbol_node_id = "TOS_NODE_ID"
-                elif (osname == 'contiki'):
-                    symbol_node_id = None   # don't set node ID for OS Contiki
+                # Convert ELF file to ihex and set node ID if necessary
                 if (arch == 'msp430'):
                     binutils_path = flocklab.config.get('targetimage', 'binutils_msp430')
                     binpath = "%s.ihex"%binpath
@@ -408,7 +417,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 # Write the dictionary for the image:
                 if not obs_fk in imagedict_key:
                     imagedict_key[obs_fk] = []
-                imagedict_key[obs_fk].append((binpath, slot, platname, osname, 0.0, core))
+                imagedict_key[obs_fk].append((binpath, slot, platname, 0.0, core))
                 
             logger.info("Processed all target images from database.")
                 
@@ -461,12 +470,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             slot = noImageSlot
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (slot))
                         else:
-                            xmldict_key[obskey][1].write("\t<firmware>%s</firmware>\n" % (imagedict_key[obskey][0][4]))
+                            xmldict_key[obskey][1].write("\t<firmware>%s</firmware>\n" % (imagedict_key[obskey][0][3]))
                             for coreimage in imagedict_key[obskey]:
-                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[5], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
+                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[4], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (imagedict_key[obskey][0][1]))
                             xmldict_key[obskey][1].write("\t<platform>%s</platform>\n" % (imagedict_key[obskey][0][2]))
-                            xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][3]))
+                            xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][2]))
                             slot = imagedict_key[obskey][0][1]
                         xmldict_key[obskey][1].write("</obsTargetConf>\n\n")
                         #logger.debug("Wrote obsTargetConf XML for observer ID %s" %obsid)
