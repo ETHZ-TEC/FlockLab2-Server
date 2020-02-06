@@ -324,4 +324,8 @@ def main(argv):
 ### END main()
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except Exception:
+        msg = "Error %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        flocklab.error_logandexit(msg)

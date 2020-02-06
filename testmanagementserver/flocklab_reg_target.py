@@ -2,7 +2,7 @@
 
 # Script to register new target adapter IDs in the database
 
-import os, sys, getopt, MySQLdb, errno, threading, subprocess, time, traceback, queue, logging
+import os, sys, getopt, MySQLdb, errno, threading, subprocess, time, traceback, queue, logging, traceback
 import lib.flocklab as flocklab
 
 
@@ -29,7 +29,7 @@ def usage():
 def main(argv):
 
     serialid = None
-    adapterid = None
+    adapterid = 1
     platform = None
     ret = flocklab.SUCCESS
     
@@ -85,7 +85,9 @@ def main(argv):
             if adapterid is None:
                 # get highest currently stored ID
                 cur.execute("SELECT adapterid FROM flocklab.tbl_serv_tg_adapt_list WHERE tg_adapt_types_fk=%d ORDER BY adapterid LIMIT 1" % (platforms[platform]))
-                adapterid = int(cur.fetchone()[0]) + 1
+                rs = cur.fetchone()
+                if rs:
+                    adapterid = int(rs[0]) + 1
             cur.execute("INSERT INTO flocklab.tbl_serv_tg_adapt_list (`tg_adapt_types_fk`, `serialid`, `adapterid`) VALUES (%d, '%s', %d)" % (platforms[platform], serialid, adapterid))
             print("Serial ID %s registered for %s target adapter %d." % (serialid, platform, adapterid))
         else:
@@ -95,7 +97,7 @@ def main(argv):
         print("MySQL error: %s" % str(err))
         ret = 1
     except:
-        print("Error %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        print("Error %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
         ret = 2
     
     cur.close()
