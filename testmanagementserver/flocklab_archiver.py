@@ -79,7 +79,7 @@ def main(argv):
         sys.exit(errno.EINVAL)
         
     # Add Test ID to logger name ---
-    logger.name += " (Test %d)"%testid
+    logger.name += " (Test %d)" % testid
     
     # Connect to the DB ---
     try:
@@ -103,43 +103,43 @@ def main(argv):
     rs = flocklab.check_test_id(cur, testid)
     if rs != 0:
         if rs == 3:
-            msg = "Test ID %d does not exist in database." %testid
+            msg = "Test ID %d does not exist in database." % testid
             flocklab.error_logandexit(msg, errno.EINVAL)
         else:
-            msg = "Error when trying to get test ID from database: %s: %s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+            msg = "Error when trying to get test ID from database: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             flocklab.error_logandexit(msg, errno.EIO)
     
     # Check directories needed ---
-    archivedir    = flocklab.config.get('archiver', 'archive_dir')
-    archivename    = "%d%s"%(testid, flocklab.config.get('archiver','archive_ext'))
-    archivepath    = "%s/%s"%(archivedir, archivename)
+    archivedir  = flocklab.config.get('archiver', 'archive_dir')
+    archivename = "%d%s"%(testid, flocklab.config.get('archiver','archive_ext'))
+    archivepath = "%s/%s"%(archivedir, archivename)
     if ((not os.path.exists(archivedir)) or (not os.path.isdir(archivedir))):
         if not os.path.exists(archivedir):
             os.makedirs(archivedir)
             logger.debug("Directory '%s' created." % (archivedir))
         else:
-            msg = "The path %s does either not exist or is not a directory. Aborting..."%(archivedir)
+            msg = "The path %s does either not exist or is not a directory. Aborting..." % (archivedir)
             flocklab.error_logandexit(msg, errno.EINVAL)
     
     # Generate archive ---
     if ((os.path.exists(archivepath)) and (os.path.isfile(archivepath))):
-        logger.debug("Archive %s is already existing." %(archivepath))
+        logger.debug("Archive %s is already existing." % (archivepath))
     else:
         # Check if testresultsdir directory is existing:
-        testresultsdir = "%s/%d" %(flocklab.config.get('fetcher', 'testresults_dir'), testid)
+        testresultsdir = "%s/%d" % (flocklab.config.get('fetcher', 'testresults_dir'), testid)
         if ((not os.path.exists(testresultsdir)) or (not os.path.isdir(testresultsdir))):
-            msg = "The path %s does either not exist or is not a directory. Aborting..."%(testresultsdir)
+            msg = "The path %s does either not exist or is not a directory. Aborting..." % (testresultsdir)
             flocklab.error_logandexit(msg, errno.EINVAL)
         else:
-            logger.debug("Directory %s exists."%(testresultsdir))
+            logger.debug("Directory %s exists." % (testresultsdir))
         # sort tar file, powerprofiling at the end
         pp_part = []
         resultparts = []
         for part in os.listdir(testresultsdir):
-            if part!='powerprofiling.csv':
-                resultparts.append(os.path.basename(testresultsdir)+'/'+part)
+            if part != 'powerprofiling.csv':
+                resultparts.append(os.path.basename(testresultsdir) + '/' + part)
             else:
-                pp_part.append(os.path.basename(testresultsdir)+'/'+part)
+                pp_part.append(os.path.basename(testresultsdir) + '/' + part)
         resultparts.extend(pp_part)
         # Archive files:
         max_cpus = flocklab.config.get('archiver', 'pigz_max_cpus')
@@ -156,7 +156,7 @@ def main(argv):
         # Use pigz instead of gz because pigz makes use of multiple processors.
         gzcmd = ['pigz', '-p', max_cpus]
         outfile = open(archivepath, 'w+')
-        logger.debug("Starting to write archive %s using max %s CPUs and level %d for compressing..."%(archivepath, max_cpus, nice_level))
+        logger.debug("Starting to write archive %s using max %s CPUs and level %d for compressing..." % (archivepath, max_cpus, nice_level))
         ptar = subprocess.Popen(tarcmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, preexec_fn=lambda : os.nice(nice_level))
         pgz = subprocess.Popen(gzcmd, stdin=ptar.stdout, stdout=outfile, stderr=subprocess.PIPE, universal_newlines=True, preexec_fn=lambda : os.nice(nice_level))
         gzout, gzerr = pgz.communicate()
@@ -168,15 +168,15 @@ def main(argv):
             shutil.rmtree(testresultsdir)
             logger.debug("Removed directory %s"%testresultsdir)
         else:
-            msg = "Error %d when creating archive %s"%(pgz.returncode, archivepath)
-            msg += "Tried to pipe commands %s and %s"%(str(tarcmd), str(gzcmd))
-            msg += "Tar command returned: %s, %s"%(str(tarout), str(tarerr))
-            msg += "Gz command returned: %s, %s"%(str(gzout), str(gzerr))
-            msg += "Error was: %s: %s"%(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+            msg = "Error %d when creating archive %s" % (pgz.returncode, archivepath)
+            msg += "Tried to pipe commands %s and %s" % (str(tarcmd), str(gzcmd))
+            msg += "Tar command returned: %s, %s" % (str(tarout), str(tarerr))
+            msg += "Gz command returned: %s, %s" % (str(gzout), str(gzerr))
+            msg += "Error was: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             flocklab.error_logandexit(msg, errno.EFAULT)
     archive_size = os.path.getsize(archivepath)
     archive_size_mb = float(archive_size)/1048576
-    logger.debug("Archive has size %dB (%.3fMB)"%(archive_size, archive_size_mb))
+    logger.debug("Archive has size %dB (%.3fMB)" % (archive_size, archive_size_mb))
     
     # Send results to test owner ---
     if send_email:
@@ -187,24 +187,24 @@ def main(argv):
         else:
             usermail = rs
         if ((usermail == 1) or (usermail == 2)):
-            msg = "Error when trying to get test owner email address for test id %d from database. Aborting..." %testid
+            msg = "Error when trying to get test owner email address for test id %d from database. Aborting..." % testid
             flocklab.error_logandexit(msg, errno.EINVAL)
         else:
-            logger.debug("Got email of test owner: %s" %(str(usermail)))
+            logger.debug("Got email of test owner: %s" % (str(usermail)))
     
         # Check the size of the archive and only send it by email if it has a decent size:
-        if ( archive_size > int(flocklab.config.get('archiver','email_maxsize')) ):
+        if ( archive_size > int(flocklab.config.get('archiver','email_maxsize'))):
             msg = "Dear FlockLab user,\n\n\
 Measurement data for test with ID %d has been successfully retrieved from the FlockLab database \
 but could not be sent by email as it is too big. Please fetch your test results from the user interface.\n\n\
-Yours faithfully,\nthe FlockLab server" %(testid)
-            flocklab.send_mail(subject="[FlockLab] Results for Test ID %d" %testid, message=msg, recipients=usermail)
+Yours faithfully,\nthe FlockLab server" % (testid)
+            flocklab.send_mail(subject="[FlockLab] Results for Test ID %d" % testid, message=msg, recipients=usermail)
         else:
             msg = "Dear FlockLab user,\n\n\
 Measurement data for test with ID %d has been successfully retrieved from the FlockLab database, \
 compressed and attached to this email. You can find all test results in the attached archive file %s\n\n\
 Yours faithfully,\nthe FlockLab server" %(testid, archivename)
-            flocklab.send_mail(subject="[FlockLab] Results for Test ID %d" %testid, message=msg, recipients=usermail, attachments=[archivepath])
+            flocklab.send_mail(subject="[FlockLab] Results for Test ID %d" % testid, message=msg, recipients=usermail, attachments=[archivepath])
         logger.debug("Sent email to test owner")
     
     cur.close()

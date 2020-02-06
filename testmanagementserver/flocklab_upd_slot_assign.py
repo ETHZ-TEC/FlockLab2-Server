@@ -31,12 +31,11 @@ def usage():
 #
 ##############################################################################
 class UpdateSlotAssignThread(threading.Thread):
-    def __init__(self, observerdata, config, logger, searchtime, maxretries, queue):
+    def __init__(self, observerdata, logger, searchtime, maxretries, queue):
         threading.Thread.__init__(self)
         self.ObsKey        = observerdata[0]
         self.ObsHostname   = observerdata[1]
         self.ObsSerialList = observerdata[2:]
-        self.Config        = config
         self.Logger        = logger
         self.Searchtime    = searchtime
         self.Maxretries    = maxretries
@@ -44,7 +43,7 @@ class UpdateSlotAssignThread(threading.Thread):
 
     def run(self):
         # Get list of ID's for every slot from observer over SSH:
-        cmd = self.Config.get("observer", "serialidscript")
+        cmd = flocklab.config.get("observer", "serialidscript")
         if self.Searchtime:
             cmd = "%s -s%.1f" %(cmd, self.Searchtime)
         if self.Maxretries:
@@ -277,7 +276,7 @@ def main(argv):
         for observerdata in rs:
             logger.debug("Starting thread for %s" % (observerdata[1]))
             try:
-                t = UpdateSlotAssignThread(observerdata, config, logger, searchtime, maxretries, q)
+                t = UpdateSlotAssignThread(observerdata, logger, searchtime, maxretries, q)
                 threadlist.append(t)
                 t.start()
             except:

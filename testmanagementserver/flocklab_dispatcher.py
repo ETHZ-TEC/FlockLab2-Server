@@ -954,6 +954,7 @@ def prepare_testresults(testid, cur):
     """
 
     errors = []
+    tree = None
         
     logger.debug("Preparing testresults...")
     
@@ -961,7 +962,7 @@ def prepare_testresults(testid, cur):
     logger.debug("Check if user wants testresults as email...")
     emailResults = False
     # Get the XML config from the database:
-    cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
+    cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" % testid)
     ret = cur.fetchone()
     if ret:
         parser = lxml.etree.XMLParser(remove_comments=True)
@@ -980,9 +981,19 @@ def prepare_testresults(testid, cur):
     else:
         logger.debug("User wants test results as email. Will trigger the email.")
     
-    
+    # Add config XML to results directory
+    if flocklab.config.get('archiver', 'include_xmlconfig'):
+        testresultsdir = "%s/%d" % (flocklab.config.get('fetcher', 'testresults_dir'), testid)
+        if (os.path.isdir(testresultsdir) and (not os.path.exists("%s/testconfig.xml" % testresultsdir))):
+            if tree:
+                et = lxml.etree.ElementTree(tree)
+                et.write("%s/testconfig.xml" % testresultsdir, pretty_print=True)
+                logger.debug("XML config copied to results folder.")
+            else:
+                logger.warn("Could not copy XML config to test results directory.")
+      
     # Archive test results ---
-    cmd = [flocklab.config.get('dispatcher', 'archiverscript'),"--testid=%d"%testid]
+    cmd = [flocklab.config.get('dispatcher', 'archiverscript'),"--testid=%d" % testid]
     if emailResults:
         cmd.append("--email")
     if debug: 
@@ -1001,7 +1012,7 @@ def prepare_testresults(testid, cur):
             return errors
         if rs == errno.EUSERS:
             # Maximum number of instances is reached. Wait some time before calling again.
-            logger.info("Archiver returned EUSERS. Wait for %d s before trying again..."%waittime)
+            logger.info("Archiver returned EUSERS. Wait for %d s before trying again..." % waittime)
             time.sleep(waittime)
     logger.debug("Call to archiver successful.")
     
