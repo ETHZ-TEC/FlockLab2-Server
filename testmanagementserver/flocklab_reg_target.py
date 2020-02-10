@@ -29,7 +29,7 @@ def usage():
 def main(argv):
 
     serialid = None
-    adapterid = 1
+    adapterid = None
     platform = None
     ret = flocklab.SUCCESS
     
@@ -88,8 +88,10 @@ def main(argv):
                 rs = cur.fetchone()
                 if rs:
                     adapterid = int(rs[0]) + 1
+                else:
+                    adapterid = 1
             cur.execute("INSERT INTO flocklab.tbl_serv_tg_adapt_list (`tg_adapt_types_fk`, `serialid`, `adapterid`) VALUES (%d, '%s', %d)" % (platforms[platform], serialid, adapterid))
-            print("Serial ID %s registered for %s target adapter %d." % (serialid, platform, adapterid))
+            print("Serial ID %s registered of %s target adapter %d." % (serialid, platform, adapterid))
         else:
             print("'%s' is not a valid platform option. Available options: %s" % (platform, ", ".join(platforms.keys())))
            
