@@ -925,17 +925,17 @@ def main(argv):
             testresultsfile_dict[service] = (path, lock)
             # Create file and write header:
             if service == 'errorlog':
-                header = '# timestamp,observer_id,node_id,errormessage\n'
+                header = 'timestamp,observer_id,node_id,errormessage\n'
             elif service == 'gpiotracing':
-                header = 'observer_id,node_id,pin_name,# timestamp,value\n'
+                header = 'timestamp,observer_id,node_id,pin_name,value\n'
             elif service == 'gpioactuation':
-                header = '# timestamp_planned,timestamp_executed,observer_id,node_id,pin_name,value\n'
+                header = 'timestamp_planned,timestamp_executed,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
                 header = 'timestamp,observer_id,node_id,I1,V1,V2\n'
             elif service == 'serial':
-                header = '# timestamp,observer_id,node_id,direction,output\n'
+                header = 'timestamp,observer_id,node_id,direction,output\n'
             elif service == 'powerprofilingstats':
-                header = '# observer_id,node_id,mean_mA\n'
+                header = 'observer_id,node_id,mean_mA\n'
             lock.acquire()
             f = open(path, 'w')
             f.write(header)
