@@ -9,7 +9,7 @@ echo "Going to update files on FlockLab server $HOST..."
 sleep 2   # give the user time to abort, just in case
 
 # testmanagement server files
-RES=$(rsync -a -z -c -i --dry-run --exclude=".git" -e "ssh -q" testmanagementserver ${USER}@${HOST}: | grep '^<fc' | cut -d' ' -f2)
+RES=$(rsync -a -z -c -i --dry-run --exclude=".git" -e "ssh -q" testmanagementserver/ ${USER}@${HOST}:testmanagementserver/ | grep '^<fc' | cut -d' ' -f2)
 if [ -z "$RES" ]; then
     echo "Testmanagement server files are up to date."
 else
@@ -23,7 +23,7 @@ else
     fi
 fi
 # webserver files
-RES=$(rsync -a -z -c -i --dry-run --exclude=".git" -e "ssh -q" webserver ${USER}@${HOST}: | grep '^<fc' | cut -d' ' -f2)
+RES=$(rsync -a -z -c -i --dry-run --exclude=".git" -e "ssh -q" webserver/ ${USER}@${HOST}:webserver/ | grep '^<fc' | cut -d' ' -f2)
 if [ -z "$RES" ]; then
     echo "Webserver files are up to date."
 else
