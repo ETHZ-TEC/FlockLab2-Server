@@ -86,13 +86,13 @@ def obs_connect_process(conreqQueue, condoneQueue, _stopevent):
                 sock.connect(w)
                 logger.info("Connected to observer %s on port %d" % (w[0],w[1]))
                 condoneQueue.put((sock, w))
-                worklist.remove(w)
             except ConnectionRefusedError:
-                logger.info("Could not connect to observer %s on port %d, will retry later.." % (w[0],w[1]))
-                time.sleep(5)
+                logger.info("Could not connect to observer %s on port %d, dropping connection." % (w[0],w[1]))
             except Exception:
                 logger.info("Could not connect to observer %s on port %d: %s, %s\n%s" % (w[0], w[1], str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
                 pass
+            finally:
+                worklist.remove(w)
 ### END obs_connect_process
 
 

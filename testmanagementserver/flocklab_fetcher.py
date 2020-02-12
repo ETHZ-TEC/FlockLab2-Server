@@ -5,6 +5,7 @@ import lib.daemon as daemon
 import lib.flocklab as flocklab
 from rocketlogger.data import RocketLoggerData
 import pandas as pd
+import numpy as np
 
 
 logger                   = None
@@ -117,17 +118,9 @@ def sigterm_handler(signum, frame):
 # Functions for parsing observer DB files data
 #
 ##############################################################################
-def parse_gpio_setting(buf):
-    _data = struct.unpack("<Iiiiii",buf) #unsigned int gpio;int value;struct timeval time_planned;struct timeval time_executed;
-    return (_data[0], str(_data[1]), "%i.%06i" % (_data[2],_data[3]), "%i.%06i" % (_data[4],_data[5]))
-
 def parse_serial(buf):
-    _data = struct.unpack("iii%ds" % (len(buf) - 12),buf) #int service; struct timeval timestamp;char * data
-    return (_data[0], _data[3], "%i.%06i" % (_data[1],_data[2]))
-
-def parse_error_log(buf):
-    _data = struct.unpack("<iii%ds" % (len(buf) - 12),buf) #struct timeval timestamp; int service_fk; char errormessage[1024];
-    return (str(_data[2]), _data[3], "%i.%06i" % (_data[0],_data[1]))
+    _data = struct.unpack("iii%ds" % (len(buf) - 12), buf) #int service; struct timeval timestamp;char * data
+    return (_data[0], _data[3], "%i.%06i" % (_data[1], _data[2]))
 
 
 ##############################################################################
@@ -135,22 +128,12 @@ def parse_error_log(buf):
 # Functions for converting observer DB data
 #
 ##############################################################################
-def convert_gpio_setting(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s,%s,%s\n" % (obsdata[2], obsdata[3], observer_id, node_id, pindict[obsdata[0]][0], obsdata[1])
-
-def convert_gpio_monitor(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s,%s\n" % (obsdata[1], observer_id, node_id, obsdata[0], obsdata[2])
-
 def convert_serial(obsdata, observer_id, node_id):
     try:
-        result = "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], obsdata[1].decode('utf8'))
+        result = "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], obsdata[1].decode('utf8').strip())
     except UnicodeDecodeError:
         result = "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], str(obsdata[1]))
     return result
-
-def convert_error_log(obsdata, observer_id, node_id):
-    return "%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, obsdata[1])
-
 
 
 ##############################################################################
@@ -187,7 +170,7 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir,f)
-        loggername = "(%s.Obs%d)" % (cur_p.name, obsid)
+        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
         #logqueue.put_nowait((loggername, logging.DEBUG, "Import file %s"%obsdbfile_path))
         # Open file:
         dbfile = open(obsdbfile_path, 'rb')
@@ -265,13 +248,13 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
 #               whole observer DB files.
 #
 ##############################################################################
-def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, slotcalib_factor=1, slotcalib_offset=0, vizimgdir=None, viz_f=None, logqueue=None):
+def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, vizimgdir=None, viz_f=None, logqueue=None):
     try:
         _errors = []
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir, f)
-        loggername = "(%s.Obs%d)" % (cur_p.name, obsid)
+        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
 
         with open(resultfile_path, "a") as outfile:
             infile = open(obsdbfile_path, "r")
@@ -284,13 +267,8 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, slotca
                     break
             infile.close()
         os.remove(obsdbfile_path)
-
-        processeditem = list(queueitem)
-        processeditem[0] = ITEM_PROCESSED
-
-        return (_errors, processeditem)
     except:
-        msg = "Error in gpiotracing worker process: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+        msg = "Error in gpiotracing worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, errno.ECOMM, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
@@ -307,7 +285,7 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, slotca
 #        whole observer DB files.
 #
 ##############################################################################
-def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcalib_factor=1, slotcalib_offset=0, vizimgdir=None, viz_f=None, logqueue=None, PpStatsQueue=None):
+def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, vizimgdir=None, viz_f=None, logqueue=None):
     try:
         channel_names = ['I1','V1','V2']
         _errors = []
@@ -317,19 +295,17 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcali
         loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
 
         rld_data = RocketLoggerData(obsdbfile_path).merge_channels()
-        rld_dataframe = pd.DataFrame(rld_data.get_data(channel_names), index=rld_data.get_time(), columns=channel_names)
+        # get network time and convert to UNIX timestamp (UTC)
+        timeidx = rld_data.get_time(absolute_time=True, time_reference='network')     # TODO adjust parameters for RL 1.99+
+        timeidxunix = timeidx.astype('uint64') / 1e9
+        rld_dataframe = pd.DataFrame(rld_data.get_data(channel_names), index=timeidxunix, columns=channel_names)
         rld_dataframe.insert(0, 'observer_id', obsid)
         rld_dataframe.insert(1, 'node_id', nodeid)
         rld_dataframe.to_csv(resultfile_path, sep=',', index_label='time', header=False, mode='a')
 
         os.remove(obsdbfile_path)
-        
-        processeditem = list(queueitem)
-        processeditem[0] = ITEM_PROCESSED
-        
-        return (_errors, processeditem)
     except:
-        msg = "Error in powerprof worker process: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+        msg = "Error in powerprof worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, errno.ECOMM, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
@@ -337,6 +313,37 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, slotcali
         processeditem[0] = ITEM_PROCESSED
         return (_errors, tuple(processeditem))
 ### END worker_powerprof
+
+
+##############################################################################
+#
+# worker_errorlog
+#
+##############################################################################
+def worker_errorlog(queueitem=None, nodeid=None, resultfile_path=None, vizimgdir=None, viz_f=None, logqueue=None):
+    try:
+        _errors = []
+        cur_p = multiprocessing.current_process()
+        (itemtype, obsid, fdir, f, workerstate) = queueitem
+        obsdbfile_path = "%s/%s" % (fdir, f)
+        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
+
+        with open(resultfile_path, "a") as outfile:
+            infile = open(obsdbfile_path, "r")
+            for line in infile:
+                (timestamp, msg) = line.split(',')
+                outfile.write("%s,%s,%s,%s" % (timestamp, obsid, nodeid, msg))
+            infile.close()
+        os.remove(obsdbfile_path)
+    except:
+        msg = "Error in errorlog worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        _errors.append((msg, errno.ECOMM, obsid))
+        logqueue.put_nowait((loggername, logging.ERROR, msg))
+    finally:
+        processeditem = list(queueitem)
+        processeditem[0] = ITEM_PROCESSED
+        return (_errors, tuple(processeditem))
+### END worker_errorlog()
 
 
 ##############################################################################
@@ -435,15 +442,14 @@ class FetchObsThread(threading.Thread):
                     removelast = False
                 #self._logger.debug(self._loggerprefix + "Woke up")
                 # Get list of available files
-                cmd = ['ssh' ,'%s'%(self._obsethernet), "ls %s/" % self._obstestresfolder]
+                cmd = ['ssh' , self._obsethernet, "ls %s/" % self._obstestresfolder]
                 p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)  # universal_newlines makes sure that a string is returned instead of a byte object
                 out, err = p.communicate(None)
                 rs = p.returncode
                 if (rs == flocklab.SUCCESS):
                     services = {}
-                    for servicename in [ "gpio_setting", "gpio_monitor", "powerprofiling", "serial" ]:
+                    for servicename in [ "gpio_monitor", "powerprofiling", "serial", "error" ]:
                         services[servicename] = ServiceInfo(servicename)
-                        services["error_%s"%servicename] = ServiceInfo("error_%s"%servicename)
                     # Read filenames
                     for dbfile in out.split():
                         # Check name and append to corresponding list
@@ -509,10 +515,10 @@ class FetchObsThread(threading.Thread):
                         out, err = p.communicate(None)
                         rs = p.wait()
                         if (rs != flocklab.SUCCESS):
-                            self._logger.error(self._loggerprefix + "Could not remove results directory from observer, result was %d, stdout: %s, error: %s" % (rs, out, err))
+                            self._logger.error(self._loggerprefix + "Could not remove results directory from observer, result was %d. Error: %s" % (rs, err.strip()))
 
                 else:
-                    self._logger.error(self._loggerprefix + "SSH to observer did not succeed, result was %d, error: %s" % (rs, err))
+                    self._logger.error(self._loggerprefix + "SSH to observer did not succeed, fetcher thread terminated with code %d. Error: %s" % (rs, err.strip()))
                     break   # abort
         
         except:
@@ -614,21 +620,24 @@ def stop_fetcher():
             if (pid == os.getpid()):
                 raise ValueError
             logger.debug("Sending SIGTERM signal to process %d" % pid)
-            try:
-                os.kill(pid, signal.SIGTERM)
-                # wait for process to finish (timeout..)
-                shutdown_timeout = flocklab.config.getint("fetcher", "shutdown_timeout")
-                pidpath = "/proc/%d"%pid
-                while os.path.exists(pidpath) & (shutdown_timeout>0):
-                    time.sleep(1)
-                    shutdown_timeout = shutdown_timeout - 1
-                if os.path.exists(pidpath):
-                    logger.error("Fetcher is still running, killing process...")
-                    # send kill signal
+            os.kill(pid, signal.SIGTERM)
+            # wait for process to finish (timeout..)
+            shutdown_timeout = flocklab.config.getint("fetcher", "shutdown_timeout")
+            pidpath = "/proc/%d" % pid
+            while os.path.exists(pidpath) & (shutdown_timeout > 0):
+                time.sleep(1)
+                shutdown_timeout = shutdown_timeout - 1
+            if os.path.exists(pidpath):
+                logger.error("Fetcher with PID %d is still running, killing process..." % pid)
+                # send kill signal
+                os.kill(pid, signal.SIGKILL)
+                time.sleep(3)
+                # check if there is a remaining fetcher process
+                pid = flocklab.get_fetcher_pid(testid)
+                if pid > 0 and pid != os.getpid():
+                    logger.warn("Found a remaining fetcher thread with PID %d, killing it now..." % (pid))
                     os.kill(pid, signal.SIGKILL)
-                    raise ValueError
-            except:
-                pass
+                raise ValueError
         else:
             raise ValueError
     except ValueError:
@@ -641,7 +650,6 @@ def stop_fetcher():
             cn.close()
         except:
             logger.warn("Could not connect to database.")
-        
         return errno.ENOPKG
     
     return flocklab.SUCCESS
@@ -841,16 +849,6 @@ def main(argv):
         obsdict_byid = None
     # Dict for serial service: 'r' means reader (data read from the target), 'w' means writer (data written to the target):
     serialdict = {0: 'r', 1: 'w'}
-    # Get calibration data for used slots and add it to obsdict ---
-    ppstats={}
-    for (obsid, (obskey, nodeid)) in obsdict_byid.items():
-        ppstats[obsid]=(0.0,0)
-        rs = flocklab.get_slot_calib(cur, int(obskey), testid)
-        if isinstance(rs, tuple):
-            obsdict_byid[obsid] = (nodeid, rs)
-        else:
-            obsdict_byid = None
-            break
     rs = flocklab.get_servicemappings(cur)
     if isinstance(rs, dict):
         servicedict = rs
@@ -867,7 +865,7 @@ def main(argv):
     
     # Find out which services are used to allocate working threads later on ---
     # Get the XML config from the database and check which services are used in the test.
-    servicesUsed_dict = {'gpiotracing': 'gpioTracingConf', 'gpioactuation': 'gpioActuationConf', 'powerprofiling': 'powerProfilingConf', 'serial': 'serialConf'}
+    servicesUsed_dict = {'gpiotracing': 'gpioTracingConf', 'powerprofiling': 'powerProfilingConf', 'serial': 'serialConf'}
     cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
     ret = cur.fetchone()
     if not ret:
@@ -919,7 +917,7 @@ def main(argv):
             os.makedirs(testresultsdir)
             logger.debug("Created %s" % testresultsdir)
         manager = multiprocessing.Manager()
-        for service in ('errorlog', 'gpiotracing', 'gpioactuation', 'powerprofiling', 'serial', 'powerprofilingstats'):
+        for service in ('errorlog', 'gpiotracing', 'powerprofiling', 'serial'):
             path = "%s/%s.csv" % (testresultsdir, service)
             lock = manager.Lock()
             testresultsfile_dict[service] = (path, lock)
@@ -928,14 +926,10 @@ def main(argv):
                 header = 'timestamp,observer_id,node_id,errormessage\n'
             elif service == 'gpiotracing':
                 header = 'timestamp,observer_id,node_id,pin_name,value\n'
-            elif service == 'gpioactuation':
-                header = 'timestamp_planned,timestamp_executed,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
                 header = 'timestamp,observer_id,node_id,I1,V1,V2\n'
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
-            elif service == 'powerprofilingstats':
-                header = 'observer_id,node_id,mean_mA\n'
             lock.acquire()
             f = open(path, 'w')
             f.write(header)
@@ -950,8 +944,6 @@ def main(argv):
         except:
             logger.warn("Error when starting log queue thread: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         
-        PpStatsQueue = manager.Queue(maxsize=1)
-        PpStatsQueue.put(ppstats)
         # Determine the number of CPU's to be used for each aggregating process. If a service is not used, its CPUs are assigned to other services
         cpus_free = 0
         cpus_errorlog = flocklab.config.getint('fetcher', 'cpus_errorlog')
@@ -961,13 +953,6 @@ def main(argv):
         else:
             cpus_serial    = 0
             cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_serial')
-        # CPUs for GPIO actuation. If the service is not used, assign a CPU anyhow since FlockLab always uses this service to determine start and stop times of a test.
-        #cpus_errorlog = flocklab.config.getint('fetcher', 'cpus_errorlog')
-        if servicesUsed_dict['gpioactuation'] == True:
-            cpus_gpiosetting = flocklab.config.getint('fetcher', 'cpus_gpiosetting')
-        else:
-            cpus_gpiosetting = 1
-            cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_gpiosetting') - cpus_gpiosetting
         # CPUs for GPIO tracing:
         if servicesUsed_dict['gpiotracing'] == True:
             cpus_gpiomonitoring    = flocklab.config.getint('fetcher', 'cpus_gpiomonitoring')
@@ -996,11 +981,9 @@ def main(argv):
                 # Neither of the services is used, so give it to one of the other services:
                 if cpus_serial > 0:
                     cpus_serial = cpus_serial + cpus_free
-                elif cpus_gpiosetting > 0:
-                    cpus_gpiosetting = cpus_gpiosetting + cpus_free
-        cpus_total = cpus_errorlog + cpus_serial + cpus_gpiosetting + cpus_gpiomonitoring + cpus_powerprofiling
+        cpus_total = cpus_errorlog + cpus_serial + cpus_gpiomonitoring + cpus_powerprofiling
         
-        service_pools_dict = { 'errorlog': cpus_errorlog, 'serial': cpus_serial, 'gpioactuation': cpus_gpiosetting, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling }
+        service_pools_dict = { 'errorlog': cpus_errorlog, 'serial': cpus_serial, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling }
         if (cpus_total > multiprocessing.cpu_count()):
             logger.warn("Number of requested CPUs for all aggregating processes (%d) is higher than number of available CPUs (%d) on system." % (cpus_total, multiprocessing.cpu_count()))
         
@@ -1022,19 +1005,15 @@ def main(argv):
         enableviz = flocklab.config.getint('viz','enablepreview')
         loggerprefix = "(Mainloop) "
         workmanager = WorkManager()
+        
         # Main loop ---
-        while 1:
+        while True:
             if mainloop_stop:
                 if workmanager.finished() and FetchObsThread_queue.empty():
                     # exit main loop
                     logger.debug("Work manager has nothing more to do, finishing up..")
                     break
-                else:
-                    if FetchObsThread_queue.empty():
-                        logger.debug("Received stop signal, but the fetcher queue is not yet empty...")
-                    else:
-                        logger.debug("Received stop signal, but workmanager is still busy...")
-                    time.sleep(5)
+
             # Wait for FetchObsThreads to put items on queue:
             try:
                 item = FetchObsThread_queue.get(block=True, timeout=5)
@@ -1052,40 +1031,34 @@ def main(argv):
                 logger.debug(loggerprefix + "Next item is None.")
                 continue
             (itemtype, obsid, fdir, f, workerstate) = nextitem
-            logger.debug(loggerprefix + "Next item is %s/%s (Obs%s)." % (fdir, f, str(obsid)))
-            nodeid = obsdict_byid[obsid][0]
+            #logger.debug(loggerprefix + "Next item is %s/%s (Obs%s)." % (fdir, f, str(obsid)))
+            nodeid = obsdict_byid[obsid][1]
             callback_f = worker_callback
             worker_f = worker_convert_and_aggregate
             # Match the filename against the patterns and schedule an appropriate worker function:
-            if (re.search("^gpio_setting_[0-9]{14}\.db$", f) != None):
-                pool        = service_pools_dict['gpioactuation']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['gpioactuation'][0], testresultsfile_dict['gpioactuation'][1], commitsize, vizimgdir, parse_gpio_setting, convert_gpio_setting, None, logqueue]
-            elif (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
+            if (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
                 pool        = service_pools_dict['gpiotracing']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], obsdict_byid[obsid][1][1], obsdict_byid[obsid][1][0], vizimgdir, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], vizimgdir, None, logqueue]
                 worker_f    = worker_gpiotracing
                 logger.debug(loggerprefix + "resultfile_path: %s" % str(testresultsfile_dict['gpiotracing'][0]))
-                logger.debug(loggerprefix + "queue item: %s" % str(nextitem))
-                logger.debug(loggerprefix + "node id: %s" % str(nodeid))
                 #if (enableviz == 1):
                 #    worker_args[6] = flocklab.viz_gpio_monitor
             elif (re.search("^powerprofiling_[0-9]{14}\.rld$", f) != None):
-                # Power profiling has a special worker function which parses the whole file in a C module:
                 pool        = service_pools_dict['powerprofiling'] 
-                worker_args = [nextitem, nodeid, testresultsfile_dict['powerprofiling'][0], obsdict_byid[obsid][1][1], obsdict_byid[obsid][1][0], vizimgdir, None, logqueue, PpStatsQueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['powerprofiling'][0], vizimgdir, None, logqueue]
                 worker_f    = worker_powerprof
                 #if (enableviz == 1):
                 #    worker_args[6] = flocklab.viz_powerprofiling
             elif (re.search("^serial_[0-9]{14}\.db$", f) != None):
-                #logger.debug(loggerprefix + "File %s contains serial service results"%f)
                 pool        = service_pools_dict['serial']
                 worker_args = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, vizimgdir, parse_serial, convert_serial, None, logqueue]
-            elif (re.search("^error_.*_[0-9]{14}\.db$", f) != None):
-                logger.debug(loggerprefix + "File %s contains error logs"%f)
+            elif (re.search("^error_[0-9]{14}\.log$", f) != None):
+                logger.debug(loggerprefix + "File %s contains error logs" % f)
                 pool        = service_pools_dict['errorlog']
-                worker_args =  [nextitem, nodeid, testresultsfile_dict['errorlog'][0], testresultsfile_dict['errorlog'][1], commitsize, vizimgdir, parse_error_log, convert_error_log, None, logqueue]
+                worker_args =  [nextitem, nodeid, testresultsfile_dict['errorlog'][0], vizimgdir, None, logqueue]
+                worker_f    = worker_errorlog
             else:
-                logger.warn(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" %(fdir, f, obsid))
+                logger.warn(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
                 continue
             # Schedule worker function from the service's pool. The result will be reported to the callback function.
             pool.apply_async(func=worker_f, args=tuple(worker_args), callback=callback_f)
@@ -1093,21 +1066,14 @@ def main(argv):
         # Stop worker pool:
         for service, pool in service_pools_dict.items():
             if pool:
-                logger.debug("Closing pool for %s..."%service)
+                logger.debug("Closing pool for %s..." % service)
                 pool.close()
         for service, pool in service_pools_dict.items():
             if pool:
-                logger.debug("Waiting for pool for %s to close..."%service)
+                logger.debug("Waiting for pool for %s to close..." % service)
                 pool.join()
         logger.debug("Closed all pools.")
-        # Write pp stats
-        ppstats = PpStatsQueue.get()
-        f = open(testresultsfile_dict['powerprofilingstats'][0], 'a')
-        for (obsid, (avg, count)) in ppstats.items():
-            nodeid = obsdict_byid[obsid][0]
-            f.write("%d,%d,%0.6f\n" % (obsid, nodeid, avg))
-        f.close()
-            
+        
         # Stop logging:
         logger.debug("Stopping log queue thread...")
         LogQueueThread_stopEvent.set()
@@ -1121,7 +1087,6 @@ def main(argv):
             cn.close()
         except:
             logger.warn("Could not connect to database.")
-        
         
         # Delete the obsfile directories as they are not needed anymore:
         if ((obsfiledir != None) and (os.path.exists(obsfiledir))):

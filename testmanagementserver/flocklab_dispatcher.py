@@ -72,7 +72,7 @@ class StopTestThread(threading.Thread):
                     logger.error(msg)
                 else:
                     errors.append(("Test stop script on observer ID %s failed with error code %d." % (str(self._obsdict_key[self._obskey][1]), rs), rs, self._obsdict_key[self._obskey][1]))
-                    logger.error("Test stop script on observer ID %s failed with error code %d and message:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out)))
+                    logger.error("Test stop script on observer ID %s failed with error code %d:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out).strip()))
                     logger.error("Tried to execute: %s" % (" ".join(cmd)))
         except:
             logger.debug("Exception: %s, %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
@@ -705,9 +705,14 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     #logger.error("Error from test start thread for observer %s: %s" %(str(err[2]), str(err[0])))
                     obs_error.append(err[2])
                     warnings.append(err[0])
-            # Check if there is at least 1 observer which succeeded:
             if len(obs_error) > 0:
-                if (len(obsdict_id) == len(set(obs_error))):
+                # Abort or continue?
+                if not flocklab.config.get("dispatcher", "continue_on_error"):
+                    msg = "At least one observer failed to start the test, going to abort..."
+                    errors.append(msg)
+                    logger.error(msg)
+                # Check if there is at least 1 observer which succeeded:
+                elif (len(obsdict_id) == len(set(obs_error))):
                     msg = "None of the requested observers could successfully start the test."
                     errors.append(msg)
                     logger.error(msg)
@@ -730,10 +735,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 else:
                     logger.debug("Started serial proxy.")
     
-        # Start obsdbfetcher ---
+        # Start fetcher ---
         if len(errors) == 0:
-            logger.debug("Starting DB fetcher...")
-            cmd = [flocklab.config.get("dispatcher", "fetcherscript"), "--testid=%d"%testid]
+            logger.debug("Starting fetcher...")
+            cmd = [flocklab.config.get("dispatcher", "fetcherscript"), "--testid=%d" % testid]
             if debug:
                 cmd.append("--debug")
             p = subprocess.Popen(cmd)
@@ -744,14 +749,14 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 logger.error(msg)
                 logger.error("Tried to execute: %s" % (" ".join(cmd)))
 
-        # check if we're still in time
-        # 
-        now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
-        cur.execute("SELECT `serv_tests_key` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d AND `time_start_wish` <= '%s'" % (testid, now))
-        if cur.fetchone() is not None:
-            msg = "Setup for test ID %d took too much time." % (testid)
-            errors.append(msg)
-            logger.error(msg)
+        # check if we're still in time ---
+        if len(errors) == 0:
+            now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
+            cur.execute("SELECT `serv_tests_key` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d AND `time_start_wish` <= '%s'" % (testid, now))
+            if cur.fetchone() is not None:
+                msg = "Setup for test ID %d took too much time." % (testid)
+                errors.append(msg)
+                logger.error(msg)
 
         # Update DB status, set start time ---
         if len(errors) == 0:
@@ -1286,16 +1291,16 @@ def main(argv):
         
     # Build obsdict_key, obsdict_id ---
     # Get all observers which are used in the test and build a dictionary out of them:
-    sql =      """    SELECT `a`.serv_observer_key, `a`.observer_id, `a`.ethernet_address
-                FROM `tbl_serv_observer` AS `a` 
-                LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `b` 
-                    ON `a`.serv_observer_key = `b`.observer_fk 
-                WHERE `b`.test_fk = %d;
-            """
-    cur.execute(sql%testid)
+    sql = """ SELECT `a`.serv_observer_key, `a`.observer_id, `a`.ethernet_address
+              FROM `tbl_serv_observer` AS `a` 
+              LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `b` 
+                ON `a`.serv_observer_key = `b`.observer_fk 
+              WHERE `b`.test_fk = %d;
+          """
+    cur.execute(sql % testid)
     ret = cur.fetchall()
     if not ret:
-        logger.debug("No used observers found in database for test ID %d. Exiting..." %testid)
+        logger.debug("No used observers found in database for test ID %d. Exiting..." % testid)
         logger.debug("Setting test status in DB to 'failed'...")
         status = 'failed'
         flocklab.set_test_status(cur, cn, testid, status)
@@ -1321,11 +1326,11 @@ def main(argv):
         errors, warnings = start_test(testid, cur, cn, obsdict_key, obsdict_id)
         # Record time needed to set up test for statistics in DB:
         time_needed = time.time() - starttime
-        sql =      """    UPDATE `tbl_serv_tests`
-                    SET `setuptime` = %d
-                    WHERE `serv_tests_key` = %d;
-                """
-        cur.execute(sql%(int(time_needed), testid))
+        sql = """ UPDATE `tbl_serv_tests`
+                  SET `setuptime` = %d
+                  WHERE `serv_tests_key` = %d;
+              """
+        cur.execute(sql % (int(time_needed), testid))
         cn.commit()
         if len(errors) != 0:
             # Test start failed. Make it abort:
