@@ -409,7 +409,6 @@ def get_test_obs(cursor=None, testid=0):
                         WHERE `b`.test_fk = %d \
                         ORDER BY `a`.observer_id" % testid)
         rs = cursor.fetchall()
-        
         obsdict_bykey = {}
         obsdict_byid = {}
         for row in rs:
@@ -419,7 +418,7 @@ def get_test_obs(cursor=None, testid=0):
             
     except:
         logger = get_logger()
-        logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.error("%s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return FAILED
 ### END get_test_obs()
 
@@ -431,7 +430,7 @@ def get_test_obs(cursor=None, testid=0):
 ##############################################################################
 def get_fetcher_pid(testid):
     try:
-        searchterm = "flocklab_fetcher.py (.)*-(-)?t(estid=)?%d"%(testid)
+        searchterm = "flocklab_fetcher.py (.)*-(-)?t(estid=)?%d" % (testid)
         cmd = ['pgrep', '-o', '-f', searchterm]
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         out, err = p.communicate()
@@ -600,46 +599,6 @@ def get_slot(cursor=None, obs_fk=None, platname=None):
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return -2
 ### END get_slot()
-
-
-##############################################################################
-#
-# get_slot_calib - Get calibration values for a slot
-#
-##############################################################################
-def get_slot_calib(cursor=None, obsfk=None, testid=None):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-            obsfk: observer key
-            testid: Test key  
-       Return value:
-            tuple with calibration values on success (0,1) if none were found
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-       """
-    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(obsfk) != int) or (type(testid) != int)):
-        return 1
-        
-    try:
-        # First, get a list of all possible adapt_list keys:
-        sql =    """    SELECT 1000*`c`.`offset`, `c`.`factor` 
-                    FROM tbl_serv_map_test_observer_targetimages AS `b` 
-                    LEFT JOIN tbl_serv_observer_slot_calibration AS `c` 
-                        ON (`b`.slot = `c`.slot) AND (`b`.observer_fk = `c`.observer_fk)
-                    WHERE (`b`.test_fk = %d) AND (`b`.observer_fk = %d);
-                """ 
-        cursor.execute(sql%(testid, obsfk))
-        offset, factor = cursor.fetchone()
-        if (offset == None):
-            offset = 0.0
-        if (factor== None):
-            factor = 1.0
-        return (float(offset), float(factor))
-    except:
-        logger = get_logger()
-        logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return -2
-### END get_slot_calib()
 
 
 ##############################################################################

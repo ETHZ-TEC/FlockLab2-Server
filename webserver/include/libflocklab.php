@@ -498,7 +498,7 @@ function validate_test($test_config_file, &$errors) {
 function trigger_scheduler() {
     global $CONFIG;
     // use SSH as a way to run the script under the user 'flocklab' on the testmanagement server
-    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['testmanagementserver']['scheduler']." --debug' > /dev/null 2>&1 &";
+    $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." '".$CONFIG['testmanagementserver']['venvwrapper']." ".$CONFIG['testmanagementserver']['scheduler']." --debug > /dev/null 2>&1 &'";
     exec($cmd);
 }
 
