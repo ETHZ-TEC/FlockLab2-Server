@@ -162,7 +162,7 @@ def main(argv):
                      AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, NOW()) > 60
                   """
             if cur.execute(sql) <= 0:
-                logger.info("No tests found which are marked to be deleted.")
+                logger.info("No stuck tests found.")
             else:
                 rs = cur.fetchall()
                 testids = []
@@ -180,16 +180,16 @@ def main(argv):
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
             
             # Check for stuck threads that have been running for more than 1 day
-            cmd = ["ps", "-U", "flocklab", "-o", "pid:5=,cmd:50=,etime="]
+            cmd = ["ps", "-U", "flocklab", "-o", "pid:5=,cmd:100=,etime="]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
             out, err = p.communicate()
-            lines = out.strip().split("\n")
+            lines = out.split("\n")
             pids = []
             for line in lines:
                 try:
                     pid = int(line[0:6].strip())
-                    command = line[6:56].strip()
-                    runtime = line[56:].strip()
+                    command = line[6:106].strip()
+                    runtime = line[106:].strip()
                     if ("flocklab_fetcher" in command) and ("-" in runtime):
                         pids.append(pid)
                 except:
@@ -204,6 +204,8 @@ def main(argv):
                 emails = flocklab.get_admin_emails(cur)
                 if emails != flocklab.FAILED:
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
+            else:
+                logger.info("No stuck threads found.")
             
         except:
             msg = "Encountered error: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
