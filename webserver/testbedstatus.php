@@ -151,9 +151,7 @@ $javascript = '<link rel="stylesheet" href="css/ui-lightness/jquery-ui-1.8.20.cu
                     while ($row = mysqli_fetch_array($rs)) {
                         $i++;
                         echo ($i%2 == 1) ? "<tr class='even'>" : "<tr class='odd'>";
-                        if ($row['observer_id'] < 10 )
-                            echo "<td>00";
-                        elseif ($row['observer_id'] < 100 )
+                        if ($row['observer_id'] < 10)
                             echo "<td>0";
                         else
                             echo "<td>";

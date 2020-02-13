@@ -206,7 +206,10 @@
 <xs:complexType name="gpioTracingConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:element name="pinConf" type="gpioTracingPinConfType" minOccurs="1" maxOccurs="unbounded"/>
+    <xs:choice>
+      <xs:element name="pinConf" type="gpioTracingPinConfType" minOccurs="1" maxOccurs="unbounded"/>
+      <xs:element name="pins" type="pinTracingListType"/>
+    </xs:choice>
   </xs:sequence>
 </xs:complexType>
 <xs:complexType name="gpioTracingPinConfType">
@@ -360,6 +363,10 @@
   <xs:restriction base="xs:string">
     <xs:pattern value="INT1|INT2|LED1|LED2|LED3"/>
   </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="pinTracingListType">
+  <xs:list itemType="pinTracingType"/>
 </xs:simpleType>
 
 <!-- Type definition for actuation enabled GPIOs -->
