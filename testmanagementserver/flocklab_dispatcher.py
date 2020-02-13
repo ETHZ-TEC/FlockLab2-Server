@@ -520,7 +520,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     for gmconf in gmconfs:
                         obsids = gmconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
                         pinconfs = gmconf.xpath('d:pinConf', namespaces=ns)
+                        pinlist = gmconf.xpath('d:pins', namespaces=ns)
                         xmlblock = "<obsGpioMonitorConf>\n"
+                        if pinlist:
+                            xmlblock += "\t<pins>" + pinlist[0].text.strip() + "</pins>\n"
                         for pinconf in pinconfs:
                             pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
                             edge = pinconf.xpath('d:edge', namespaces=ns)[0].text.strip()
