@@ -989,6 +989,10 @@ def main(argv):
         
         # Start a worker process pool for every service:
         for service, cpus in service_pools_dict.items():
+            if cpus != 1:
+                # currently only 1 CPU / process can be used per task since processing functions are NOT thread safe!
+                logger.warning("%d is an invalid number of CPUs for service %s, using default value of 1." % (cpus, service))
+                cpus = 1
             if cpus > 0:
                 pool = multiprocessing.Pool(processes=cpus)
                 logger.debug("Created pool for %s workers with %d processes" % (service, cpus))
