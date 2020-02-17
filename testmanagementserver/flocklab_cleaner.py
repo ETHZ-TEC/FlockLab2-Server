@@ -186,15 +186,16 @@ def main(argv):
             lines = out.split("\n")
             pids = []
             for line in lines:
-                try:
-                    pid = int(line[0:6].strip())
-                    command = line[6:106].strip()
-                    runtime = line[106:].strip()
-                    if ("flocklab_fetcher" in command) and ("-" in runtime):
-                        pids.append(pid)
-                except:
-                    logger.debug("Failed to parse output from 'ps'. Line was: %s" % line)
-                    break
+                if len(line) > 0:
+                    try:
+                        pid = int(line[0:6].strip())
+                        command = line[6:106].strip()
+                        runtime = line[106:].strip()
+                        if ("flocklab_fetcher" in command) and ("-" in runtime):
+                            pids.append(pid)
+                    except:
+                        logger.debug("Failed to parse output of 'ps'. Line was: '%s'" % line)
+                        break
             if len(pids) > 0:
                 # kill the stuck threads
                 for pid in pids:
