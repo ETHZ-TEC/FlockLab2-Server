@@ -3,14 +3,8 @@
 <!--
 	/*
 	 * XML schema for FlockLab test configuration XMLs. 
-	 * This schema can be downloaded from http://www.flocklab.ethz.ch/user/xml/flocklab.xsd
-	 * Help is available at http://www.flocklab.ethz.ch/wiki/wiki/Public/Man/XmlConfig
- 	 *
- 	 *
-	 * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
-	 * __copyright__   = "Copyright 2011-2014, ETH Zurich, Switzerland"
-	 * __license__     = "GPL"
-	 * __id__          = "$Id$"
+	 * This schema can be downloaded from https://user.flocklab.ethz.ch/xml/flocklab.xsd
+	 * Help is available at https://gitlab.ethz.ch/tec/public/flocklab/flocklab/-/wikis/Man/XmlConfig
 	 */
 -->
 
@@ -281,13 +275,18 @@
 <xs:complexType name="powerProfilingConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:element name="profConf" type="profConfType" minOccurs="1" maxOccurs="unbounded"/>
+    <xs:element name="fileFormat" type="profConfFileFormat" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="profConf" type="profConfType" minOccurs="1" maxOccurs="1"/>
   </xs:sequence>
 </xs:complexType>
 <xs:complexType name="profConfType">
   <xs:sequence>
-    <xs:element name="durationMillisecs" type="powerProfDurationType"/>
     <xs:choice>
+      <xs:element name="durationMillisecs" type="powerProfDurationMSType"/>
+      <xs:element name="duration" type="powerProfDurationType"/>
+    </xs:choice>
+    <xs:choice>
+      <xs:element name="offset" type="offsetSecsType"/>
       <xs:element name="relativeTime">
         <xs:complexType>
           <xs:group ref="timingRelativeGroup"/>
@@ -299,7 +298,10 @@
         </xs:complexType>
       </xs:element>
     </xs:choice>
-    <xs:element name="samplingDivider" type="powerProfSamplingDividerType" minOccurs="0" maxOccurs="1"/>
+    <xs:choice>
+      <xs:element name="samplingDivider" type="powerProfSamplingDividerType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="samplingRate" type="powerProfSamplingRateType" minOccurs="0" maxOccurs="1"/>
+    </xs:choice>
   </xs:sequence>
 </xs:complexType>
 
@@ -395,17 +397,33 @@
 
 <xs:group name="gpioTraccallbackPowerProfAddGroup">
   <xs:all>
-    <xs:element name="durationMillisecs" type="powerProfDurationType"/>
+    <xs:element name="durationMillisecs" type="powerProfDurationMSType"/>
     <xs:element name="offsetSecs" type="offsetSecsType"/>
     <xs:element name="offsetMicrosecs" type="microsecsType"/>
   </xs:all>
 </xs:group>
 
+<!-- Type definition for power profiling file format -->
+<xs:simpleType name="profConfFileFormat">
+  <xs:restriction base="xs:string">
+    <xs:enumeration value="csv"/>
+    <xs:enumeration value="rld"/>
+  </xs:restriction>
+</xs:simpleType>
+
 <!-- Type definition for duration of a power profile in milliseconds -->
-<xs:simpleType name="powerProfDurationType">
+<xs:simpleType name="powerProfDurationMSType">
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="50"/>
     <xs:maxInclusive value="3600000"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for duration of a power profile in seconds -->
+<xs:simpleType name="powerProfDurationType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="1"/>
+    <xs:maxInclusive value="3600"/>
   </xs:restriction>
 </xs:simpleType>
 
@@ -413,6 +431,13 @@
 <xs:simpleType name="powerProfSamplingDividerType">
   <xs:restriction base="xs:integer">
     <xs:pattern value="1|2|4|8|16|32|64|640|6400|64000"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for samling rate of a power profile -->
+<xs:simpleType name="powerProfSamplingRateType">
+  <xs:restriction base="xs:integer">
+    <xs:pattern value="1|10|100|1000|2000|4000|8000|16000|32000|64000"/>
   </xs:restriction>
 </xs:simpleType>
 

@@ -1262,3 +1262,20 @@ def get_xml_timestamp(datetimestring):
       timestamp = timestamp - offset
   return timestamp
 ### END get_xml_timestamp()
+
+
+##############################################################################
+#
+# parse_int()   parses a string to int
+#
+##############################################################################
+def parse_int(s):
+    res = 0
+    if s:
+        try:
+            res = int(float(s.strip())) # higher success rate if first parsed to float
+        except ValueError:
+            if logger:
+                logger.warning("Could not parse %s to int." % (str(s)))
+    return res
+### END parse_int()

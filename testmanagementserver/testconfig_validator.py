@@ -596,6 +596,24 @@ def main(argv):
             if not quiet:
                 print("Element powerProfilingConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
+        # Check simple offset tag
+        rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:offset', namespaces=ns)
+        for elem in rs:
+            ppStart = int(elem.text)
+            elem2 = elem.getparent().find('d:durationMillisecs', namespaces=ns)
+            if elem2:
+                ppDuration = int(elem2.text) / 1000
+            else:
+                elem2 = elem.getparent().find('d:duration', namespaces=ns)
+                ppDuration = int(elem2.text)
+            if (ppStart > testDuration):
+                if not quiet:
+                    print(("Line %d: element offset: The offset is bigger than the test duration, thus the action will never take place." % (elem.sourceline)))
+                errcnt = errcnt + 1
+            elif (ppStart + ppDuration > testDuration):
+                if not quiet:
+                    print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
+                errcnt = errcnt + 1
         # Check relative timings:
         rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:relativeTime/d:offsetSecs', namespaces=ns)
         for elem in rs:
@@ -605,13 +623,18 @@ def main(argv):
             else:
                 ppStart = int(elem.text)
             elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
+            if elem2:
+                ppDuration = int(elem2.text) / 1000
+            else:
+                elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
+                ppDuration = int(elem2.text)
             if (ppStart > testDuration):
                 if not quiet:
-                    print(("Line %d: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." %(elem.sourceline)))
+                    print(("Line %d: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." % (elem.sourceline)))
                 errcnt = errcnt + 1
-            elif (ppStart + int(elem2.text)/1000 > testDuration):
+            elif (ppStart + ppDuration > testDuration):
                 if not quiet:
-                    print(("Line %d: element durationMillisecs: Profiling lasts longer than test." %(elem2.sourceline)))
+                    print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
                 errcnt = errcnt + 1
         # Check absolute timings:
         rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:absoluteTime/d:absoluteDateTime', namespaces=ns)
@@ -628,6 +651,11 @@ def main(argv):
                 else:
                     ppStart = eventTime
                 elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
+                if elem2:
+                    ppDuration = int(elem2.text) / 1000
+                else:
+                    elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
+                    ppDuration = int(elem2.text)
                 if (ppStart > testEnd):
                     if not quiet:
                         print(("Line %d: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
@@ -636,9 +664,9 @@ def main(argv):
                     if not quiet:
                         print(("Line %d: element absoluteDateTime: The action is scheduled before the test starts, thus the action will never take place." %(elem.sourceline)))
                     errcnt = errcnt + 1
-                elif (ppStart + int(elem2.text)/1000 > testEnd):
+                elif (ppStart + ppDuration > testEnd):
                     if not quiet:
-                        print(("Line %d: element durationMillisecs: Profiling lasts longer than test." %(elem2.sourceline)))
+                        print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
                     errcnt = errcnt + 1
     
     #===========================================================================

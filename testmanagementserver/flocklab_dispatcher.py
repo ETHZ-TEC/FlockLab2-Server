@@ -617,35 +617,42 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         profconfs = ppconf.xpath('d:profConf', namespaces=ns)
                         xmlblock = "<obsPowerprofConf>\n"
                         for profconf in profconfs:
-                            duration  = profconf.xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()
-                            xmlblock += "\t<profConf>\n\t\t<duration>%s</duration>" %duration
-                            abs_tim = profconf.xpath('d:absoluteTime', namespaces=ns)
-                            if abs_tim:
-                                absdatetime = absolute2absoluteUTC_time(abs_tim[0].xpath('d:absoluteDateTime', namespaces=ns)[0].text.strip()) # parse xml date
-                                ret = abs_tim[0].xpath('d:absoluteMicrosecs', namespaces=ns)
-                                if ret:
-                                    absmicrosec = ret[0].text.strip()
-                                else: 
-                                    absmicrosec = 0
+                            duration = profconf.xpath('d:duration', namespaces=ns)[0].text.strip()
+                            if not duration:
+                                try:
+                                    duration = int(profconf.xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()) / 1000
+                                except:
+                                    duration = 0
+                            #xmlblock += "\t<profConf>\n"
+                            xmlblock += "\t<duration>%s</duration>" % duration
+                            # calculate the sampling start
+                            offset  = profconf.xpath('d:offset', namespaces=ns)
                             rel_tim = profconf.xpath('d:relativeTime', namespaces=ns)
-                            if rel_tim:
+                            abs_tim = profconf.xpath('d:absoluteTime', namespaces=ns)
+                            if offset:
+                                offset = int(offset[0].text.strip())
+                                tstart = datetime.datetime.timestamp(starttime + datetime.timedelta(seconds=offset))
+                            elif abs_tim:
+                                tstart = datetime.datetime.timestamp(flocklab.get_xml_timestamp(abs_tim[0].xpath('d:absoluteDateTime', namespaces=ns)[0].text.strip()))
+                            elif rel_tim:
                                 relsec = int(rel_tim[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip())
-                                ret = rel_tim[0].xpath('d:offsetMicrosecs', namespaces=ns)
-                                if ret:
-                                    relmicrosec = int(ret[0].text.strip())
-                                else:
-                                    relmicrosec = 0
-                                # Relative times need to be converted into absolute times:
-                                absmicrosec, absdatetime = relative2absolute_time(starttime, relsec, relmicrosec)
-                            xmlblock += "\n\t\t<absoluteTime>\n\t\t\t<absoluteDateTime>%s</absoluteDateTime>\n\t\t\t<absoluteMicrosecs>%s</absoluteMicrosecs>\n\t\t</absoluteTime>" %(absdatetime, absmicrosec)
+                                tstart = datetime.datetime.timestamp(starttime + datetime.timedelta(seconds=relsec))
+                            xmlblock += "\n\t<starttime>%s</starttime>" % (tstart)
+                            # check if config contains samplingRate:
+                            samplingrate    = profconf.xpath('d:samplingRate', namespaces=ns)
                             samplingdivider = profconf.xpath('d:samplingDivider', namespaces=ns)
-                            if samplingdivider:
+                            if samplingrate:
+                                samplingrate = samplingrate[0].text.strip()
+                                xmlblock += "\n\t<samplingRate>%s</samplingRate>" % samplingrate
+                            elif samplingdivider:
                                 samplingdivider = samplingdivider[0].text.strip()
+                                xmlblock += "\n\t<samplingDivider>%s</samplingDivider>" % samplingdivider
                             else:
-                                samplingdivider = flocklab.config.get('dispatcher', 'default_sampling_divider') 
-                            xmlblock += "\n\t\t<samplingDivider>%s</samplingDivider>"%samplingdivider
-                            xmlblock += "\n\t</profConf>\n"
-                        xmlblock += "</obsPowerprofConf>\n\n"
+                                samplingdivider = flocklab.config.get('dispatcher', 'default_sampling_divider')
+                                xmlblock += "\n\t<samplingDivider>%s</samplingDivider>" % samplingdivider
+                            #xmlblock += "\n\t</profConf>\n"
+                            break    # for now, only parse the first block
+                        xmlblock += "\n</obsPowerprofConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)
                             obskey = obsdict_id[obsid][0]
@@ -747,7 +754,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             p = subprocess.Popen(cmd)
             rs = p.wait()
             if rs != 0:
-                msg = "Could not start database fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
+                msg = "Could not start fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
                 errors.append(msg)
                 logger.error(msg)
                 logger.error("Tried to execute: %s" % (" ".join(cmd)))
@@ -922,7 +929,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         p = subprocess.Popen(cmd)
         rs = p.wait()
         if rs not in (flocklab.SUCCESS, errno.ENOPKG): # flocklab.SUCCESS (0) is successful stop, ENOPKG (65) means the service was not running. 
-            msg = "Could not stop database fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
+            msg = "Could not stop fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
             errors.append(msg)
             logger.error(msg)
             logger.error("Tried to execute: %s" % (" ".join(cmd)))
@@ -963,7 +970,13 @@ def prepare_testresults(testid, cur):
 
     errors = []
     tree = None
-        
+    
+    # Check if results directory exists
+    testresultsdir = "%s/%d" % (flocklab.config.get('fetcher', 'testresults_dir'), testid)
+    if not os.path.isdir(testresultsdir):
+        errors.append("Test results directory does not exist.")
+        return errors
+    
     logger.debug("Preparing testresults...")
     
     # Check if user wants test results as email ---
@@ -991,15 +1004,13 @@ def prepare_testresults(testid, cur):
     
     # Add config XML to results directory
     if flocklab.config.get('archiver', 'include_xmlconfig'):
-        testresultsdir = "%s/%d" % (flocklab.config.get('fetcher', 'testresults_dir'), testid)
-        if (os.path.isdir(testresultsdir) and (not os.path.exists("%s/testconfig.xml" % testresultsdir))):
-            if tree:
-                et = lxml.etree.ElementTree(tree)
-                et.write("%s/testconfig.xml" % testresultsdir, pretty_print=True)
-                logger.debug("XML config copied to results folder.")
-            else:
-                logger.warn("Could not copy XML config to test results directory.")
-      
+        if tree:
+            et = lxml.etree.ElementTree(tree)
+            et.write("%s/testconfig.xml" % testresultsdir, pretty_print=True)
+            logger.debug("XML config copied to results folder.")
+        else:
+            logger.warn("Could not copy XML config to test results directory.")
+    
     # Archive test results ---
     cmd = [flocklab.config.get('dispatcher', 'archiverscript'),"--testid=%d" % testid]
     if emailResults:
@@ -1138,9 +1149,9 @@ def relative2absolute_time(starttime, relative_secs, relative_microsecs):
 def absolute2absoluteUTC_time(timestring):
   tempdatetime = flocklab.get_xml_timestamp(timestring)
   absolute_datetime = time.strftime(flocklab.config.get("observer", "timeformat"), time.gmtime(tempdatetime))
-  
   return absolute_datetime
 ### END relative2absolute_time()
+
 
 def db_register_activity(testid, cur, cn, action, obskeys):
     pid = os.getpid()

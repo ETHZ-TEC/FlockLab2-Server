@@ -112,7 +112,7 @@ $javascript = '<link rel="stylesheet" href="css/ui-lightness/jquery-ui-1.8.20.cu
                 <?php 
                 /* Get all status information about the observers from the database and display them in the table. */
                 $db = db_connect();
-                $sql =    "SELECT obs.observer_id, obs.status, obs.last_changed, 
+                $sql = "SELECT obs.observer_id, obs.status, obs.last_changed, 
                         slot1.name AS name1, slot1.description AS desc1, 
                         slot2.name AS name2, slot2.description AS desc2, 
                         slot3.name AS name3, slot3.description AS desc3, 
@@ -127,8 +127,7 @@ $javascript = '<link rel="stylesheet" href="css/ui-lightness/jquery-ui-1.8.20.cu
                         LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_list` AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key 
                         LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_types` AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key 
                         WHERE obs.status!='disabled' AND obs.status!='develop'
-                        ORDER BY obs.observer_id
-                        ;";
+                        ORDER BY obs.observer_id;";
                 $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get observer information from database because: ' . mysqli_error($db));
                 mysqli_close($db);
             ?>

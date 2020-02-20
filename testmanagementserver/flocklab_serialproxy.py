@@ -344,7 +344,7 @@ class ProxyConnections():
                             conn, addr = self.condoneQueue.get(False)
                             self.addHandler(conn, addr, is_observer = True)
                         except queue.Empty: 
-                                pass
+                            pass
                     # assume it is a socket, do forwarding
                     else:
                         m = ''

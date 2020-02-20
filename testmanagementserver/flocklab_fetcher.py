@@ -170,7 +170,7 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir,f)
-        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
+        loggername = "(%s.%d) " % (cur_p.name, obsid)
         #logqueue.put_nowait((loggername, logging.DEBUG, "Import file %s"%obsdbfile_path))
         # Open file:
         dbfile = open(obsdbfile_path, 'rb')
@@ -248,13 +248,13 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
 #               whole observer DB files.
 #
 ##############################################################################
-def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, vizimgdir=None, viz_f=None, logqueue=None):
+def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None, arg=None):
     try:
         _errors = []
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir, f)
-        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
+        loggername = "(%s.%d) " % (cur_p.name, obsid)
 
         with open(resultfile_path, "a") as outfile:
             infile = open(obsdbfile_path, "r")
@@ -285,25 +285,39 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, vizimg
 #        whole observer DB files.
 #
 ##############################################################################
-def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, vizimgdir=None, viz_f=None, logqueue=None):
+def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None, arg=None):
     try:
-        channel_names = ['I1','V1','V2']
         _errors = []
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir, f)
-        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
+        loggername = "(%s.%d) " % (cur_p.name, obsid)
 
-        rld_data = RocketLoggerData(obsdbfile_path).merge_channels()
-        # get network time and convert to UNIX timestamp (UTC)
-        timeidx = rld_data.get_time(absolute_time=True, time_reference='network')     # TODO adjust parameters for RL 1.99+
-        timeidxunix = timeidx.astype('uint64') / 1e9
-        rld_dataframe = pd.DataFrame(rld_data.get_data(channel_names), index=timeidxunix, columns=channel_names)
-        rld_dataframe.insert(0, 'observer_id', obsid)
-        rld_dataframe.insert(1, 'node_id', nodeid)
-        rld_dataframe.to_csv(resultfile_path, sep=',', index_label='time', header=False, mode='a')
+        if arg and arg == 'rld':
+            # RLD file format
+            # simply move the file into the results directory
+            try:
+                resfilename = "%s.%s.%s.rld" % (os.path.splitext(resultfile_path)[0], obsid, nodeid)
+                os.rename(obsdbfile_path, resfilename)
+            except FileExistsError:
+                # TODO: properly handle case where file already exists (several rld files per observer)
+                msg = "File '%s' already exists, dropping test results." % (resfilename)
+                _errors.append((msg, errno.EEXIST, obsid))
+                logqueue.put_nowait((loggername, logging.ERROR, msg))
+        else:
+            # CSV file format
+            rld_data = RocketLoggerData(obsdbfile_path).merge_channels()
+            # get network time and convert to UNIX timestamp (UTC)
+            timeidx = rld_data.get_time(absolute_time=True, time_reference='network')     # TODO adjust parameters for RL 1.99+
+            timeidxunix = timeidx.astype('uint64') / 1e9   # convert to s
+            current_ch = rld_data.get_data('I1') * 1000    # convert to mA
+            voltage_ch = rld_data.get_data('V2') - rld_data.get_data('V1')    # voltage difference
+            rld_dataframe = pd.DataFrame(np.hstack((current_ch, voltage_ch)), index=timeidxunix, columns=['I', 'V'])
+            rld_dataframe.insert(0, 'observer_id', obsid)
+            rld_dataframe.insert(1, 'node_id', nodeid)
+            rld_dataframe.to_csv(resultfile_path, sep=',', index_label='time', header=False, mode='a')
 
-        os.remove(obsdbfile_path)
+            os.remove(obsdbfile_path)
     except:
         msg = "Error in powerprof worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, errno.ECOMM, obsid))
@@ -320,13 +334,13 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, vizimgdi
 # worker_logs
 #
 ##############################################################################
-def worker_logs(queueitem=None, nodeid=None, resultfile_path=None, vizimgdir=None, viz_f=None, logqueue=None):
+def worker_logs(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None, arg=None):
     try:
         _errors = []
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir, f)
-        loggername = "(%s.Obs%d) " % (cur_p.name, obsid)
+        loggername = "(%s.%d) " % (cur_p.name, obsid)
 
         with open(resultfile_path, "a") as outfile:
             infile = open(obsdbfile_path, "r")
@@ -424,7 +438,7 @@ class FetchObsThread(threading.Thread):
         
     def run(self):
         try:
-            self._loggerprefix = "(FetchObsThread.Obs%d) "%self._obsid
+            self._loggerprefix = "(FetchObsThread.%d) "%self._obsid
             self._logger.info(self._loggerprefix + "FetchObsThread starting...")
             removelast = True
                 
@@ -861,7 +875,7 @@ def main(argv):
     ret = cur.fetchone() 
     teststarttime = ret[0]
     teststoptime  = ret[1]
-    FlockDAQ = False
+    ppFileFormat  = None
     
     # Find out which services are used to allocate working threads later on ---
     # Get the XML config from the database and check which services are used in the test.
@@ -886,6 +900,13 @@ def main(argv):
                     logger.debug("Usage of %s detected." % service)
                 else:
                     servicesUsed_dict[service] = False
+            # check which file format the user wants for the power profiling
+            if servicesUsed_dict['powerprofiling']:
+                if tree.xpath('//d:powerProfilingConf/d:fileFormat', namespaces=ns):
+                    ppFileFormat = tree.xpath('//d:powerProfilingConf/d:fileFormat', namespaces=ns)[0].text
+                    logger.debug("User wants file format %s for power profiling." % (ppFileFormat))
+                else:
+                    logger.debug("Element <fileFormat> not detected.")
         except:
             msg = "XML parsing failed: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             errors.append(msg)
@@ -927,7 +948,7 @@ def main(argv):
             elif service == 'gpiotracing':
                 header = 'timestamp,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
-                header = 'timestamp,observer_id,node_id,I1,V1,V2\n'
+                header = 'timestamp,observer_id,node_id,current[mA],voltage[V]\n'
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
             lock.acquire()
@@ -1042,14 +1063,14 @@ def main(argv):
             # Match the filename against the patterns and schedule an appropriate worker function:
             if (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
                 pool        = service_pools_dict['gpiotracing']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], vizimgdir, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], logqueue, None]
                 worker_f    = worker_gpiotracing
                 logger.debug(loggerprefix + "resultfile_path: %s" % str(testresultsfile_dict['gpiotracing'][0]))
                 #if (enableviz == 1):
                 #    worker_args[6] = flocklab.viz_gpio_monitor
             elif (re.search("^powerprofiling_[0-9]{14}\.rld$", f) != None):
                 pool        = service_pools_dict['powerprofiling'] 
-                worker_args = [nextitem, nodeid, testresultsfile_dict['powerprofiling'][0], vizimgdir, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['powerprofiling'][0], logqueue, ppFileFormat]
                 worker_f    = worker_powerprof
                 #if (enableviz == 1):
                 #    worker_args[6] = flocklab.viz_powerprofiling
@@ -1058,11 +1079,11 @@ def main(argv):
                 worker_args = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, vizimgdir, parse_serial, convert_serial, None, logqueue]
             elif (re.search("^error_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['logs']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['errorlog'][0], vizimgdir, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['errorlog'][0], logqueue, None]
                 worker_f    = worker_logs
             elif (re.search("^timesync_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['logs']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['timesynclog'][0], vizimgdir, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['timesynclog'][0], logqueue, None]
                 worker_f    = worker_logs
             else:
                 logger.warn(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
