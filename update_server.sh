@@ -23,12 +23,12 @@ else
     fi
 fi
 # webserver files
-RES=$(rsync -a -z -c -i --dry-run --exclude=".git" -e "ssh -q" webserver/ ${USER}@${HOST}:webserver/ | grep '^<fc' | cut -d' ' -f2)
+RES=$(rsync -a -z -c -i -K --dry-run --exclude=".git" -e "ssh -q" webserver/ ${USER}@${HOST}:webserver/ | grep '^<fc' | cut -d' ' -f2)
 if [ -z "$RES" ]; then
     echo "Webserver files are up to date."
 else
     printf "Updating webserver files..."
-    rsync -a -q -z -c --exclude=".git" -e "ssh -q" webserver ${USER}@${HOST}:
+    rsync -a -q -z -c -K --exclude=".git" -e "ssh -q" webserver ${USER}@${HOST}:
     if [ $? -ne 0 ]; then
         printf "failed to copy repository files!\n"
         continue
