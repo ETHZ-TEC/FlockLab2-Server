@@ -601,7 +601,7 @@ def main(argv):
         for elem in rs:
             ppStart = int(elem.text)
             elem2 = elem.getparent().find('d:durationMillisecs', namespaces=ns)
-            if elem2:
+            if elem2 is not None:
                 ppDuration = int(elem2.text) / 1000
             else:
                 elem2 = elem.getparent().find('d:duration', namespaces=ns)
@@ -623,7 +623,7 @@ def main(argv):
             else:
                 ppStart = int(elem.text)
             elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
-            if elem2:
+            if elem2 is not None:
                 ppDuration = int(elem2.text) / 1000
             else:
                 elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
@@ -651,7 +651,7 @@ def main(argv):
                 else:
                     ppStart = eventTime
                 elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
-                if elem2:
+                if elem2 is not None:
                     ppDuration = int(elem2.text) / 1000
                 else:
                     elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)

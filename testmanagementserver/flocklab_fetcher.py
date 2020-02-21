@@ -948,6 +948,8 @@ def main(argv):
             elif service == 'gpiotracing':
                 header = 'timestamp,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
+                if ppFileFormat == 'rld':
+                    continue    # don't open a csv file
                 header = 'timestamp,observer_id,node_id,current[mA],voltage[V]\n'
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'

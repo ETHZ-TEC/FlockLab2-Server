@@ -90,7 +90,6 @@ def obs_connect_process(conreqQueue, condoneQueue, _stopevent):
                 logger.info("Could not connect to observer %s on port %d, dropping connection." % (w[0],w[1]))
             except Exception:
                 logger.info("Could not connect to observer %s on port %d: %s, %s\n%s" % (w[0], w[1], str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
-                pass
             finally:
                 worklist.remove(w)
 ### END obs_connect_process

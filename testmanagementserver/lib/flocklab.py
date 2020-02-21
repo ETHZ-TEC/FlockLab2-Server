@@ -1276,6 +1276,6 @@ def parse_int(s):
             res = int(float(s.strip())) # higher success rate if first parsed to float
         except ValueError:
             if logger:
-                logger.warning("Could not parse %s to int." % (str(s)))
+                logger.warn("Could not parse %s to int." % (str(s)))
     return res
 ### END parse_int()

@@ -617,8 +617,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         profconfs = ppconf.xpath('d:profConf', namespaces=ns)
                         xmlblock = "<obsPowerprofConf>\n"
                         for profconf in profconfs:
-                            duration = profconf.xpath('d:duration', namespaces=ns)[0].text.strip()
-                            if not duration:
+                            duration = profconf.xpath('d:duration', namespaces=ns)
+                            if duration:
+                                duration = duration[0].text.strip()
+                            else:
                                 try:
                                     duration = int(profconf.xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()) / 1000
                                 except:
@@ -828,8 +830,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
         return (errors, warnings)
     except Exception:
         msg = "Unexpected error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        print(msg)
-        logger.warn(msg)
+        logger.error(msg)
         raise
 ### END start_test()
 
@@ -950,8 +951,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         return (errors, warnings)
     except Exception:
         msg = "Unexpected error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        print(msg)
-        logger.warn(msg)
+        logger.error(msg)
         raise
 ### END stop_test()
 
@@ -967,14 +967,13 @@ def prepare_testresults(testid, cur):
         are running, it may take a long time for this function to finish as it will wait
         for these functions to succeed.
     """
-
     errors = []
     tree = None
     
     # Check if results directory exists
     testresultsdir = "%s/%d" % (flocklab.config.get('fetcher', 'testresults_dir'), testid)
     if not os.path.isdir(testresultsdir):
-        errors.append("Test results directory does not exist.")
+        logger.warn("Test results directory does not exist.")
         return errors
     
     logger.debug("Preparing testresults...")
