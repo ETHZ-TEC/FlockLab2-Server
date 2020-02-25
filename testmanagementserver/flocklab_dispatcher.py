@@ -116,6 +116,7 @@ class StartTestThread(threading.Thread):
         errors = []
         testconfigfolder = "%s/%d" % (flocklab.config.get("observer", "testconfigfolder"), self._testid)
         obsdataport      = flocklab.config.getint('serialproxy', 'obsdataport')
+        starttime        = time.time()
         try:
             logger.debug("Start StartTestThread for observer ID %d" % (self._obsdict_key[self._obskey][1]))
             # First test if the observer is online and if the SD card is mounted: 
@@ -180,7 +181,7 @@ class StartTestThread(threading.Thread):
                         errors.append(("Test start script on observer ID %s failed with error code %d." % (self._obsdict_key[self._obskey][1], rs), rs, self._obsdict_key[self._obskey][1]))
                         logger.error("Test start script on observer ID %s failed with error code %d and message:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out)))
                     else:
-                        logger.debug("Test start script on observer ID %s succeeded." % (self._obsdict_key[self._obskey][1]))
+                        logger.debug("Test start script on observer ID %s succeeded (took %us)." % (self._obsdict_key[self._obskey][1], int(time.time() - starttime)))
                     # Remove image file and xml on server:
                     os.remove(self._xmldict_key[self._obskey][0])
                     logger.debug("Removed XML config %s for observer ID %s" % (self._xmldict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
@@ -248,7 +249,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             # Image processing ---
             # Get all images from the database:
             imagedict_key = {}
-            sql_image =     """    SELECT `t`.`binary`, `m`.`observer_fk`, `m`.`node_id`, LOWER(`a`.`architecture`), `t`.`serv_targetimages_key`, LOWER(`p`.`name`) AS `platname`, `a`.`core` AS `core`
+            sql_image =     """ SELECT `t`.`binary`, `m`.`observer_fk`, `m`.`node_id`, LOWER(`a`.`architecture`), `t`.`serv_targetimages_key`, LOWER(`p`.`name`) AS `platname`, `a`.`core` AS `core`
                                 FROM `tbl_serv_targetimages` AS `t` 
                                 LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `m` 
                                     ON `t`.`serv_targetimages_key` = `m`.`targetimage_fk` 
@@ -259,7 +260,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                 LEFT JOIN `tbl_serv_architectures` AS `a`
                                     ON `t`.`core` = `a`.`core` AND `p`.`serv_platforms_key` = `a`.`platforms_fk`
                                 WHERE `m`.`test_fk` = %d
-                            """    
+                            """
             cur.execute(sql_image%testid)
             ret = cur.fetchall()
             for r in ret:
@@ -691,7 +692,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             # Wait for all threads to finish:
             for (thread, obskey) in thread_list:
                 # Wait max 75% of the setuptime:
-                thread.join(timeout=(flocklab.config.getint('tests','setuptime')*0.75*60))
+                thread.join(timeout=(flocklab.config.getint('tests','setuptime')*0.75))
                 if thread.isAlive():
                     # Timeout occurred. Signal the thread to abort:
                     logger.error("Telling thread for test start on observer ID %s to abort..." % (str(obsdict_key[obskey][1])))
@@ -902,7 +903,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             logger.debug("Started thread for test stop on observer ID %s" %(str(obsdict_key[obskey][1])))
         # Wait for all threads to finish:
         for (thread, obskey) in thread_list:
-            thread.join(timeout=(flocklab.config.getint('tests','cleanuptime')*0.75*60))
+            thread.join(timeout=(flocklab.config.getint('tests','cleanuptime') * 0.75))
             if thread.isAlive():
                 # Timeout occurred. Signal the thread to abort:
                 msg = "Telling thread for test stop on observer ID %s to abort..." %(str(obsdict_key[obskey][1]))
@@ -1160,7 +1161,7 @@ def db_register_activity(testid, cur, cn, action, obskeys):
         spin = False
         try:
             # remove obsolete values, just in case there was something going wrong..
-            sql = 'DELETE FROM tbl_serv_dispatcher_activity WHERE (`time_start` < date_add(NOW(), interval - %d minute))' % (max((flocklab.config.getint('tests','setuptime'),flocklab.config.getint('tests','cleanuptime'))) * 2)
+            sql = 'DELETE FROM tbl_serv_dispatcher_activity WHERE (`time_start` < date_add(NOW(), interval - %d second))' % (max((flocklab.config.getint('tests','setuptime'),flocklab.config.getint('tests','cleanuptime'))) * 2)
             cur.execute(sql)
             for obskey in obskeys:
                 sql = 'INSERT INTO tbl_serv_dispatcher_activity (`pid`,`action`,`observer_fk`,`test_fk`,`time_start`) VALUES (%d,"%s",%d,%d,NOW())' % (pid,action,obskey,testid)
@@ -1366,7 +1367,7 @@ def main(argv):
         errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
         # Record time needed to set up test for statistics in DB:
         time_needed = time.time() - starttime
-        sql =      """    UPDATE `tbl_serv_tests`
+        sql =   """ UPDATE `tbl_serv_tests`
                     SET `cleanuptime` = %d
                     WHERE `serv_tests_key` = %d;
                 """

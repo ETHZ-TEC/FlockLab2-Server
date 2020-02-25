@@ -548,9 +548,9 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
 function check_schedulability($testconfig, $exclude_test = NULL) {
     global $CONFIG;
     $db = db_connect();
-    $guard_min = $CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'];
-    $guard_setup_min = $CONFIG['tests']['setuptime'];
-    $guard_cleanup_min = $CONFIG['tests']['cleanuptime'];
+    $guard_sec = $CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'];
+    $guard_setup_sec = $CONFIG['tests']['setuptime'];
+    $guard_cleanup_sec = $CONFIG['tests']['cleanuptime'];
     $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
     $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
     $start->setTimeZone(new DateTimeZone("UTC"));
@@ -558,7 +558,7 @@ function check_schedulability($testconfig, $exclude_test = NULL) {
     $now = new DateTime ();
     $now->setTimeZone(new DateTimeZone("UTC"));
     // check setup time
-    if ($start->format("U") - ($guard_setup_min * 60) < $now->format("U")) {
+    if ($start->format("U") - $guard_setup_sec < $now->format("U")) {
         $sched=false;
     }
     else {
@@ -568,8 +568,8 @@ function check_schedulability($testconfig, $exclude_test = NULL) {
         WHERE ' .(is_null($exclude_test)?'':' `serv_tests_key`!='.$exclude_test.' AND ').' ('. 
         // planned tests
         '`test_status` NOT IN("finished","failed", "deleted", "todelete", "syncing", "synced", "retention expiring") AND (
-            (`time_start_wish` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_min).' MINUTE) AND `time_end_wish` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_min).' MINUTE))
-        OR  (`time_start_wish` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_min).' MINUTE) AND `time_end_wish` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_min).' MINUTE))))';
+            (`time_start_wish` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_sec).' SECOND) AND `time_end_wish` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_sec).' SECOND))
+        OR  (`time_start_wish` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_sec).' SECOND) AND `time_end_wish` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_sec).' SECOND))))';
         $res = mysqli_query($db, $sql) or flocklab_die('Cannot check schedulability: ' . mysqli_error($db));
         $row = mysqli_fetch_assoc($res);
         $sched = $row['test_num']==0;
@@ -577,7 +577,7 @@ function check_schedulability($testconfig, $exclude_test = NULL) {
         if ($sched) {
             $sql = 'SELECT max(`user_fk` = '.$_SESSION['serv_users_key'].') as `reservation_match`
                 FROM `tbl_serv_reservations` LEFT JOIN `tbl_serv_user_groups` ON `group_fk`=`group_id_fk`
-                WHERE (`time_start` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_min).' MINUTE) AND `time_end` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_min).' MINUTE))';
+                WHERE (`time_start` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_sec).' SECOND) AND `time_end` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_sec).' SECOND))';
             $res = mysqli_query($db, $sql) or flocklab_die('Cannot check schedulability: ' . mysqli_error($db));
             if (mysqli_num_rows($res) > 0) {
                 $row = mysqli_fetch_assoc($res);
@@ -772,7 +772,7 @@ function resource_slots($duration, $targetnodes) {
         $res = mysqli_query($db, $sql);
         if (mysqli_num_rows($res) == 1) {
             $row = mysqli_fetch_assoc($res);
-            array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime']) * 60, 'obsid'=>$tn['obsid'], 'restype'=>'slot_'.$row['slot']));
+            array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + $CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'], 'obsid'=>$tn['obsid'], 'restype'=>'slot_'.$row['slot']));
         }
     }
     mysqli_close($db);
@@ -799,7 +799,7 @@ function resource_freq($duration, $targetnodes) {
     foreach($targetnodes as $tn) {
         foreach(Array('freq_2400', 'freq_868', 'freq_433') as $restype) {
             if ($freqs[$tn['platform']][$restype] == 1)
-                array_push($resources, Array('time_start'=>$CONFIG['tests']['setuptime'] * 60, 'time_end'=>$duration + $CONFIG['tests']['setuptime'] * 60, 'obsid'=>$tn['obsid'], 'restype'=>$restype));
+                array_push($resources, Array('time_start'=>$CONFIG['tests']['setuptime'], 'time_end'=>$duration + $CONFIG['tests']['setuptime'], 'obsid'=>$tn['obsid'], 'restype'=>$restype));
         }
     }
     return $resources;
@@ -824,7 +824,7 @@ function resource_multiplexer($duration, $targetnodes, $xmlconfig) {
                 continue;
             foreach(explodeobsids($c->obsIds) as $obsid) {
                 if (! in_array($obsid, $ignoreObs)) {
-                    array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime']) * 60, 'obsid'=>(int)$obsid, 'restype'=>'mux'));
+                    array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + $CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'], 'obsid'=>(int)$obsid, 'restype'=>'mux'));
                     array_push($ignoreObs, $obsid);
                 }
             }
@@ -833,12 +833,12 @@ function resource_multiplexer($duration, $targetnodes, $xmlconfig) {
     
     foreach($targetnodes as $tn) {
         //if (! in_array($tn['obsid'], $ignoreObs)) {
-            if ($duration > ($CONFIG['tests']['guard_starttime'] + $CONFIG['tests']['guard_stoptime']) * 60) {
-                array_push($resources, Array('time_start'=>0, 'time_end'=>($CONFIG['tests']['setuptime'] + $CONFIG['tests']['guard_starttime'])*60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
-                array_push($resources, Array('time_start'=>($CONFIG['tests']['setuptime'] -  $CONFIG['tests']['guard_stoptime']) * 60 + $duration, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'])*60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
+            if ($duration > ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'])) {
+                array_push($resources, Array('time_start'=>0, 'time_end'=>($CONFIG['tests']['setuptime'] + $CONFIG['tests']['setuptime']), 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
+                array_push($resources, Array('time_start'=>($CONFIG['tests']['setuptime'] -  $CONFIG['tests']['cleanuptime']) + $duration, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime']), 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
             }
             else {
-                array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'])*60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
+                array_push($resources, Array('time_start'=>0, 'time_end'=>$duration + ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime']), 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
             }
         //}
     }
@@ -870,8 +870,8 @@ function resource_cleanup($targetnodes) {
         $res = mysqli_query($db, $sql);
         if (mysqli_num_rows($res) == 1) {
             $row = mysqli_fetch_assoc($res);
-            array_push($resources, Array('time_start'=>0, 'time_end'=>$CONFIG['tests']['cleanuptime'] * 60, 'obsid'=>$tn['obsid'], 'restype'=>'slot_'.$row['slot']));
-            array_push($resources, Array('time_start'=>0, 'time_end'=>$CONFIG['tests']['cleanuptime'] * 60, 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
+            array_push($resources, Array('time_start'=>0, 'time_end'=>$CONFIG['tests']['cleanuptime'], 'obsid'=>$tn['obsid'], 'restype'=>'slot_'.$row['slot']));
+            array_push($resources, Array('time_start'=>0, 'time_end'=>$CONFIG['tests']['cleanuptime'], 'obsid'=>$tn['obsid'], 'restype'=>'mux'));
         }
     }
     mysqli_close($db);
@@ -892,8 +892,8 @@ function resource_cleanup($targetnodes) {
 function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     global $CONFIG;
     $db = db_connect();
-    $guard_setup_min = $CONFIG['tests']['setuptime'];
-    $guard_cleanup_min = $CONFIG['tests']['cleanuptime'];
+    $guard_setup_sec = $CONFIG['tests']['setuptime'];
+    $guard_cleanup_sec = $CONFIG['tests']['cleanuptime'];
     $allow_parallel_tests = $CONFIG['tests']['allowparalleltests'];
     $isAsap = isset($testconfig->generalConf->scheduleAsap);
     $now = new DateTime ();
@@ -905,8 +905,8 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
         $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
         $start->setTimeZone(new DateTimeZone("UTC"));
         $end->setTimeZone(new DateTimeZone("UTC"));
-        $start->modify('-'.$guard_setup_min.' minutes');
-        $end->modify('+'.$guard_cleanup_min.' minutes');
+        $start->modify('-'.$guard_setup_sec.' seconds');
+        $end->modify('+'.$guard_cleanup_sec.' seconds');
         if ($start->format("U") < $now->format("U")) {
             return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
         }
@@ -917,7 +917,7 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
         $start->setTimeZone(new DateTimeZone("UTC"));
         $end->setTimeZone(new DateTimeZone("UTC"));
         $end->modify('+'.$testconfig->generalConf->scheduleAsap->durationSecs.' seconds');
-        $end->modify('+'.($guard_setup_min + $guard_cleanup_min).' minutes');
+        $end->modify('+'.($guard_setup_sec + $guard_cleanup_sec).' seconds');
     }
     $resourcesdict = Array();
     foreach($resources as $r) {
@@ -999,8 +999,8 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     mysqli_close($db);
     $start->modify('+'.($testShift - $shiftOffset).' seconds');
     $end->modify('+'.($testShift - $shiftOffset).' seconds');
-    $start->modify('+'.$guard_setup_min.' minutes');
-    $end->modify('-'.$guard_cleanup_min.' minutes');
+    $start->modify('+'.$guard_setup_sec.' seconds');
+    $end->modify('-'.$guard_cleanup_sec.' seconds');
     return Array('feasible'=>True,'start_time'=>$start, 'end_time'=>$end);
 }
 
@@ -1023,7 +1023,7 @@ function asap_to_absolute(&$testconfig, $starttime, $endtime) {
 function add_resource_allocation($testId, $resources, $starttime) {
     global $CONFIG;
     $db = db_connect();
-    $starttime->modify('-'.$CONFIG['tests']['setuptime'].' minutes');
+    $starttime->modify('-'.$CONFIG['tests']['setuptime'].' seconds');
     foreach($resources as $r) {
         $start = clone $starttime;
         $end = clone $starttime;
@@ -1186,7 +1186,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                     if (! isset($testconfig->generalConf->scheduleAsap)) {
                         unset($testconfig->generalConf->scheduleAbsolute);
                         $testconfig->generalConf->addChild('scheduleAsap');
-                        $testconfig->generalConf->scheduleAsap->addChild('durationSecs', -60 * $CONFIG['tests']['setuptime']); // no setup time, only cleanup
+                        $testconfig->generalConf->scheduleAsap->addChild('durationSecs', -1 * $CONFIG['tests']['setuptime']); // no setup time, only cleanup
                     }
                 }
                 else {
