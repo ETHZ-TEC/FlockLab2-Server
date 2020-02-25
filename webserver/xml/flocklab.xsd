@@ -77,7 +77,7 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
-    <xs:element name="settings" minOccurs="0">
+    <xs:element name="custom" minOccurs="0">
       <xs:simpleType>
         <xs:restriction base="xs:string">
           <xs:maxLength value="4096"/>
