@@ -974,7 +974,7 @@ def prepare_testresults(testid, cur):
     # Check if results directory exists
     testresultsdir = "%s/%d" % (flocklab.config.get('fetcher', 'testresults_dir'), testid)
     if not os.path.isdir(testresultsdir):
-        logger.warn("Test results directory does not exist.")
+        errors.append("Test results directory does not exist.")
         return errors
     
     logger.debug("Preparing testresults...")
@@ -1403,16 +1403,20 @@ def main(argv):
                 # no fetcher is running: set test status to failed
                 status = 'failed'
                 break
-        logger.debug("Fetcher has set test status to '%s'."%status)
+        logger.debug("Fetcher has set test status to '%s'." % status)
         
         # Check the actual runtime: if < 0, test failed
         cur.execute("SELECT TIME_TO_SEC(TIMEDIFF(`time_end_act`, `time_start_act`)) FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
-        test_runtime = int(cur.fetchone()[0])
-        if test_runtime < 0:
+        test_runtime = cur.fetchone()[0]
+        if not test_runtime or int(test_runtime) < 0:
             logger.info("Negative runtime detected, marking test as 'failed'.")
+            test_runtime = 0
+        else:
+            test_runtime = int(test_runtime)
         
         # Prepare testresults:
-        if (len(errors) == 0) and (test_runtime > 0):
+        status = 'failed'
+        if not abort and test_runtime > 0 and len(errors) == 0:
             err = prepare_testresults(testid, cur)
             for e in err:
                 errors.append(e)
@@ -1420,14 +1424,13 @@ def main(argv):
             err = evalute_linkmeasurement(testid, cur)
             for e in err:
                 errors.append(e)
-        # Update DB status and statistics:
-        if (len(errors) == 0) and (test_runtime > 0):
-            status = 'finished'
-        else:
-            status = 'failed'
-        logger.debug("Setting test status in DB to '%s'..."%status)
+            if len(errors) == 0:
+                status = 'finished'
+        
+        # Update status (note: always treat 'abort' as 'failed' due to potentially incomplete / invalid results)
+        logger.debug("Setting test status in DB to '%s'..." % status)
         flocklab.set_test_status(cur, cn, testid, status)
-        logger.info("Test %d is stopped."%testid)
+        logger.info("Test %d is stopped." % testid)
         
     # Close db connection ---
     try:
