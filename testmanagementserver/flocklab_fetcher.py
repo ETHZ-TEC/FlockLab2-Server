@@ -950,7 +950,7 @@ def main(argv):
             elif service == 'powerprofiling':
                 if ppFileFormat == 'rld':
                     continue    # don't open a csv file
-                header = 'timestamp,observer_id,node_id,current[mA],voltage[V]\n'
+                header = 'timestamp,observer_id,node_id,current_mA,voltage_V\n'
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
             lock.acquire()
