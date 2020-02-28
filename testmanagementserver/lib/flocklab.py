@@ -311,9 +311,9 @@ def batch_send_mail(subject="[FlockLab]", message="", recipients=[], attachments
     if not recipients:
         # no email provided -> extract all addresses from the database
         try:
-          config = flocklab.get_config()
-          logger = flocklab.get_logger()
-          (cn, cur) = flocklab.connect_to_db()
+          config = get_config()
+          logger = get_logger()
+          (cn, cur) = connect_to_db()
           cur.execute("""SELECT email FROM `tbl_serv_users` WHERE is_active=1;""")
           ret = cur.fetchall()
           if not ret:
@@ -1279,3 +1279,107 @@ def parse_int(s):
                 logger.warn("Could not parse %s to int." % (str(s)))
     return res
 ### END parse_int()
+
+
+##############################################################################
+#
+# binary_has_symbol()   checks whether a symbol exists in a binary file (ELF)
+#
+##############################################################################
+def binary_has_symbol(symbol=None, binaryfile=None):
+    if symbol is None or binaryfile is None or not os.path.isfile(binaryfile):
+        return FAILED
+    p = subprocess.Popen(['objdump', '-t', imagepath], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    (out, err) = p.communicate()
+    if p.returncode == 0:
+        if symbol in out:
+            logger.debug("Found symbol %s in binary file '%s'." % (symbol, imagepath))
+            return True
+        return False
+    return FAILED
+### END binary_has_symbol()
+
+
+##############################################################################
+#
+# patch_binary()   set / overwrite symbols in a binary file (ELF), input file = output file
+#
+##############################################################################
+def patch_binary(symbol=None, value=None, binaryfile=None, arch=None):
+    
+    if symbol is None or value is None or binaryfile is None or not os.path.isfile(binaryfile) or arch is None:
+        return FAILED
+    
+    set_symbols_tool = config.get('targetimage', 'setsymbolsscript')
+    env = os.environ
+    
+    if arch == 'msp430':
+        binutils_path = config.get('targetimage', 'binutils_msp430')
+        binutils_objcopy = "msp430-objcopy"
+        binutils_objdump = "msp430-objdump"
+    elif arch == 'arm':
+        binutils_path = config.get('targetimage', 'binutils_arm')
+        binutils_objcopy = "usr/bin/arm-linux-gnu-objcopy"
+        binutils_objdump = "usr/bin/arm-linux-gnu-objdump"
+        # TODO: check whether this is necessary
+        if 'LD_LIBRARY_PATH' not in env:
+            env['LD_LIBRARY_PATH'] = ''
+        env['LD_LIBRARY_PATH'] += ':%s/%s' % (binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
+    
+    cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (binutils_path, binutils_objcopy), '--objdump', '%s/%s' % (binutils_path, binutils_objdump), '--target', 'elf', binaryfile, binaryfile, '%s=%s' % (symbol, value), 'ActiveMessageAddressC$addr=%s' % (value), 'ActiveMessageAddressC__addr=%s' % (value)]
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        rs = p.wait()
+        if rs != 0:
+            logger.error("Error %d returned from %s. Command was: %s" % (rs, set_symbols_tool, " ".join(cmd)))
+            return FAILED
+    except OSError as err:
+        msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
+        logger.error(msg)
+        return FAILED
+
+    return SUCCESS
+### END patch_binary()
+
+
+##############################################################################
+#
+# bin_to_hex()   converts a binary (ELF) file to Intel hex format
+#
+##############################################################################
+def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
+    
+    if arch is None or binaryfile is None or outputfile is None:
+        return FAILED
+    
+    env = os.environ
+    
+    if arch == 'msp430':
+        binutils_path = config.get('targetimage', 'binutils_msp430')
+        binutils_objcopy = "msp430-objcopy"
+        binutils_objdump = "msp430-objdump"
+    elif arch == 'arm':
+        binutils_path = config.get('targetimage', 'binutils_arm')
+        binutils_objcopy = "usr/bin/arm-linux-gnu-objcopy"
+        binutils_objdump = "usr/bin/arm-linux-gnu-objdump"
+        # TODO: check whether this is necessary
+        if 'LD_LIBRARY_PATH' not in env:
+            env['LD_LIBRARY_PATH'] = ''
+        env['LD_LIBRARY_PATH'] += ':%s/%s' % (binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
+    
+    cmd = ['%s/%s' % (binutils_path, binutils_objcopy), '--output-target', 'ihex', binaryfile, outputfile]
+    try:
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        rs = p.wait()
+        if rs != 0:
+            logger.error("Command %s returned with error code %d." % (" ".join(cmd), rs))
+            return FAILED
+        else:
+            logger.debug("Converted file %s to ihex." % (binaryfile))
+    except OSError as err:
+        msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
+        logger.error(msg)
+        return FAILED
+
+    return SUCCESS
+### END bin_to_hex()

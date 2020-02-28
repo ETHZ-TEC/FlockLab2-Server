@@ -275,127 +275,37 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 
                 # Prepare image ---
                 (fd, imagepath) = tempfile.mkstemp()
-                binpath = "%s" %(os.path.splitext(imagepath)[0]) 
+                binpath = "%s.ihex" % (os.path.splitext(imagepath)[0])
                 imagefile = os.fdopen(fd, 'w+b')
                 imagefile.write(binary)
                 imagefile.close()
-                removeimage = True
                 logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" % (str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
                 
                 # Convert image to binary format and, depending on operating system and platform architecture, write the node ID (if specified) to the image:
                 logger.debug("Found %s target architecture on platform %s for observer ID %s (node ID to be used: %s)." % (arch, platname, str(obs_id), str(node_id)))
-                set_symbols_tool = flocklab.config.get('targetimage', 'setsymbolsscript')
-                symbol_node_id = None
+                
+                # binary patching
                 if (node_id != None):
-                    # for backwards compatiblity: check whether symbol TOS_NODE_ID exists in the binary
-                    p = subprocess.Popen(['objdump', '-t', imagepath], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
-                    (out, err) = p.communicate()
-                    if p.returncode == 0:
-                        if "TOS_NODE_ID" in out:
-                            logger.debug("Found symbol TOS_NODE_ID in binary file '%s'." % (imagepath))
-                            symbol_node_id = "TOS_NODE_ID"
-                        elif "FLOCKLAB_NODE_ID" in out:
-                            logger.debug("Found symbol FLOCKLAB_NODE_ID in binary file '%s'." % (imagepath))
-                            symbol_node_id = "FLOCKLAB_NODE_ID"
-                    else:
-                        logger.warn("Failed to search for TOS_NODE_ID in binary file '%s'." % (imagepath))
-                    symbol_node_id = "TOS_NODE_ID"
-                # Convert ELF file to ihex and set node ID if necessary
-                if (arch == 'msp430'):
-                    binutils_path = flocklab.config.get('targetimage', 'binutils_msp430')
-                    binpath = "%s.ihex"%binpath
-                    if symbol_node_id:
-                        cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/msp430-objcopy' % (binutils_path), '--objdump', '%s/msp430-objdump' % (binutils_path), '--target', 'ihex', imagepath, binpath, '%s=%s' % (symbol_node_id, node_id), 'ActiveMessageAddressC$addr=%s' % (node_id), 'ActiveMessageAddressC__addr=%s' % (node_id)]
-                        try:
-                            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                            rs = p.wait()
-                            if rs != 0:
-                                logger.error("Error %d returned from %s" % (rs, set_symbols_tool))
-                                logger.error("Tried to execute: %s" % (" ".join(cmd)))
-                                errors.append("Could not set node ID %s for target image %s" %(str(node_id), str(tgimage_key)))
-                            else:
-                                logger.debug("Set symbols and converted file to ihex.")
-                                # Remove the temporary exe file
-                                os.remove("%s.exe"%imagepath)
-                                #logger.debug("Removed intermediate image %s.exe" % (str(imagepath)))
-                        except OSError as err:
-                            msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
-                            logger.error(msg)
-                            errors.append(msg)
-                            removeimage = False
-                    else:
-                        cmd = ['%s/msp430-objcopy' % (binutils_path), '--output-target', 'ihex', imagepath, binpath]
-                        try:
-                            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                            rs = p.wait()
-                            if rs != 0:
-                                logger.error("Error %d returned from msp430-objcopy" %rs)
-                                logger.error("Tried to execute: %s" % (" ".join(cmd)))
-                                errors.append("Could not convert target image %s to ihex" %str(tgimage_key))
-                            else:
-                                logger.debug("Converted file to ihex.")
-                        except OSError as err:
-                            msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
-                            logger.error(msg)
-                            errors.append(msg)
-                            removeimage = False
-                elif (arch == 'arm'):
-                    if (platname == 'dpp'):
-                        imgformat = 'ihex'
-                        binpath = "%s.ihex"%binpath
-                    else:
-                        imgformat = 'binary'
-                        binpath = "%s.bin"%binpath
-                    # Set library path for arm-binutils:
-                    arm_binutils_path = flocklab.config.get('targetimage', 'binutils_arm')
-                    arm_env = os.environ
-                    if 'LD_LIBRARY_PATH' not in arm_env:
-                        arm_env['LD_LIBRARY_PATH'] = ''
-                    arm_env['LD_LIBRARY_PATH'] += ':%s/%s' % (arm_binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
-                    if symbol_node_id:
-                        cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (arm_binutils_path, "usr/bin/arm-linux-gnu-objcopy"), '--objdump', '%s/%s' % (arm_binutils_path, "usr/bin/arm-linux-gnu-objdump"), '--target', imgformat, imagepath, binpath, '%s=%s' % (symbol_node_id, node_id), 'ActiveMessageAddressC$addr=%s' % (node_id), 'ActiveMessageAddressC__addr=%s' % (node_id)]
-                        try:
-                            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=arm_env)
-                            rs = p.wait()
-                            if rs != 0:
-                                logger.error("Error %d returned from %s" % (rs, set_symbols_tool))
-                                logger.error("Tried to execute: %s" % (" ".join(cmd)))
-                                errors.append("Could not set node ID %s for target image %s" %(str(node_id), str(tgimage_key)))
-                            else:
-                                logger.debug("Set symbols and converted file to bin.")
-                        except OSError as err:
-                            msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
-                            logger.error(msg)
-                            errors.append(msg)
-                            removeimage = False
-                    else:
-                        cmd = ['%s/%s' % (arm_binutils_path, "usr/bin/arm-linux-gnu-objcopy"), '--output-target', imgformat, imagepath, binpath]
-                        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=arm_env)
-                        rs = p.wait()
-                        if rs != 0:
-                            logger.error("Error %d returned from arm-linux-gnu-objcopy" %rs)
-                            logger.error("Tried to execute: %s" % (" ".join(cmd)))
-                            errors.append("Could not convert target image %s to bin" %str(tgimage_key))
-                        else:
-                            logger.debug("Converted file to bin.")
-                else:
-                    msg = "Unknown architecture %s found. The original target image (ID %s) file will be used without modification." %(arch, str(tgimage_key))
+                    # set node ID
+                    if flocklab.patch_binary("FLOCKLAB_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
+                        msg = "Failed to patch symbol FLOCKLAB_NODE_ID in binary file %s." % (imagepath)
+                        errors.append(msg)
+                        logger.error(msg)
+                    if flocklab.patch_binary("TOS_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
+                        msg = "Failed to patch symbol TOS_NODE_ID in binary file %s." % (imagepath)
+                        errors.append(msg)
+                        logger.error(msg)
+                # convert elf to intel hex
+                if flocklab.bin_to_hex(imagepath, arch, binpath) != flocklab.SUCCESS:
+                    msg = "Failed to convert image file %s to Intel hex format." % (imagepath)
                     errors.append(msg)
                     logger.error(msg)
-                    orig = open(imagepath, "r+b")
-                    binfile = open(binpath, "w+b")
-                    binfile.write(orig.read())
-                    orig.close()
-                    binfile.close()
-                    logger.debug("Copied image to binary file without modification.")
+                    shutil.move(imagepath, binpath)
+                    logger.debug("Copied binary file without modification.")
                 
                 # Remove the original file which is not used anymore:
-                if removeimage:
+                if os.path.exists(imagepath):
                     os.remove(imagepath)
-                    #logger.debug("Removed image %s" % (str(imagepath)))
-                else:
-                    logger.warn("Image %s has not been removed." % (str(imagepath)))
-                
                 
                 # Slot detection ---
                 # Find out which slot number to use on the observer.
