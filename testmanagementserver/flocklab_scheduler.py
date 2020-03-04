@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import sys, os, getopt, errno, time, datetime, subprocess, MySQLdb, logging, __main__, traceback, types, calendar, multiprocessing
+import sys, os, getopt, errno, time, datetime, subprocess, MySQLdb, logging, __main__, traceback, types, calendar, multiprocessing, signal
 import lib.flocklab as flocklab
 
 
@@ -24,8 +24,8 @@ class Error(Exception):
 # Start/stop/abort a test
 #
 ##############################################################################
-def test_startstopabort(testid=None, mode='stop',delay=0):
-    if ((type(testid) != int) or (testid <= 0) or (mode not in ('start', 'stop', 'abort'))):
+def test_startstopabort(testid=None, abort=False, delay=0):
+    if ((type(testid) != int) or (testid <= 0)):
         return -1
     
     # change status of test that the next scheduler will skip this test
@@ -39,11 +39,12 @@ def test_startstopabort(testid=None, mode='stop',delay=0):
     # wait for the actual start time of the test
     time.sleep(delay)
     
-    logger.info("Found test ID %d which should be %sed." % (testid, mode))
     # Add testid to logger name
-    logger.name += " (Test %d)"%testid
+    logger.name += " (Test %d)" % testid
     # Call the dispatcher:
-    cmd = [flocklab.config.get("dispatcher", "dispatcherscript"), '--testid=%d' % testid, '--%s' % mode]
+    cmd = [flocklab.config.get("dispatcher", "dispatcherscript"), '--testid=%d' % testid]
+    if abort:
+        cmd.append("--abort")
     # Make sure no other instance of the scheduler is running for the same task:
     cmd2 = ['pgrep', '-o', '-f', ' '.join(cmd)]
     p = subprocess.Popen(cmd2, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -59,14 +60,13 @@ def test_startstopabort(testid=None, mode='stop',delay=0):
         p.wait()
         rs = p.returncode
     if (rs != flocklab.SUCCESS):
-        logger.error("Dispatcher to %s test returned with error %d" % (mode, rs))
-        logger.debug("Command executed was: %s"%(str(cmd)))
+        logger.error("Dispatcher returned with error %d." % (rs))
+        logger.debug("Command executed was: %s" % (str(cmd)))
         conn.close()
         return errno.EFAULT
-    else:
-        logger.info("Test %d %s done." % (testid, mode))
-        conn.close()
-        return flocklab.SUCCESS
+    
+    conn.close()
+    return flocklab.SUCCESS
 ### END test_startstopabort()
 
 
@@ -163,8 +163,8 @@ def main(argv):
             delay = int(calendar.timegm(time.strptime(str(test[1]), '%Y-%m-%d %H:%M:%S'))) - flocklab.config.getint("tests", "setuptime") - int(time.time())
             if delay < 0:
                 delay = 0 
-            logger.info("Call process to start test %s with delay %s"%(testid,delay))
-            p = multiprocessing.Process(target=test_startstopabort,args=(testid, 'start', delay))
+            logger.info("Call process to start test %s with delay %s" % (testid,delay))
+            p = multiprocessing.Process(target=test_startstopabort, args=(testid, False, delay))
             p.start()
     else:
         logger.debug("No test is to be started within the next %s seconds" % (flocklab.config.get("tests", "setuptime")))
@@ -195,38 +195,37 @@ def main(argv):
                         owner_email = rs[4]
                         msg = "The test with ID %d could not be started as planned because of the following errors:\n\n" % testid
                         msg += "\t * Scheduler missed start time of test (probably because the previous test took too long to stop). Try re-scheduling your test.\n"
-                        flocklab.send_mail(subject="[FlockLab Scheduler] Missed test %d"%(testid), message=msg, recipients=owner_email)
+                        flocklab.send_mail(subject="[FlockLab Scheduler] Missed test %d" % (testid), message=msg, recipients=owner_email)
                 else:
-                    logger.error("Error %s returned when trying to get test owner information"%str(rs))
-            logger.debug("Updated test status of %d missed tests to 'failed' and informed users."%nmissed)
+                    logger.error("Error %s returned when trying to get test owner information" % str(rs))
+            logger.debug("Updated test status of %d missed tests to 'failed' and informed users." % nmissed)
         else:
             logger.debug("No missed tests found.")
         rs = errno.ENODATA
-        
-    # Check if a test has to be stopped ---
-    # Check if there is a running test which is to be stopped:
+    
+    # Check if a test needs to be aborted ---
     sql = """SELECT `serv_tests_key`, `test_status`
              FROM `tbl_serv_tests` 
-             WHERE ((`test_status` = 'aborting')
-             OR ((`test_status` = 'running') AND (`time_end_wish` <= '%s')))
+             WHERE (`test_status` = 'aborting')
              AND (`dispatched` = 0)
           """
-    status2mode = {'running':'stop', 'aborting':'abort'}
-    cur.execute(sql % (now))
-    # start process for each test which has to be stopped
+    cur.execute(sql)
     rs = cur.fetchall()
     if rs:
         for test in rs:
             testid = int(test[0])
-            logger.debug("Call process to stop test %d, status %s" %  (testid, test[1]))
-            p = multiprocessing.Process(target=test_startstopabort,args=(testid, status2mode[test[1]]))
-            p.start()
+            dispatcher_pid = flocklab.get_dispatcher_pid(testid)
+            if dispatcher_pid != flocklab.FAILED:
+                logger.debug("Telling dispatcher with pid %d to abort test %d (status: %s)." % (dispatcher_pid, testid, test[1]))
+                os.kill(dispatcher_pid, signal.SIGTERM)
     
+    # Release Lock ---
     flocklab.release_db_lock(cur, cn, 'scheduler')
     cur.close()
     cn.close()
     sys.exit(flocklab.SUCCESS)
 ### END main()
+
 
 if __name__ == "__main__":
     try:

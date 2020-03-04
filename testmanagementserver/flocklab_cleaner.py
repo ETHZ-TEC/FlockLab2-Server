@@ -70,7 +70,6 @@ def main(argv):
     except:
         msg = "Could not connect to database"
         flocklab.error_logandexit(msg, errno.EAGAIN)
-    #logger.debug("Connected to database")
     
     # Check for running tests ---
     testisrunning = flocklab.is_test_running(cur)
@@ -86,7 +85,7 @@ def main(argv):
                      WHERE (`test_status` = 'todelete')
                   """
             if ( cur.execute(sql) <= 0 ):
-                logger.info("No tests found which are marked to be deleted.")
+                logger.debug("No tests found which are marked to be deleted.")
             else:
                 rs = cur.fetchall()
                 for (testid, starttime) in rs:
@@ -143,14 +142,15 @@ def main(argv):
             keeptime = flocklab.config.getint('cleaner', 'keeptime_viz')
             earliest_keeptime = time.time() - (keeptime*86400)
             imgdir_path = flocklab.config.get('viz','imgdir')
-            if not os.path.isdir(imgdir_path):
-                os.mkdir(imgdir_path)
-            for f in os.listdir(imgdir_path):
-                path = os.path.join(imgdir_path, f)
-                if os.stat(path).st_mtime < earliest_keeptime:
-                    logger.debug("Removing viz cache %s..."%path)
-                    shutil.rmtree(path)
-            
+            if os.path.isdir(imgdir_path):
+                for f in os.listdir(imgdir_path):
+                    path = os.path.join(imgdir_path, f)
+                    if os.stat(path).st_mtime < earliest_keeptime:
+                        logger.debug("Removing viz cache %s..."%path)
+                        shutil.rmtree(path)
+            else:
+                logger.debug("Directory '%s' does not exist." % imgdir_path)
+              
             # Get parameters ---
             now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
             maxtestcleanuptime = flocklab.config.getint('cleaner', 'max_test_cleanuptime')
@@ -168,14 +168,16 @@ def main(argv):
                     logger.debug("Call process to stop test %d (status: %s)." %  (testid, test[1]))
                     p = multiprocessing.Process(target=scheduler.test_startstopabort, args=(testid, True))
                     p.start()
+            else:
+                logger.debug("No tests found that need to be aborted.")
             
             # Check for tests that are stuck ---
             sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
                      WHERE `test_status` IN ('preparing', 'aborting', 'syncing', 'synced')
-                     AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, NOW()) > %d
+                     AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d
                   """
-            if cur.execute(sql % (maxtestcleanuptime)) <= 0:
-                logger.info("No stuck tests found.")
+            if cur.execute(sql % (now, maxtestcleanuptime)) <= 0:
+                logger.debug("No stuck tests found.")
             else:
                 rs = cur.fetchall()
                 testids = []
@@ -186,7 +188,7 @@ def main(argv):
                 cur.execute(sql)
                 cn.commit()
                 msg = "Found %d stuck tests in the database (IDs: %s). Test status set to 'failed'." % (len(rs), ", ".join(testids))
-                logger.debug(msg)
+                logger.info(msg)
                 emails = flocklab.get_admin_emails(cur)
                 if emails != flocklab.FAILED:
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
@@ -203,29 +205,29 @@ def main(argv):
                         pid = int(line[0:6].strip())
                         command = line[6:106].strip()
                         runtime = line[106:].strip()
-                        if "testid=" in command:
-                            testid = int(command.split('testid=', 1)[1])
-                            # check stop time of this test
-                            sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
-                                     WHERE `serv_tests_key`=%d AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, NOW()) > %d
-                                  """
-                            if cur.execute(sql % (testid, maxtestcleanuptime)) > 0:
-                                # thread is stuck -> add to kill list
-                                pids.append(pid)
                     except:
-                        logger.debug("Failed to parse output of 'ps'. Line was: '%s'" % line)
+                        logger.warn("Failed to parse output of 'ps'. Line was: '%s'" % line)
                         break
+                    if "testid=" in command:
+                        testid = int(command.split('testid=', 1)[1].split()[0])
+                        # check stop time of this test
+                        sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
+                                  WHERE `serv_tests_key`=%d AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d
+                              """
+                        if cur.execute(sql % (testid, now, maxtestcleanuptime)) > 0:
+                            # thread is stuck -> add to kill list
+                            pids.append(pid)
             if len(pids) > 0:
                 # kill the stuck threads
                 for pid in pids:
                     os.kill(pid, signal.SIGKILL)
                 msg = "%d stuck threads terminated (PIDs: %s)" % (len(pids), ", ".join(pids))
-                logger.debug(msg)
+                logger.info(msg)
                 emails = flocklab.get_admin_emails(cur)
                 if emails != flocklab.FAILED:
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
             else:
-                logger.info("No stuck threads found.")
+                logger.debug("No stuck threads found.")
             
         except:
             msg = "Encountered error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())

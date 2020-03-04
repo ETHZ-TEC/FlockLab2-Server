@@ -51,6 +51,8 @@
     <xs:element name="powerProfilingConf" type="powerProfilingConfType"/>
     <!-- Target image configuration. If only images from database are to be used, do not specify this element. -->
     <xs:element name="imageConf" type="imageConfType"/>
+    <!-- Debug service configuration. If service is not to be used, do not specify this element. -->
+    <xs:element name="debugConf" type="debugConfType"/>
   </xs:choice>
 </xs:group>
 
@@ -200,6 +202,18 @@
     </xs:element>
     <xs:element name="remoteIp" type="ipType" minOccurs="0"/>
   </xs:all>
+</xs:complexType>
+
+
+<!-- Configuration of the debug service -->
+<xs:complexType name="debugConfType">
+  <xs:sequence>
+    <xs:element name="obsIds" type="obsIdListRestType"/>
+    <xs:choice minOccurs="0" maxOccurs="2">
+      <xs:element name="gdbPort" type="portType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="remoteIp" type="ipType" minOccurs="0" maxOccurs="1"/>
+    </xs:choice>
+  </xs:sequence>
 </xs:complexType>
 
 
@@ -536,9 +550,16 @@
 <!-- Type definition for IP addresses -->
 <xs:simpleType name="ipType">
   <xs:restriction base="xs:string">
-    <xs:pattern value="((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])"/>
+    <xs:pattern value="((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])|(\s*)"/>
   </xs:restriction>
 </xs:simpleType>
 
+<!-- Type definition for TCP port -->
+<xs:simpleType name="portType">
+  <xs:restriction base="xs:integer">
+    <xs:minInclusive value="1025"/>
+    <xs:maxInclusive value="65535"/>
+  </xs:restriction>
+</xs:simpleType>
 
 </xs:schema>

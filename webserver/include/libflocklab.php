@@ -1064,16 +1064,22 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
     }
     if ($valid) {
         $testconfig = new SimpleXMLElement($xml_config);
-        // If no IP address is given for serial service, use the one from which the test was uploaded:
-        foreach($testconfig->serialConf as $sc) {
-            if (!isset($sc->remoteIp)) {
-                if (preg_match ('/((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])/' , $_SERVER['REMOTE_ADDR'])) // we do not   support ipv6 on our backend server
+        // check if client IP is IPv4
+        if (preg_match('/((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])/', $_SERVER['REMOTE_ADDR'])) {
+            // If no IP address is given for serial service, use the one from which the test was uploaded:
+            foreach ($testconfig->serialConf as $sc) {
+                if (isset($sc->remoteIp) && trim($sc->remoteIp) == "") {
                     $sc->addChild('remoteIp', $_SERVER['REMOTE_ADDR']);
-                else {
-                    array_push($errors, 'remoteIp: FlockLab does not support IPv6 addresses ('.$_SERVER['REMOTE_ADDR'].'). To use the <a href="https://www.flocklab.ethz.ch/wiki/wiki/Public/Man/Tutorials/Tutorial2#notes">Serial socket feature</a>, please provide an IPv4 address.');
                 }
             }
-        }
+            // If no IP address is given for debug service, use the one from which the test was uploaded:
+            foreach ($testconfig->debugConf as $sc) {
+                if (isset($sc->remoteIp) && trim($sc->remoteIp) == "") {
+                    $sc->addChild('remoteIp', $_SERVER['REMOTE_ADDR']);
+                }
+            }
+        } //else: array_push($errors, 'remoteIp: FlockLab does not support IPv6 addresses ('.$_SERVER['REMOTE_ADDR'].'). To use the <a href="https://www.flocklab.ethz.ch/wiki/wiki/Public/Man/Tutorials/Tutorial2#notes">Serial socket feature</a>, please provide an IPv4 address.');
+        
         // extract embedded images
         $used_embeddedImages = Array();
         $used_dbImages = Array();

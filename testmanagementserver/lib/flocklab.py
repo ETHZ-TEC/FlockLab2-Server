@@ -952,32 +952,40 @@ def write_errorlog(cursor=None, conn=None, testid=0, obsid=0, message="", timest
 # error_logandexit - Logs an error (to log and email to admins) and exits the script
 #
 ##############################################################################
-def error_logandexit(message=None, exitcode=FAILED):
-    global logger, config
-    # Check the arguments:
-    if (type(message) != str) or (message == "") or (type(exitcode) != int):
+def send_mail_to_admin(message):
+    if message is None:
         return FAILED
-    # Log error - if available, use logger, otherwise get it first:
-    if logger:
-        logger.error(message)
-    else:
-        log_fallback(message)
+    logger = get_logger()
     # Send email to admin:
     try:
         admin_emails = get_admin_emails()
         if admin_emails == FAILED:
-            msg = "Error when getting admin emails from database"
-            if logger:
-                logger.error(msg)
-            else:
-                logger.error(msg)
-            raise Exception
-        send_mail(subject="[FlockLab %s]" % (scriptname.replace('.', '_').split('_')[1].capitalize()), message=message, recipients=admin_emails)
-    except:
-        if logger:
-            logger.error("error_logandexit(): Failed to send email to admin.")
+            logger.error("Error when getting admin emails from database")
         else:
-            log_fallback("error_logandexit(): Failed to send email to admin.")
+            send_mail(subject="[FlockLab %s]" % (scriptname.replace('.', '_').split('_')[1].capitalize()), message=message, recipients=admin_emails)
+    except:
+        logger.error("error_logandexit(): Failed to send email to admin.")
+        return FAILED
+    return SUCCESS
+### END send_mail_to_admin()
+
+
+##############################################################################
+#
+# error_logandexit - Logs an error (to log and email to admins) and exits the script
+#
+##############################################################################
+def error_logandexit(message=None, exitcode=FAILED):
+    # Check the arguments:
+    if (type(message) != str) or (message == "") or (type(exitcode) != int):
+        return FAILED
+    # Log error - if available, use logger, otherwise get it first:
+    logger = get_logger()
+    if logger:
+        logger.error(message)
+    else:
+        log_fallback(message)
+    send_mail_to_admin(message)
     # Exit program
     if logger:
         logger.debug("Exiting with error code %u." % exitcode)
@@ -1048,15 +1056,16 @@ def get_admin_emails(cursor=None):
 #
 ##############################################################################
 def is_test_running(cursor=None):
-    if not cursor:
+    if not cursor or not config:
         return None
     try:
         maxcleanuptime = config.getint('cleaner', 'max_test_cleanuptime')
+        now = time.strftime(config.get("database", "timeformat"), time.gmtime())
         cursor.execute("""
                        SELECT COUNT(serv_tests_key) FROM tbl_serv_tests
                        WHERE test_status IN('preparing', 'running', 'aborting', 'cleaning up')
-                       AND TIMESTAMPDIFF(MINUTE, time_end_wish, NOW()) <= %d
-                       """ % (maxcleanuptime))
+                       AND TIMESTAMPDIFF(MINUTE, time_end_wish, '%s') <= %d
+                       """ % (now, maxcleanuptime))
         rs = cursor.fetchone()
         if rs[0] != 0:
             return True
