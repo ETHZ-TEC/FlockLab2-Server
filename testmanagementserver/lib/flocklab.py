@@ -440,9 +440,31 @@ def get_fetcher_pid(testid):
             return FAILED
     except:
         logger = get_logger()
-        logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.error("%s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return FAILED
 ### END get_fetcher_pid()
+
+
+##############################################################################
+#
+# get_dispatcher_pid - Returns the process ID of the dispatcher for a test.
+#
+##############################################################################
+def get_dispatcher_pid(testid):
+    try:
+        searchterm = "flocklab_dispatcher.py (.)*-(-)?t(estid=)?%d" % (testid)
+        cmd = ['pgrep', '-o', '-f', searchterm]
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        out, err = p.communicate()
+        if (p.returncode == 0):
+            return int(out)
+        else:
+            return FAILED
+    except:
+        logger = get_logger()
+        logger.error("%s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        return FAILED
+### END get_dispatcher_pid()
 
 
 ##############################################################################
@@ -1026,18 +1048,15 @@ def get_admin_emails(cursor=None):
 #
 ##############################################################################
 def is_test_running(cursor=None):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-       Return value:
-            True if a test is running
-            False if no test is running
-            None otherwise
-       """
     if not cursor:
         return None
-    
     try:
-        cursor.execute("SELECT COUNT(serv_tests_key) FROM tbl_serv_tests WHERE test_status IN('preparing', 'running', 'aborting', 'cleaning up');")
+        maxcleanuptime = config.getint('cleaner', 'max_test_cleanuptime')
+        cursor.execute("""
+                       SELECT COUNT(serv_tests_key) FROM tbl_serv_tests
+                       WHERE test_status IN('preparing', 'running', 'aborting', 'cleaning up')
+                       AND TIMESTAMPDIFF(MINUTE, time_end_wish, NOW()) <= %d
+                       """ % (maxcleanuptime))
         rs = cursor.fetchone()
         if rs[0] != 0:
             return True
