@@ -187,17 +187,17 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                     $now = $now->format('U');
                     while ($row = mysqli_fetch_array($rs)) {
                         // Find out the state of the test:
-                        $schedulable    = true;
-                        $planned        = false;
-                        $running        = false;
-                        $finished        = false;
-                        $preparing        = false;
-                        $cleaningup        = false;
-                        $failed            = false;
-                        $aborting        = false;
-                        $syncing        = false;
-                        $synced            = false;
-                        $retentionexp    = false;
+                        $schedulable  = true;
+                        $planned      = false;
+                        $running      = false;
+                        $finished     = false;
+                        $preparing    = false;
+                        $cleaningup   = false;
+                        $failed       = false;
+                        $aborting     = false;
+                        $syncing      = false;
+                        $synced       = false;
+                        $retentionexp = false;
                         switch($row['test_status']) {
                             case "planned":
                                 $planned = true;
@@ -254,13 +254,13 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         // Status: dependent of state of test
                         // check viz status
                         $viz = "";
-                        if (!is_null($row['time_start_act'])) {
+                        /*if (!is_null($row['time_start_act'])) {
                             $d = new DateTime($row['time_start_act']);
                             if ($now - $d->format('U') < 21 * 24 * 3600) {
                                 if (file_exists($CONFIG['viz']['dir'].'/'.$row['serv_tests_key'].'_'. $_SESSION['serv_users_key']))
                                     $viz="<img src='pics/icons/chart.png' style='margin-left:5px' height='16px' alt='Results' title='Preview results' class='qtip_show'  onClick='document.resprev.testid.value = " . $row['serv_tests_key'] . ";document.resprev.submit();'>";
                             }
-                        }
+                        }*/
                         echo "<td>";
                         echo "<span style='display:none'>".$row['test_status']."</span>"; // needed to make cell sortable by JQuery
                         echo "<img src='".state_icon($row['test_status'])."' height='16px' alt='".state_short_description($row['test_status'])."' title='".state_long_description($row['test_status'])."' class='qtip_show' >";
@@ -296,7 +296,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         } elseif ($running) {
                             echo "<span style='display:none'>running</span>"; // needed to make cell sortable by JQuery
                             echo "<img src='pics/icons/cancel.png' height='16px' alt='Abort' title='Abort test' class='qtip_show' onClick='document.tstabrt.testid.value = " . $row['serv_tests_key'] . ";document.tstabrt.submit();'>";
-                            echo "<img src='pics/icons/chart.png' style='margin-left:5px' height='16px' alt='Results' title='Preview results' class='qtip_show'  onClick='document.resprev.testid.value = " . $row['serv_tests_key'] . ";document.resprev.submit();'>";
+                            /*echo "<img src='pics/icons/chart.png' style='margin-left:5px' height='16px' alt='Results' title='Preview results' class='qtip_show'  onClick='document.resprev.testid.value = " . $row['serv_tests_key'] . ";document.resprev.submit();'>";*/
                         } elseif ($preparing || $cleaningup || $syncing || $synced) {
                             echo "<span style='display:none'>preparing</span>"; // needed to make cell sortable by JQuery
                             //echo "<img src='pics/icons/cancel.png' height='16px' alt='Abort' title='Abort test' class='qtip_show' onClick='document.tstabrt.testid.value = " . $row['serv_tests_key'] . ";document.tstabrt.submit();'>";
