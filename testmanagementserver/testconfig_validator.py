@@ -248,6 +248,9 @@ def main(argv):
                     print("Element obsIds/targetIds: Id lists must not have tabs as separators.")
                 errcnt = errcnt + 1
     
+    # For platform dpp2lora, prevent the use of the unused (floating) pin INT2
+    usesdpp2lora = False
+    
     if errcnt == 0:
         sched_abs  = tree.xpath('//d:generalConf/d:scheduleAbsolute', namespaces=ns)
         sched_asap = tree.xpath('//d:generalConf/d:scheduleAsap', namespaces=ns)
@@ -371,6 +374,8 @@ def main(argv):
                             obsiddict[obsid][core]=(opersys, platform)
                         # Get the image and save it to a temporary file:
                         image = imageconf[0].xpath('d:data', namespaces=ns)[0].text
+                        if "dpp2lora" in platform.lower():
+                            usesdpp2lora = True
                         # For target platform DPP2LoRa, the <data> tag may be empty
                         if len(image.strip()) == 0 and (platform.lower() == "dpp2lora" or platform.lower() == "dpp2lorahg"):
                             continue   # skip image validation
@@ -523,22 +528,31 @@ def main(argv):
             errcnt = errcnt + 1
         if not allInList:
             if not quiet:
-                print("Element gpioTracingConf: Some observer IDs have been used but do not have a) targetConf element associated with them.")
+                print("Element gpioTracingConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
         # Check (pin, edge) combinations:
         gpiomonconfs = tree.xpath('//d:gpioTracingConf', namespaces=ns)
         for gpiomonconf in gpiomonconfs:
             combList = []
+            pins = gpiomonconf.find('d:pins', namespaces=ns)
+            if pins != None:
+                if usesdpp2lora and "INT2" in pins.text:
+                    print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
+                    errcnt = errcnt + 1
+                    break
             pinconfs = gpiomonconf.xpath('d:pinConf', namespaces=ns)
             for pinconf in pinconfs:
                 pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text
                 edge = pinconf.xpath('d:edge', namespaces=ns)[0].text
                 combList.append((pin, edge))
+                if usesdpp2lora and pin == "INT2":
+                    errcnt = errcnt + 1
+                    print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % pinconf.sourceline)
+                    break
             if (len(combList) != len(set(combList))):
                 if not quiet:
                     print(("Line %d: element gpioTracingConf: Every (pin, edge) combination can only be used once per observer configuration." %(gpiomonconf.sourceline)))
                 errcnt = errcnt + 1
-        
         
         # gpioActuationConf additional validation ---------------------------
         #    * observer ids need to have a targetConf associated and must be unique
