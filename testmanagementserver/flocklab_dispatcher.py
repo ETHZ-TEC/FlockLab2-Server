@@ -15,6 +15,7 @@ abort  = False
 #
 ##############################################################################
 def sigterm_handler(signum, frame):
+    global abort
     logger.info("Process received SIGTERM signal.")
     abort = True
 ### END sigterm_handler
@@ -40,6 +41,7 @@ class StopTestThread(threading.Thread):
         try:
             logger.debug("Start StopTestThread for observer ID %d" % (self._obsdict_key[self._obskey][1]))
             errors = []
+            starttime = time.time()
             # First test if the observer is online and if the SD card is mounted: 
             cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), "mount | grep /dev/mmcblk0p1"]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -77,7 +79,7 @@ class StopTestThread(threading.Thread):
                     out, err = p.communicate()
                 rs = p.returncode
                 if (rs == flocklab.SUCCESS):
-                    logger.debug("Test stop script on observer ID %s succeeded." %(self._obsdict_key[self._obskey][1]))
+                    logger.debug("Test stop script on observer ID %s succeeded (took %us)." % (self._obsdict_key[self._obskey][1], int(time.time() - starttime)))
                 elif (rs == 255):
                     msg = "Observer ID %s is not reachable, thus not able to stop test. Dataloss occurred possibly for this observer." % (self._obsdict_key[self._obskey][1])
                     errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))

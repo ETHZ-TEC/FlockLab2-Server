@@ -50,6 +50,26 @@ def check_obsids(tree, xpathExpr, namespace, obsidlist=None):
 
 ##############################################################################
 #
+# get_sampling_rate
+#    Extract sampling rate from a powerProfilingConf element
+#
+##############################################################################
+def get_sampling_rate(elem=None, ns=""):
+    if elem is None:
+        return None
+    
+    res = elem.findtext('d:samplingRate', namespaces=ns)
+    if res:
+        return int(res)
+    res = elem.findtext('d:samplingDivider', namespaces=ns)
+    if res:
+        return int(64000/int(res))
+    return 1000     # default sampling rate
+### END get_sampling_rate()
+
+
+##############################################################################
+#
 # Usage
 #
 ##############################################################################
@@ -612,6 +632,7 @@ def main(argv):
             errcnt = errcnt + 1
         # Check simple offset tag
         rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:offset', namespaces=ns)
+        total_samples = 0
         for elem in rs:
             ppStart = int(elem.text)
             elem2 = elem.getparent().find('d:durationMillisecs', namespaces=ns)
@@ -620,6 +641,7 @@ def main(argv):
             else:
                 elem2 = elem.getparent().find('d:duration', namespaces=ns)
                 ppDuration = int(elem2.text)
+            total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent(), ns)
             if (ppStart > testDuration):
                 if not quiet:
                     print(("Line %d: element offset: The offset is bigger than the test duration, thus the action will never take place." % (elem.sourceline)))
@@ -642,6 +664,7 @@ def main(argv):
             else:
                 elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
                 ppDuration = int(elem2.text)
+            total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent().getparent(), ns)
             if (ppStart > testDuration):
                 if not quiet:
                     print(("Line %d: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." % (elem.sourceline)))
@@ -670,6 +693,7 @@ def main(argv):
                 else:
                     elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
                     ppDuration = int(elem2.text)
+                total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent().getparent(), ns)
                 if (ppStart > testEnd):
                     if not quiet:
                         print(("Line %d: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
@@ -683,6 +707,12 @@ def main(argv):
                         print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
                     errcnt = errcnt + 1
     
+        # check total number of samples (for now, just multiply the total by the number of observers)
+        total_samples = total_samples * len(ids)
+        if total_samples > flocklab.config.getint('tests', 'powerprofilinglimit'):
+            print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
+            errcnt = errcnt + 1
+      
     #===========================================================================
     # All additional tests finished. Clean up and exit.
     #===========================================================================
