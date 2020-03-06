@@ -260,8 +260,8 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, logque
             infile = open(obsdbfile_path, "r")
             for line in infile:
                 try:
-                    (timestamp, pin, level) = line.strip().split(',', 2)
-                    outfile.write("%s,%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, pin, level))
+                    (timestamp, ticks, pin, level) = line.strip().split(',', 3)
+                    outfile.write("%s,%s,%s,%s,%s,%s\n" % (timestamp, ticks, obsid, nodeid, pin, level))
                 except ValueError:
                     logqueue.put_nowait((loggername, logging.ERROR, "Could not parse line '%s' in gpiotracing worker process." % line))
                     break
@@ -946,7 +946,7 @@ def main(argv):
             if service in ('errorlog', 'timesynclog'):
                 header = 'timestamp,observer_id,node_id,message\n'
             elif service == 'gpiotracing':
-                header = 'timestamp,observer_id,node_id,pin_name,value\n'
+                header = 'timestamp,monotonic_time,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
                 if ppFileFormat == 'rld':
                     continue    # don't open a csv file
