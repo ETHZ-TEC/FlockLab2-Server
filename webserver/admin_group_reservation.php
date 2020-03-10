@@ -117,18 +117,18 @@ ORDER BY time_start DESC";
                         echo '<option value="'.$idx.'">' . $group['name'] . '</option>';
                     }
                     echo '</select></td><td><span class="time" id="add_start_time">'.$now.'</span></td><td><span class="time" id="add_end_time">'.($now+3600).'</span></td>';
-                    echo "<td><img src='pics/icons/add.png' height='16px' alt='Add' title='Add reservation' class='qtip_show' onClick='document.resadd.submit();'></td>";
+                    echo "<td><span class='qtip_show texticon link' alt='Add' title='Add reservation' onClick='document.resadd.submit();'>+</span></td>";
                     echo '</tr>';
             ?>
                 </tbody>
             </table>
             </form>
             <span id="pager" class="pager">
-                <img src="pics/icons/first.gif" alt="first" class="first">
-                <img src="pics/icons/prev.gif" alt="prev" class="prev">
+                <span class="texticonsm first link" alt="first" title="first"><<</span>
+                <span class="texticonsm prev link" alt="prev" title="prev"><</span>
                 <span class="pagedisplay"></span>
-                <img src="pics/icons/next.gif" alt="next" class="next">
-                <img src="pics/icons/last.gif" alt="last" class="last">
+                <span class="texticonsm next link" alt="next" title="next">></span>
+                <span class="texticonsm last link" alt="last" title="last">>></span>
                 <input class="pagesize" style="visibility: hidden;" id="pager_num_rows" value="15">
             </span> <br >
             <!-- Forms for processing actions -->

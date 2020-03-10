@@ -8,9 +8,6 @@
      * __id__          = "$Id$"
      * __source__      = "$URL$" 
      */
-     
-    //DEBUG ini_set('display_errors', 1);
-    //DEBUG error_reporting(E_ALL);
 ?>
 <?php require_once('include/layout.php');require_once('include/presets.php'); ?>
 <?php
@@ -20,17 +17,17 @@
     // If the page is called for at least the second time, see if the user wants to change anything and store it in the database if needed:
     if (!$first) {
         // Get the form data:
-        $firstname          = $_POST['firstname'];
-        $lastname        = $_POST['lastname'];
-        $email              = $_POST['email'];
-        $institutiontype = $_POST['institutiontype'];
-        $institution     = $_POST['institution'];
-        $country       = $_POST['country'];
-        $passwd          = sha1($_POST['passwd']);
+        $firstname         = $_POST['firstname'];
+        $lastname          = $_POST['lastname'];
+        $email             = $_POST['email'];
+        $institutiontype   = $_POST['institutiontype'];
+        $institution       = $_POST['institution'];
+        $country           = $_POST['country'];
+        $passwd            = sha1($_POST['passwd']);
         $retypepasswd      = sha1($_POST['retypepasswd']);
-        $quota_runtime      = $_POST['quotaruntime'];
-        $quota_tests      = $_POST['quotatests'];
-        $retention_time  = $_POST['retentiontime'];
+        $quota_runtime     = $_POST['quotaruntime'];
+        $quota_tests       = $_POST['quotatests'];
+        $retention_time    = $_POST['retentiontime'];
         $username          = $_POST['username'];
         $disable_infomails = (isset($_POST['disableinfomails']) ? $_POST['disableinfomails'] : '0');
         
@@ -132,6 +129,7 @@
     </script>
 
             <h1>User Acccount for <?php echo $_SESSION['firstname'] . " " . $_SESSION['lastname'];?></h1>
+            <br />
             <?php
                 /* If the page is called with a file associated, validate it and show the results */
                 if (!$first) {

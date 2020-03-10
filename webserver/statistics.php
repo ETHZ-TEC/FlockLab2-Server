@@ -17,12 +17,6 @@
   $statsfilename = "statistics.dat";
   $stats = parse_ini_file($statsfilename);
   
-  // autorefresh stats after a certain amount of time  -> now handled via Cron
-  /*include('update_stats.php');
-  if (!file_exists($statsfilename) || (time() - $stats['last_update']) > (3600*24*14)) {   // update once a fortnight
-    collect_stats($statsfilename);
-  }*/
-  
   function create_pie_chart($elem_id, $data_array) {
     echo "var myChart = new Chart(document.getElementById(\"$elem_id\"), { 
     type: 'pie', options: { responsive: true, cutoutPercentage: 50, legend: { display: true, position: 'right', labels: { fontSize: 12 } } }, data: {";  
@@ -93,36 +87,28 @@
       }
       echo "      { label: '$data_labels[$count]', data: [$data], fill: false, showLine: true, borderColor: defaultColors[$count], borderWidth: 3, pointRadius: 5 },\n"; 
       $count = $count + 1;
-    }      
+    }
     echo "    ], labels: [$labels] \n}, });\n";
   }
   
   function print_tests_percent($val) {
     global $stats;
-    echo (string)round(intval($val) * 100 / intval($stats['num_tests'])) . "%";  
+    echo (string)round(intval($val) * 100 / intval($stats['num_tests'])) . "%";
   }
 ?>
 
-<!--<html>
-  <head>
-    <script type="text/javascript" src="scripts/jquery-1.9.1.min.js"></script>-->
-    <script type="text/javascript" src="scripts/jquery-ui-1.8.21.custom.min.js"></script>
-    <script type="text/javascript" src="scripts/Chart.bundle.min.js"></script>
-    <script type="text/javascript">
-      //<!--
-      var defaultColors =  ['#3366CC','#DC3912','#FF9900','#109618','#990099','#3B3EAC','#0099C6','#DD4477','#66AA00','#B82E2E','#316395','#994499','#22AA99','#AAAA11','#6633CC','#E67300','#8B0707','#329262','#5574A6','#3B3EAC'];
-      //-->
-    </script>
-    <style>
-      body { color: #666; font-family: "Trebuchet MS",Arial,Helvetica,sans-serif; font-size: 1em }
-      .chartContainer { float: left; display: block; width: 600px; text-align: left; margin-top: 10px; margin-bottom: 10px; padding: 10px; }
-      .chartTitle { margin: 25px; width: 100%; text-align: center; font-weight: bold }
-      .chartArea { display: block; }
-      .numberField { text-align: right; }
-      td { padding: 5px; min-width: 60px; }
-    </style>
-<!--  </head>
-<body>-->
+<script type="text/javascript" src="scripts/jquery-1.9.1.min.js"></script>
+<script type="text/javascript" src="scripts/jquery-ui-1.8.21.custom.min.js"></script>
+<script type="text/javascript" src="scripts/Chart.bundle.min.js"></script>
+<script type="text/javascript">
+  var defaultColors =  ['#3366CC','#DC3912','#FF9900','#109618','#990099','#3B3EAC','#0099C6','#DD4477','#66AA00','#B82E2E','#316395','#994499','#22AA99','#AAAA11','#6633CC','#E67300','#8B0707','#329262','#5574A6','#3B3EAC'];
+</script>
+<style>
+  .chartContainer { float: left; display: block; width: 600px; text-align: left; margin-top: 10px; margin-bottom: 10px; padding: 10px; }
+  .chartTitle { margin: 25px; width: 100%; text-align: center; font-weight: bold }
+  .chartArea { display: block; }
+  .numberField { text-align: right; }
+</style>
 
 <h1>Flocklab Statistics</h1>
 
@@ -195,10 +181,6 @@
   ?>
 </script>
 
-<!--
-</body>
-</html>
--->
 <?php 
   do_layout('Statistics','Statistics');
 ?>

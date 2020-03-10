@@ -37,7 +37,7 @@ text-decoration:none;
 }
 ul#platform li a:hover,a:active,a.selected
 {
-background-color:#7A991A;
+background-color:#1F407A;
 }
 
 .timeline-default {

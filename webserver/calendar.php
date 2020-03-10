@@ -33,7 +33,7 @@
                 firstDay:    1,
                 weekends:    true,
                 lazyFetching: true,
-                eventColor: '#98BF21',
+                eventColor:  '#28549f',
                 defaultView: 'month',
                 slotMinutes: 30,
                 allDaySlot:  false,

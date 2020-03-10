@@ -80,14 +80,14 @@ echo '<h1>Admin User Management</h1>';
             <table id="res_overview" class="tablesorter" style="display:none">
                 <thead>
                     <tr>
-                        <th width="80px">Username</th>
+                        <th width="70px">Username</th>
                         <th width="70px">First name</th>
                         <th width="80px">Last name</th>
                         <th width="140px">E-Mail</th>
                         <th width="50px">Create date</th>
                         <th width="50px">Quota</th>
                         <th width="30px">Role</th>
-                        <th width="20px">active</th>
+                        <th width="30px">Active</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,11 +115,11 @@ echo '<h1>Admin User Management</h1>';
             </table>
             </form>
             <span id="pager" class="pager">
-                <img src="pics/icons/first.gif" alt="first" class="first">
-                <img src="pics/icons/prev.gif" alt="prev" class="prev">
+                <span class="texticonsm first link" alt="first" title="first"><<</span>
+                <span class="texticonsm prev link" alt="prev" title="prev"><</span>
                 <span class="pagedisplay"></span>
-                <img src="pics/icons/next.gif" alt="next" class="next">
-                <img src="pics/icons/last.gif" alt="last" class="last">
+                <span class="texticonsm next link" alt="next" title="next">></span>
+                <span class="texticonsm last link" alt="last" title="last">>></span>
                 <input class="pagesize" style="visibility: hidden;" id="pager_num_rows" value="15">
             </span> <br >
 <?php

@@ -46,7 +46,7 @@
                     'start'       => $row['time_start_act'],
                     'end'         => $row['time_end_act'],
                     'allDay'      => false,
-                    'color'       => 'chocolate',
+                    'color'       => '#eca427',
                 );
             }
             else {
@@ -68,7 +68,7 @@
                     'start'       => $row['time_start_wish'],
                     'end'         => $row['time_end_wish'],
                     'allDay'      => false,
-                    'color'       => 'chocolate',
+                    'color'       => '#eca427',
                 );
                 // Insert offset for test finish as separate event in order not to confuse the user:
                 $events[] = array(

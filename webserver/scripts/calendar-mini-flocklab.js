@@ -37,7 +37,7 @@ $(document).ready(function() {
 		firstDay:    1,
 		weekends:    true,
 		lazyFetching: true,
-		eventColor: '#98BF21',
+		eventColor: '#1F407A',
 		defaultView: 'month',
 		slotMinutes: 30,
 		allDaySlot:  false,
@@ -73,7 +73,7 @@ $(document).ready(function() {
 					thisday = this.start.getFullYear()+'-'+(1+this.start.getMonth())+'-'+this.start.getDate();
 					if (day!=thisday) {
 						if (day_events.length > 5) {
-							events = events.concat({id:day, color:"green", title:"more than 5 tests",description:'', allDay:false,start:new Date(day_min),end:new Date(day_max)});
+							events = events.concat({id:day, color:"#40508d", title:"more than 5 tests",description:'', allDay:false,start:new Date(day_min),end:new Date(day_max)});
 						}
 						else {
 							events = events.concat(day_events);
