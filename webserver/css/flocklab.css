@@ -338,8 +338,13 @@ div.content table.recaptchatable {
     padding:    0px;
     float:      none;
 }
+#minicalendar .fc-header-title {
+    display:    none;
+}
 #minicalendar .fc-header-title h2 {
-    font-size: 1.0em;
+    font-size: 10px;
+    line-height: 100%;
+    font-weight: normal;
     white-space: normal !important;
 }
 #minicalendar .fc-view-month .fc-event, #minicalendar .fc-view-agendaWeek .fc-event {

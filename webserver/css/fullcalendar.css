@@ -31,11 +31,14 @@ html .fc,
 ------------------------------------------------------------------------*/
 
 .fc-header {
-    display: none;
+
     }
 
 .fc-header td {
     white-space: nowrap;
+    }
+.fc-header td:hover {
+    background-color: #FFFFFF;
     }
 
 .fc-header-left {
@@ -60,6 +63,9 @@ html .fc,
 .fc-header-title h2 {
     margin-top: 0;
     white-space: nowrap;
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 200%;
     }
     
 .fc .fc-header-space {
@@ -470,7 +476,7 @@ table.fc-border-separate {
 /* make axis border take precedence */
     
 .fc-agenda-days .fc-agenda-axis {
-    border-right-width: 1px;
+    border-right-width: 0px;
     }
     
 .fc-agenda-days .fc-col0 {

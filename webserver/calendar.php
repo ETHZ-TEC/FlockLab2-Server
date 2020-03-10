@@ -66,16 +66,18 @@
                                         this.end = new Date(this.start.getTime() + 1000);
                                     }
 <?php
-if ($_SESSION['is_admin']) {
-echo '
-                                    if (this.color=="chocolate" || !this.hasOwnProperty("color"))
-                                        this.url="webdavs://'.$_SESSION['username'].'@'.preg_replace('#/[^/]*$#','',$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']).'/webdav/"+this.id+"/";
-';}
-else {
-echo '
-                                    if (this.color=="chocolate")
-                                        this.url="webdavs://'.$_SESSION['username'].'@'.preg_replace('#/[^/]*$#','',$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']).'/webdav/"+this.id+"/";
-';}
+    if ($_SESSION['is_admin']) {
+        echo '
+                                            if (this.color=="chocolate" || !this.hasOwnProperty("color"))
+                                                this.url="webdavs://'.$_SESSION['username'].'@'.preg_replace('#/[^/]*$#','',$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']).'/webdav/"+this.id+"/";
+        ';
+    }
+    else {
+        echo '
+                                            if (this.color=="chocolate")
+                                                this.url="webdavs://'.$_SESSION['username'].'@'.preg_replace('#/[^/]*$#','',$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']).'/webdav/"+this.id+"/";
+        ';
+    }
 ?>
                                     events.push(this);
                                 }
@@ -100,11 +102,11 @@ echo '
                         }
                     }
                 },
-            });            
+            });
         });
     </script>
-            <h1>Full Calendar</h1>
-            <div id='calendar' class='calendar'></div>
+    <h1>Full Calendar</h1>
+    <div id='calendar' class='calendar'></div>
 <?php
-do_layout('Full Calendar','Full Calendar');
+  do_layout('Full Calendar','Full Calendar');
 ?>
