@@ -81,10 +81,9 @@
             <th width="50px">ID</th>
             <th>Name</th>
             <th>Description</th>
-            <th width="100px">Platform</th>
-            <th width="100px">OS</th>
-            <th width="200px">Date</th>
-            <th width="39px" class='qtip_show' title='Actions'>Actions</th>
+            <th>Platform</th>
+            <th>Date</th>
+            <th width="60px" class='qtip_show' title='Actions'>Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -109,8 +108,6 @@
         // Platform. If longer than $max_len characters, display as tooltip:
         $corenum = in_array($row['platform_name'], $multicore)?': '.$row['core_desc']:'';
         echo "<td class='qtip_show' title='" . $row['platform_name'] .$corenum. "'>" . $row['platform_name'] .$corenum. "</td>";
-        // OS. If longer than $max_len characters, display as tooltip:
-        echo "<td class='qtip_show' title='" . $row['os_name'] . "'>" . substr($row['os_name'],0,$max_len) . "</td>";
         // Date
         echo "<td title='Date' class='qtip_show'>".date_to_tzdate($row['last_changed'])."</td>";
         // Actions

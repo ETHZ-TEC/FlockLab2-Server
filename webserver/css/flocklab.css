@@ -44,11 +44,7 @@ div.container {
     background-color: #FFFFFF;
     /* background-image: url(../pics/bg_container.png);*/
     /* background-repeat: repeat-x; */
-    
-    border-style: solid;
-    border-color: gray;
-    border-width: 0px;
-    
+    border: 0px solid gray;
     font-family: Verdana, Arial, Helvetica, sans-serif;
     font-size: small;
 }
@@ -64,7 +60,7 @@ div.login {
 
 /* table styling for content div */
 div.content {
-    width:   920px;
+    width:   910px;
     height:  100%;
     margin:  10px 0px;
     float:   left;
@@ -79,8 +75,9 @@ div.content h1 {
 
 div.content table {
     table-layout: fixed;
+    border-width: 0px;
     /* min-width: 700px;*/
-    border-collapse: collapse;
+    /*border-collapse: collapse;*/
 }
 
 div.content th, div.content td {
@@ -88,6 +85,7 @@ div.content th, div.content td {
 /*    white-space: nowrap;*/
     text-overflow: ellipsis;
     overflow: hidden;
+    border-width: 0px;
 }
 
 td:hover {
@@ -105,7 +103,7 @@ div.content th {
 
 /* Styling for tablesorter */
 div.content table.tablesorter {
-    width: 912px;
+    width: 100%;
     border-collapse: collapse;
     border: 0px solid #28549f;
 }
