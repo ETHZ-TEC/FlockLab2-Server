@@ -5,6 +5,10 @@
 USER="flocklab"
 HOST="flocklab-dev-server"
 
+if [ $# -gt 0 ]; then
+    HOST=$1
+fi
+
 echo "Going to update files on FlockLab server $HOST..."
 sleep 2   # give the user time to abort, just in case
 

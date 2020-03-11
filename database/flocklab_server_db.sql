@@ -447,7 +447,6 @@ CREATE TABLE `tbl_serv_users` (
   `login_count` int(11) NOT NULL DEFAULT '0',
   `disable_infomails` tinyint(4) NOT NULL DEFAULT '0' COMMENT 'If set to 1, the user will not get emails which just inform about the status of a test. Emails with warnings/errors will still be sent though.',
   `last_changed` datetime DEFAULT NULL,
-  `use_daq` tinyint(4) NOT NULL DEFAULT '0',
   PRIMARY KEY (`serv_users_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=370 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

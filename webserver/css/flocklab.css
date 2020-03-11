@@ -190,12 +190,14 @@ input[type=submit], input[type=button], input[type=reset] {
     height: 24px;
     padding-left: 7px;
     padding-right: 7px;
+    cursor: pointer;
 }
 
 input[type=file] {
     height: 24px;
     width: 350px;
     margin-left: 4px;
+    cursor: pointer;
 }
 
 input[disabled="disabled"], input.disabled {
@@ -291,7 +293,7 @@ p.warning {
 *.info {
     height: auto;
     min-height: 50px;
-    border: solid 2px gray;
+    border: solid 0px #DDD;
     padding: 2px;
     background-image: url(../pics/bg_info.png);
     background-repeat: repeat-x;
@@ -489,4 +491,8 @@ div.content table.recaptchatable {
 
 .bold {
     font-weight: bold
+}
+
+form td:hover {
+    background-color: #FFFFFF;
 }
