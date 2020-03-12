@@ -29,6 +29,7 @@ function db_connect()
     mysqli_query($dbh, $sql) or flocklab_die('Cannot init timezone for database connection because: ' . mysqli_error($dbh));
     $sql='SET sql_mode=""';
     mysqli_query($dbh, $sql) or flocklab_die('Cannot set sql mode for database connection because: ' . mysqli_error($dbh));
+    mysqli_set_charset($dbh, "utf8");
     return($dbh);
 }
 

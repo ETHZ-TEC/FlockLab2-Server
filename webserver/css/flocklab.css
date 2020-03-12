@@ -89,7 +89,7 @@ div.content th, div.content td {
 }
 
 td:hover {
-    background-color: #F0F0F0;
+    background-color: #DDD;
 }
 
 div.content th {
@@ -132,7 +132,7 @@ div.content table.tablesorter th.headerSortDown {
 }
 
 div.content table.tablesorter tr.even {
-    background-color: #f9f9f9;
+    background-color: #F0F0F0;
 }
 
 div.content table.tablesorter tr.odd {
@@ -179,8 +179,8 @@ div.sidenavigation a {
 
 /* BEGIN styling of forms, input fields and buttons */
 input {
-    border: 1px solid gray;
-    background-color: #f9f9f9;
+    border: 1px solid #DDD;
+    background-color: #F0F0F0;
     height: 18px;
     padding: 2px;
     color: #666666;
@@ -238,9 +238,9 @@ form span.formfield-extrawide {
 }
 
 form textarea, form input[type="text"], form select {
-    border: 1px solid gray;
-    background-color: #f9f9f9;
-    height: auto;    
+    border: 1px solid #DDD;
+    background-color: #F0F0F0;
+    height: auto;
     min-height: 18px;
     width: 350px;
     padding: 2px;
@@ -249,9 +249,9 @@ form textarea, form input[type="text"], form select {
 }
 
 form input[type="password"] {
-    border: 1px solid gray;
-    background-color: #f9f9f9;
-    height: auto;    
+    border: 1px solid #DDD;
+    background-color: #F0F0F0;
+    height: auto;
     min-height: 18px;
     width: 350px;
     padding: 2px;

@@ -15,12 +15,12 @@ sleep 2   # give the user time to abort, just in case
 
 # testmanagement server files
 # optional to only look for changed files:  | grep '^<fc' | cut -d' ' -f2
-RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' testmanagementserver ${USER}@${HOST}:testmanagementserver)
+RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' testmanagementserver/ ${USER}@${HOST}:testmanagementserver  2>&1)
 if [ -z "$RES" ]; then
     echo "Testmanagement server files are up to date."
 else
     printf "Updating testmanagement server files... "
-    rsync ${RSYNCPARAMS} -e 'ssh -q' testmanagementserver ${USER}@${HOST}:
+    rsync ${RSYNCPARAMS} -e 'ssh -q' testmanagementserver/ ${USER}@${HOST}:testmanagementserver
     if [ $? -ne 0 ]; then
         printf "Failed to copy files!\n"
         continue
@@ -29,12 +29,13 @@ else
     fi
 fi
 # webserver files
-RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' webserver ${USER}@${HOST}:webserver)
+RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' webserver/ ${USER}@${HOST}:webserver  2>&1)
 if [ -z "$RES" ]; then
     echo "Webserver files are up to date."
 else
+    echo $RES
     printf "Updating webserver files..."
-    rsync ${RSYNCPARAMS} -e 'ssh -q' webserver ${USER}@${HOST}:
+    rsync ${RSYNCPARAMS} -e 'ssh -q' webserver/ ${USER}@${HOST}:webserver
     if [ $? -ne 0 ]; then
         printf "failed to copy repository files!\n"
         continue
@@ -43,12 +44,13 @@ else
     fi
 fi
 # tools
-RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools ${USER}@${HOST}:tools)
+RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools/ ${USER}@${HOST}:tools  2>&1)
 if [ -z "$RES" ]; then
     echo "Tools are up to date."
 else
+    echo $RES
     printf "Updating tools... "
-    rsync ${RSYNCPARAMS} -e 'ssh -q' tools ${USER}@${HOST}:
+    rsync ${RSYNCPARAMS} -e 'ssh -q' tools/ ${USER}@${HOST}:tools
     if [ $? -ne 0 ]; then
         printf "Failed to copy files!\n"
         continue
