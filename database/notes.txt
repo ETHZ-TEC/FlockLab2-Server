@@ -1,4 +1,0 @@
-Dump structure of database using following command:
-
-mysqldump -d -h <db_server> -u <username> -p --databases 'flocklab' --lock-tables=false > flocklab_server_db.sql
-mysqldump -t -h <db_server> -u <username> -p flocklab tbl_serv_architectures tbl_serv_observer tbl_serv_observer_slot_calibration tbl_serv_operatingsystems tbl_serv_pinmappings tbl_serv_platforms tbl_serv_services tbl_serv_tg_adapt_list tbl_serv_tg_adapt_types >> flocklab_server_db.sql

@@ -13,17 +13,16 @@
 <?php
 if (isset($_POST['imageid']) && is_numeric($_POST['imageid']) && check_imageid($_POST['imageid'],$_SESSION['serv_users_key'])) {
   $db = db_connect();
-  $sql =  "SELECT `binary`, p.`name` `platform`, o.`name` `operatingsystem`
+  $sql =  "SELECT `binary`, p.`name` `platform`
     FROM tbl_serv_targetimages i
     left join tbl_serv_platforms p on (i.platforms_fk = p.serv_platforms_key)
-    left join tbl_serv_operatingsystems o on (i.operatingsystems_fk = o.serv_operatingsystems_key)
     WHERE ".($_SESSION['is_admin']?"":("owner_fk = " . $_SESSION['serv_users_key'] . " AND "))."`serv_targetimages_key`=".mysqli_real_escape_string($db, $_POST['imageid']);
   $res = mysqli_query($db, $sql);
   if ($res !== false) {
     $row = mysqli_fetch_assoc($res);
     // Send the file to the user's browser:
     header("Content-Type: binary/octet-stream");
-    header("Content-Disposition: attachment; filename=\"". $_POST['imageid'] .".".$row['platform'].".".$row['operatingsystem'].".exe\"");
+    header("Content-Disposition: attachment; filename=\"". $_POST['imageid'] .".".$row['platform'].".exe\"");
     echo $row['binary'];
   }
   else {

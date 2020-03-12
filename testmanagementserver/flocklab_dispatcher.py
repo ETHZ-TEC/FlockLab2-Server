@@ -269,8 +269,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                     ON `t`.`serv_targetimages_key` = `m`.`targetimage_fk` 
                                 LEFT JOIN `tbl_serv_platforms` AS `p`
                                     ON `t`.`platforms_fk` = `p`.`serv_platforms_key`
-                                LEFT JOIN `tbl_serv_operatingsystems` AS `o`
-                                    ON `t`.`operatingsystems_fk` = `o`.`serv_operatingsystems_key`
                                 LEFT JOIN `tbl_serv_architectures` AS `a`
                                     ON `t`.`core` = `a`.`core` AND `p`.`serv_platforms_key` = `a`.`platforms_fk`
                                 WHERE `m`.`test_fk` = %d
@@ -295,7 +293,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 imagefile.close()
                 logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" % (str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
                 
-                # Convert image to binary format and, depending on operating system and platform architecture, write the node ID (if specified) to the image:
                 logger.debug("Found %s target architecture on platform %s for observer ID %s (node ID to be used: %s)." % (arch, platname, str(obs_id), str(node_id)))
                 
                 # binary patching

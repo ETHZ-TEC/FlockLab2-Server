@@ -50,10 +50,9 @@
     while ($row = mysqli_fetch_assoc($rs))
         array_push($multicore, $row['name']);
     /* Get all test images of the current user from the database and display them in the table. */
-    $sql =   "SELECT `serv_targetimages_key`, `tbl_serv_targetimages`.`name` as `name`, `tbl_serv_targetimages`.`description` as `description`, `tbl_serv_architectures`.`description` as `core_desc`, `tbl_serv_operatingsystems`.`name` as `os_name`, `tbl_serv_platforms`.`name` as `platform_name`, `tbl_serv_targetimages`.`last_changed`, `test_fk`, `tbl_serv_tests`.`test_status` 
+    $sql =   "SELECT `serv_targetimages_key`, `tbl_serv_targetimages`.`name` as `name`, `tbl_serv_targetimages`.`description` as `description`, `tbl_serv_architectures`.`description` as `core_desc`, `tbl_serv_platforms`.`name` as `platform_name`, `tbl_serv_targetimages`.`last_changed`, `test_fk`, `tbl_serv_tests`.`test_status` 
               FROM `tbl_serv_targetimages`
-              LEFT JOIN (`tbl_serv_platforms`, `tbl_serv_operatingsystems`) 
-                  ON (`operatingsystems_fk`=`tbl_serv_operatingsystems`.`serv_operatingsystems_key` AND `platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`)
+              LEFT JOIN `tbl_serv_platforms` ON `platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`
               LEFT JOIN `tbl_serv_architectures` 
                   ON (`tbl_serv_architectures`.`platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key` AND `tbl_serv_architectures`.`core` = `tbl_serv_targetimages`.`core`)
               LEFT JOIN `tbl_serv_map_test_observer_targetimages` 

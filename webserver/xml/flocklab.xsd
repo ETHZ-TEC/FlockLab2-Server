@@ -162,7 +162,6 @@
       </xs:simpleType>
     </xs:element>
     <xs:element name="platform" type="platformType"/>
-    <xs:element name="os" type="osType" minOccurs="0" maxOccurs="1"/>
     <xs:element name="data" type="xs:base64Binary"/>
 	<xs:element name="core" type="xs:integer" minOccurs="0" maxOccurs="1"/>
   </xs:all>
@@ -336,13 +335,6 @@
 <xs:simpleType name="platformType">
   <xs:restriction base="xs:string">
     <xs:pattern value="dpp|dpp2lora|dpp2lorahg|nrf5"/>
-  </xs:restriction>
-</xs:simpleType>
-
-<!-- Type definition for operating systems -->
-<xs:simpleType name ="osType">
-  <xs:restriction base="xs:string">
-    <xs:pattern value="contiki|tinyos|other"/>
   </xs:restriction>
 </xs:simpleType>
 

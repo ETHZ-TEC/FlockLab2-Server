@@ -335,15 +335,14 @@ def main(argv):
             # If DB image IDs are present, check if they are in the database and belong to the user (if he is not an admin) and get values for later use:
             if dbimageid:
                 for dbimg, line in zip(dbimageid, dbimageid_line):
-                    sql = """    SELECT b.name, c.name, a.core
-                                FROM `tbl_serv_targetimages` AS a 
-                                LEFT JOIN `tbl_serv_operatingsystems` AS b 
-                                    ON a.operatingsystems_fk = b.serv_operatingsystems_key 
-                                LEFT JOIN `tbl_serv_platforms` AS c 
-                                    ON a.platforms_fk = c.serv_platforms_key
-                                WHERE (a.`serv_targetimages_key` = %s AND a.`binary` IS NOT NULL)""" %(dbimg)
+                    sql = """SELECT b.name, a.core
+                             FROM `tbl_serv_targetimages` AS a
+                             LEFT JOIN `tbl_serv_platforms` AS b
+                                 ON a.platforms_fk = b.serv_platforms_key
+                             WHERE (a.`serv_targetimages_key` = %s AND a.`binary` IS NOT NULL)
+                          """ % (dbimg)
                     if "admin" not in userrole:
-                        sql += " AND (a.`owner_fk` = %s)"%(userid)
+                        sql += " AND (a.`owner_fk` = %s)" % (userid)
                     cur.execute(sql)
                     ret = cur.fetchone()
                     if not ret:
@@ -352,16 +351,16 @@ def main(argv):
                         errcnt = errcnt + 1
                     else:
                         # Put data into dictionary for later use:
-                        core = int(ret[2])
+                        core = int(ret[1])
                         for obsid in obsids:
                             if obsid not in obsiddict:
                                 obsiddict[obsid] = {}
                             if core in obsiddict[obsid]:
                                 if not quiet:
-                                    print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." %(line, core, str(dbimg))))
+                                    print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." % (line, core, str(dbimg))))
                                 errcnt = errcnt + 1
                             else:
-                                obsiddict[obsid][core]=ret[:2]
+                                obsiddict[obsid][core] = ret[0]
             
             # If embedded image IDs are present, check if they have a corresponding <imageConf> which is valid:
             if embimageid:
@@ -373,10 +372,6 @@ def main(argv):
                         errcnt = errcnt + 1
                     else:
                         # Get os and platform and put it into dictionary for later use:
-                        if imageconf[0].xpath('d:os', namespaces=ns):
-                            opersys = imageconf[0].xpath('d:os', namespaces=ns)[0].text
-                        else:
-                            opersys = 'other'
                         platform = imageconf[0].xpath('d:platform', namespaces=ns)[0].text
                         try:
                             core = int(imageconf[0].xpath('d:core', namespaces=ns)[0].text)
@@ -391,7 +386,7 @@ def main(argv):
                                 if not quiet:
                                     print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." %(line, core, str(embimg))))
                                 errcnt = errcnt + 1
-                            obsiddict[obsid][core]=(opersys, platform)
+                            obsiddict[obsid][core] = platform
                         # Get the image and save it to a temporary file:
                         image = imageconf[0].xpath('d:data', namespaces=ns)[0].text
                         if "dpp2lora" in platform.lower():
@@ -462,19 +457,13 @@ def main(argv):
                         """
             for obsid in usedObsidsList:
                 if obsid in obsiddict:
-                    platf = next(iter(obsiddict[obsid].values()))[1].lower()
-                    opersys = next(iter(obsiddict[obsid].values()))[0].lower()
+                    platf = next(iter(obsiddict[obsid].values()))[0].lower()
                     for p in obsiddict[obsid].values():
                         if platf!=p[1].lower():
                             if not quiet:
                                 print(("Element targetConf: Observer ID %s has images of several platform types assigned." %(obsid)))
                             errcnt = errcnt + 1
                             break
-                        #if opersys!=p[0].lower():
-                        #    if not quiet:
-                        #        print(("Element targetConf: Observer ID %s has images of several operating system types assigned." %(obsid)))
-                        #    errcnt = errcnt + 1
-                        #    break
                 else:
                     platf = None
                 # Get tg_adapt_types_fk of installed target adaptors on observer:

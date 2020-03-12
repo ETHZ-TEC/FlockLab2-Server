@@ -174,44 +174,6 @@ CREATE TABLE `tbl_serv_observer` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `tbl_serv_observer_slot_calibration`
---
-
-DROP TABLE IF EXISTS `tbl_serv_observer_slot_calibration`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tbl_serv_observer_slot_calibration` (
-  `serv_observer_slot_calibration_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `observer_fk` int(10) unsigned NOT NULL,
-  `slot` enum('1','2','3','4') COLLATE utf8_bin NOT NULL,
-  `offset` double NOT NULL,
-  `factor` double NOT NULL,
-  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `comment` text COLLATE utf8_bin,
-  PRIMARY KEY (`serv_observer_slot_calibration_key`),
-  UNIQUE KEY `obs_and_slot_unq` (`observer_fk`,`slot`),
-  KEY `observer_key` (`observer_fk`),
-  CONSTRAINT `observer_key` FOREIGN KEY (`observer_fk`) REFERENCES `tbl_serv_observer` (`serv_observer_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB AUTO_INCREMENT=162 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tbl_serv_operatingsystems`
---
-
-DROP TABLE IF EXISTS `tbl_serv_operatingsystems`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tbl_serv_operatingsystems` (
-  `serv_operatingsystems_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(45) COLLATE utf8_bin NOT NULL,
-  `description` text COLLATE utf8_bin,
-  `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`serv_operatingsystems_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `tbl_serv_pinmappings`
 --
 
@@ -316,7 +278,6 @@ CREATE TABLE `tbl_serv_targetimages` (
   `name` varchar(45) COLLATE utf8_bin NOT NULL,
   `description` text COLLATE utf8_bin,
   `owner_fk` int(10) unsigned NOT NULL,
-  `operatingsystems_fk` int(10) unsigned NOT NULL,
   `platforms_fk` int(10) unsigned NOT NULL,
   `core` int(8) unsigned DEFAULT '0',
   `binary` longblob,
@@ -324,10 +285,8 @@ CREATE TABLE `tbl_serv_targetimages` (
   `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`serv_targetimages_key`),
   KEY `fk_tbl_serv_targetimages_users` (`owner_fk`),
-  KEY `fk_tbl_serv_targetimages_os` (`operatingsystems_fk`),
   KEY `fk_tbl_serv_targetimages_platform` (`platforms_fk`),
   KEY `index_tbl_serv_targetimages_binary_hash_sha1` (`binary_hash_sha1`),
-  CONSTRAINT `fk_tbl_serv_targetimages_os` FOREIGN KEY (`operatingsystems_fk`) REFERENCES `tbl_serv_operatingsystems` (`serv_operatingsystems_key`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT `fk_tbl_serv_targetimages_platform` FOREIGN KEY (`platforms_fk`) REFERENCES `tbl_serv_platforms` (`serv_platforms_key`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT `fk_tbl_serv_targetimages_users` FOREIGN KEY (`owner_fk`) REFERENCES `tbl_serv_users` (`serv_users_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
 ) ENGINE=InnoDB AUTO_INCREMENT=33510 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;

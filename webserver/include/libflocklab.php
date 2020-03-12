@@ -29,7 +29,6 @@ function db_connect()
     mysqli_query($dbh, $sql) or flocklab_die('Cannot init timezone for database connection because: ' . mysqli_error($dbh));
     $sql='SET sql_mode=""';
     mysqli_query($dbh, $sql) or flocklab_die('Cannot set sql mode for database connection because: ' . mysqli_error($dbh));
-    mysqli_set_charset($dbh, "utf8");
     return($dbh);
 }
 
@@ -280,31 +279,6 @@ function get_available_platforms() {
     return $available_platforms;
 }
 
-/*
-##############################################################################
-#
-# get_available_os
-# 
-# from the database 
-#
-##############################################################################
-*/
-function get_available_os() {
-    $db = db_connect();
-    $sql = 'SELECT `serv_operatingsystems_key`, `name`
-        FROM `tbl_serv_operatingsystems`
-        ORDER BY `name` ASC';
-    $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch available os because: ' . mysqli_error($db));
-    $num = mysqli_num_rows($res);
-    $available_os = Array();
-    while ($num-- > 0) {
-        $row = mysqli_fetch_assoc($res);
-        $available_os[$row['serv_operatingsystems_key']]=$row['name'];
-    }
-    mysqli_close($db);
-    return $available_os;
-}
-
 function get_testconfig($testid) {
     $db = db_connect();
     $sql =  "SELECT `testconfig_xml` 
@@ -432,16 +406,12 @@ function check_image_duplicate($image) {
 function store_image($image) {
     $id = null;
     $hash = hash('sha1', $image['data']);
-    if (!array_key_exists('os', $image) || $image['os'] == "") {
-        $image['os'] = 1;   # 1 = 'other'
-    }
     $db = db_connect();
-    $sql = 'INSERT INTO `tbl_serv_targetimages` (`name`,`description`,`owner_fk`,`operatingsystems_fk`,`platforms_fk`,`core`,`binary`,`binary_hash_sha1`)
+    $sql = 'INSERT INTO `tbl_serv_targetimages` (`name`,`description`,`owner_fk`,`platforms_fk`,`core`,`binary`,`binary_hash_sha1`)
             VALUES (
             "'.mysqli_real_escape_string($db, trim($image['name'])).'",
             "'.mysqli_real_escape_string($db, trim($image['description'])).'",
             '.$_SESSION['serv_users_key'].',
-            '.mysqli_real_escape_string($db, $image['os']).',
             '.mysqli_real_escape_string($db, $image['platform']).',
             '.mysqli_real_escape_string($db, $image['core']).',
             "'.mysqli_real_escape_string($db, $image['data']).'",
@@ -1085,7 +1055,6 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
         $used_dbImages = Array();
         $embeddedImages = Array();
         $dbImages = Array();
-        $available_os = get_available_os();
         $available_platforms = get_available_platforms();
         $targetnodes = Array();
         foreach($testconfig->targetConf as $tc) {
@@ -1123,15 +1092,6 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 foreach($available_platforms as $key => $platform)
                     if (strcasecmp($platform[0]['name'], trim($im->platform)) == 0)
                         $im_cpy['platform'] = $key;
-                if(!isset($im->os) || !in_array($im->os, $available_os)) {
-                    $im_os = 'other';
-                }
-                foreach($available_os as  $key => $os) {
-                    if (strcasecmp($os, $im_os) == 0) {
-                        $im_cpy['os'] = $key;
-                        break;
-                    }
-                }
                 $im_cpy['core'] = isset($im->core) ? $im->core : 0;
                 $embeddedImages[$eId] = $im_cpy;
             }

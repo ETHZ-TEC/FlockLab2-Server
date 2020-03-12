@@ -4,7 +4,7 @@
 
 USER="flocklab"
 HOST="flocklab-dev-server"
-RSYNCPARAMS="-a -z -c -K --exclude=.git"
+RSYNCPARAMS="-a -z -c -K --exclude=.git --no-perms --no-owner --no-group"
 
 if [ $# -gt 0 ]; then
     HOST=$1
@@ -23,7 +23,6 @@ else
     rsync ${RSYNCPARAMS} -e 'ssh -q' testmanagementserver/ ${USER}@${HOST}:testmanagementserver
     if [ $? -ne 0 ]; then
         printf "Failed to copy files!\n"
-        continue
     else
         printf "done.\n"
     fi
@@ -33,12 +32,10 @@ RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' webserver/ ${USER}@${HOST}:w
 if [ -z "$RES" ]; then
     echo "Webserver files are up to date."
 else
-    echo $RES
     printf "Updating webserver files..."
     rsync ${RSYNCPARAMS} -e 'ssh -q' webserver/ ${USER}@${HOST}:webserver
     if [ $? -ne 0 ]; then
         printf "failed to copy repository files!\n"
-        continue
     else
         printf "done.\n"
     fi
@@ -48,12 +45,10 @@ RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools/ ${USER}@${HOST}:tools
 if [ -z "$RES" ]; then
     echo "Tools are up to date."
 else
-    echo $RES
     printf "Updating tools... "
     rsync ${RSYNCPARAMS} -e 'ssh -q' tools/ ${USER}@${HOST}:tools
     if [ $? -ne 0 ]; then
         printf "Failed to copy files!\n"
-        continue
     else
         printf "done.\n"
     fi

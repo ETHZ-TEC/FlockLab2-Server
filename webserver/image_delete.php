@@ -45,9 +45,9 @@
     
                 <h1>Manage Images</h1>';
               $db = db_connect();
-              $sql =  'SELECT `serv_targetimages_key`, `tbl_serv_targetimages`.`name` as `name`, `tbl_serv_targetimages`.`description` as `description`, `tbl_serv_operatingsystems`.`name` as `os_name`, `tbl_serv_platforms`.`name` as `platform_name`, `tbl_serv_targetimages`.`last_changed`
+              $sql =  'SELECT `serv_targetimages_key`, `tbl_serv_targetimages`.`name` as `name`, `tbl_serv_targetimages`.`description` as `description`,  `tbl_serv_platforms`.`name` as `platform_name`, `tbl_serv_targetimages`.`last_changed`
                 FROM `tbl_serv_targetimages`
-                LEFT JOIN (`tbl_serv_platforms`, `tbl_serv_operatingsystems`) ON (`operatingsystems_fk`=`tbl_serv_operatingsystems`.`serv_operatingsystems_key` AND `platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`)
+                LEFT JOIN `tbl_serv_platforms` ON `platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`
                 WHERE `owner_fk` = '.$_SESSION['serv_users_key'].' AND `serv_targetimages_key` = ' .mysqli_real_escape_string($db, $_POST['imageid']);
               $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch image information: ' . mysqli_error($db));
               $row = mysqli_fetch_assoc($res);
@@ -62,7 +62,6 @@
                 <tr><td>Name</td><td>'.$row['name'].'</td></tr>
                 <tr><td>Description</td><td>'.$row['description'].'</td></tr>
                 <tr><td>Platform</td><td>'.$row['platform_name'].'</td></tr>
-                <tr><td>Os</td><td>'.$row['os_name'].'</td></tr>
                 <tr><td>Date</td><td>'.$row['last_changed'].'</td></tr>
                 </table></p>
                 </div><p></p>

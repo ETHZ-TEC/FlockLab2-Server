@@ -28,11 +28,11 @@
 DEST=${3:-/tmp/flocklab}  # destination directory (if not specified, the default is used: /tmp/flocklab)
 EXTRACT=1                 # extract results?
 TESTCONFIG=0              # also download XML test config?
-SERVER_URL=https://flocklab.ethz.ch
+SERVER_URL=https://flocklab.ethz.ch/user
 CURL_PARAMS='-sS -4 --insecure'
 FLAUTH_FILE=.flocklabauth
 NETRC_FILE=$HOME/.netrc
-DAV_URL=https://flocklab-dev-server.ethz.ch/webdav
+DAV_URL=https://flocklab.ethz.ch/user/webdav
 DAV_CLIENT=cadaver
 
 if [ -f $FLAUTH_FILE ]

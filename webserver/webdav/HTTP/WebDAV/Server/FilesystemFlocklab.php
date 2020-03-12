@@ -242,12 +242,11 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
                 $db = db_connect();
                 $sql =   "SELECT serv_tests_key, `targetimage_fk`, UNIX_TIMESTAMP(tbl_serv_targetimages.last_changed) as image_last_changed,
                                 UNIX_TIMESTAMP(tbl_serv_tests.last_changed) as last_changed,
-                                length(`binary`) as imagesize, tbl_serv_operatingsystems.name as os, tbl_serv_platforms.name as platform
+                                length(`binary`) as imagesize, tbl_serv_platforms.name as platform
                                 FROM tbl_serv_tests
                                 LEFT JOIN tbl_serv_map_test_observer_targetimages ON (serv_tests_key = test_fk)
                                 LEFT JOIN tbl_serv_targetimages ON (serv_targetimages_key = `targetimage_fk`)
                                 LEFT JOIN tbl_serv_platforms ON (serv_platforms_key = `platforms_fk`)
-                                LEFT JOIN tbl_serv_operatingsystems ON (serv_operatingsystems_key= `operatingsystems_fk`)
                                 WHERE tbl_serv_tests.".$owner_query."serv_tests_key = ".mysqli_real_escape_string($db, $matches[1])." AND test_status <> 'deleted' AND test_status <> 'todelete'
                                 GROUP BY `targetimage_fk`";
                 $rs = mysqli_query($db, $sql) or flog('Cannot get tests from database because: ' . mysqli_error($db));
@@ -261,7 +260,7 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
                         mysqli_data_seek($rs,0);
                         while($row = mysqli_fetch_array($rs)) {
                                 if (!empty($row['targetimage_fk']))
-                                        $files["files"][] = $this->fileinfofile('/'.$matches[1].'/images/'.$row['targetimage_fk'].'.'.$row['platform'].'.'.$row['os'].'.exe', $row['image_last_changed'], 'application/octet-stream', $row['imagesize']);
+                                        $files["files"][] = $this->fileinfofile('/'.$matches[1].'/images/'.$row['targetimage_fk'].'.'.$row['platform'].'.exe', $row['image_last_changed'], 'application/octet-stream', $row['imagesize']);
                         }
                 }
                 flog(print_r($files,true));
@@ -271,12 +270,11 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
                 // test info
                 $db = db_connect();
                 $sql =   "SELECT serv_tests_key, `targetimage_fk`, UNIX_TIMESTAMP(tbl_serv_targetimages.last_changed) as image_last_changed,
-                          length(`binary`) as imagesize, tbl_serv_operatingsystems.name as os, tbl_serv_platforms.name as platform
+                          length(`binary`) as imagesize, tbl_serv_platforms.name as platform
                           FROM tbl_serv_tests
                           LEFT JOIN tbl_serv_map_test_observer_targetimages ON (serv_tests_key = test_fk)
                           LEFT JOIN tbl_serv_targetimages ON (serv_targetimages_key = `targetimage_fk`)
                           LEFT JOIN tbl_serv_platforms ON (serv_platforms_key = `platforms_fk`)
-                          LEFT JOIN tbl_serv_operatingsystems ON (serv_operatingsystems_key= `operatingsystems_fk`)
                           WHERE tbl_serv_tests.".$owner_query."serv_tests_key = ".mysqli_real_escape_string($db, $matches[1])."
                                 AND serv_targetimages_key = ".mysqli_real_escape_string($db, $matches[3])." AND test_status <> 'deleted' AND test_status <> 'todelete'
                           GROUP BY `targetimage_fk`";
@@ -389,12 +387,11 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
                 // test info
                 $db = db_connect();
                 $sql =   "SELECT serv_tests_key, `targetimage_fk`, UNIX_TIMESTAMP(tbl_serv_targetimages.last_changed) as image_last_changed,
-                          length(`binary`) as imagesize, tbl_serv_operatingsystems.name as os, tbl_serv_platforms.name as platform
+                          length(`binary`) as imagesize, tbl_serv_platforms.name as platform
                           FROM tbl_serv_tests
                           LEFT JOIN tbl_serv_map_test_observer_targetimages ON (serv_tests_key = test_fk)
                           LEFT JOIN tbl_serv_targetimages ON (serv_targetimages_key = `targetimage_fk`)
                           LEFT JOIN tbl_serv_platforms ON (serv_platforms_key = `platforms_fk`)
-                          LEFT JOIN tbl_serv_operatingsystems ON (serv_operatingsystems_key= `operatingsystems_fk`)
                           WHERE tbl_serv_tests.".$owner_query."serv_tests_key = ".mysqli_real_escape_string($db, $matches[1])."
                                 AND serv_targetimages_key = ".mysqli_real_escape_string($db, $matches[3])." AND test_status <> 'deleted' AND test_status <> 'todelete'
                           GROUP BY `targetimage_fk`";
