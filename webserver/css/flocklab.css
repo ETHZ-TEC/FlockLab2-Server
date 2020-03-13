@@ -246,6 +246,8 @@ form textarea, form input[type="text"], form select {
     padding: 2px;
     color: #666666;
     margin: 3px;
+    font-family: arial,helvetica;
+    font-size: 13px;
 }
 
 form input[type="password"] {
