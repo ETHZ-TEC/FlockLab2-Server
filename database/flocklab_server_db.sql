@@ -67,32 +67,6 @@ CREATE TABLE `tbl_serv_dispatcher_activity` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `tbl_serv_errorlog`
---
-
-DROP TABLE IF EXISTS `tbl_serv_errorlog`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tbl_serv_errorlog` (
-  `serv_errorlog_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `test_fk` int(10) unsigned DEFAULT NULL,
-  `observer_fk` int(10) unsigned DEFAULT NULL,
-  `obs_db_timestamp` datetime DEFAULT NULL,
-  `obs_db_seq_nr` int(10) unsigned DEFAULT NULL,
-  `service_fk` int(10) unsigned DEFAULT NULL,
-  `errormessage` text COLLATE utf8_bin NOT NULL,
-  `timestamp` decimal(16,6) NOT NULL,
-  PRIMARY KEY (`serv_errorlog_key`),
-  UNIQUE KEY `uc_errolog_entry` (`test_fk`,`observer_fk`,`obs_db_timestamp`,`obs_db_seq_nr`),
-  KEY `fk_tbl_serv_errorlog_tests` (`test_fk`),
-  KEY `fk_tbl_serv_errorlog_observer` (`observer_fk`),
-  KEY `fk_tbl_serv_errorlog_services` (`service_fk`),
-  CONSTRAINT `fk_tbl_serv_errorlog_observer` FOREIGN KEY (`observer_fk`) REFERENCES `tbl_serv_observer` (`serv_observer_key`) ON DELETE NO ACTION ON UPDATE NO ACTION,
-  CONSTRAINT `fk_tbl_serv_errorlog_tests` FOREIGN KEY (`test_fk`) REFERENCES `tbl_serv_tests` (`serv_tests_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB AUTO_INCREMENT=38621 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `tbl_serv_groups`
 --
 
@@ -174,24 +148,6 @@ CREATE TABLE `tbl_serv_observer` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `tbl_serv_pinmappings`
---
-
-DROP TABLE IF EXISTS `tbl_serv_pinmappings`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tbl_serv_pinmappings` (
-  `serv_pinmappings_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `pin_number` tinyint(3) NOT NULL,
-  `pin_name` varchar(10) COLLATE utf8_bin NOT NULL,
-  `services_fk` int(11) DEFAULT NULL,
-  PRIMARY KEY (`serv_pinmappings_key`),
-  KEY `fk_tbl_serv_pinmappings_1_idx` (`services_fk`),
-  CONSTRAINT `fk_tbl_serv_pinmappings_1` FOREIGN KEY (`services_fk`) REFERENCES `tbl_serv_services` (`serv_services_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `tbl_serv_platforms`
 --
 
@@ -248,22 +204,6 @@ CREATE TABLE `tbl_serv_resource_allocation` (
   CONSTRAINT `fk_tbl_serv_resource_allocation_observer` FOREIGN KEY (`observer_fk`) REFERENCES `tbl_serv_observer` (`serv_observer_key`) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT `fk_tbl_serv_resource_allocation_tests` FOREIGN KEY (`test_fk`) REFERENCES `tbl_serv_tests` (`serv_tests_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
 ) ENGINE=InnoDB AUTO_INCREMENT=2289 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `tbl_serv_services`
---
-
-DROP TABLE IF EXISTS `tbl_serv_services`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tbl_serv_services` (
-  `serv_services_key` int(11) NOT NULL AUTO_INCREMENT,
-  `service` varchar(45) COLLATE utf8_bin NOT NULL,
-  `abbreviation` varchar(2) COLLATE utf8_bin NOT NULL,
-  `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`serv_services_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

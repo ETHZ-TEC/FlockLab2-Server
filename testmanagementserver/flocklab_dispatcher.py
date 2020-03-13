@@ -1229,11 +1229,6 @@ def main(argv):
             # Test start failed. Make it abort:
             logger.warn("Going to abort test because of errors when trying to start it.")
             abort = True
-        # Write errors and warnings to DB:
-        for warn in warnings:
-            flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=warn)
-        for err in errors:
-            flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=err)
         # Inform user:
         ret = inform_user(testid, cur, action, errors, warnings)
         
@@ -1277,12 +1272,6 @@ def main(argv):
             """
     cur.execute(sql%(int(time_needed), testid))
     cn.commit()
-    
-    # Write errors and warnings to DB:
-    for warn in warnings:
-        flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=warn)
-    for err in errors:
-        flocklab.write_errorlog(cursor=cur, conn=cn, testid=testid, message=err)
     
     # Inform user:
     ret = inform_user(testid, cur, action, errors, warnings)

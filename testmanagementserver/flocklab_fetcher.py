@@ -20,9 +20,7 @@ testresultsdir           = None
 testresultsfile_dict     = {}
 mainloop_stop            = False
 owner_fk                 = None
-pindict                  = None
 obsdict_byid             = None
-servicedict              = None
 serialdict               = None
 
 ITEM_TO_PROCESS = 0
@@ -753,9 +751,7 @@ def main(argv):
     global testresultsdir
     global testresultsfile_dict
     global owner_fk
-    global pindict
     global obsdict_byid
-    global servicedict
     global serialdict
     
     stop = False
@@ -851,11 +847,6 @@ def main(argv):
         owner_fk = rs[0]
     else:
         owner_fk = None
-    rs = flocklab.get_pinmappings(cur)
-    if isinstance(rs, dict):
-        pindict = rs
-    else:
-        pindict = None
     rs = flocklab.get_test_obs(cur, testid)
     if isinstance(rs, tuple):
         obsdict_byid = rs[1]
@@ -863,11 +854,6 @@ def main(argv):
         obsdict_byid = None
     # Dict for serial service: 'r' means reader (data read from the target), 'w' means writer (data written to the target):
     serialdict = {0: 'r', 1: 'w'}
-    rs = flocklab.get_servicemappings(cur)
-    if isinstance(rs, dict):
-        servicedict = rs
-    else:
-        servicedict = None
     
     #find out the start and stoptime of the test
     cur.execute("SELECT `time_start_wish`, `time_end_wish` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" %testid)
@@ -914,9 +900,9 @@ def main(argv):
     
     cur.close()
     cn.close()
-    if ((owner_fk==None) or (pindict==None) or (obsdict_byid==None) or (servicedict==None)):
+    if ((owner_fk==None) or (obsdict_byid==None)):
         msg = "Error when getting metadata.\n"
-        msg += "owner_fk: %s\npindict: %s\nobsdict_byid: %s\nservicedict: %s\n" % (str(owner_fk), str(pindict), str(obsdict_byid), str(servicedict))
+        msg += "owner_fk: %s\nobsdict_byid: %s\n" % (str(owner_fk), str(obsdict_byid))
         msg += "Exiting..."
         logger.debug(msg)
         os.kill(os.getpid(), signal.SIGTERM)

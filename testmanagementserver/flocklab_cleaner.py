@@ -98,7 +98,7 @@ def main(argv):
                     else:
                         delete_all = False 
                     # Clean through all relevant tables ---
-                    relevant_tables = ['tbl_serv_errorlog']
+                    relevant_tables = []
                     if delete_all:
                         relevant_tables.append('tbl_serv_map_test_observer_targetimages')
                     for table in relevant_tables:

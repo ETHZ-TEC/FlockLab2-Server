@@ -493,78 +493,6 @@ def get_test_owner(cursor=None, testid=0):
 
 ##############################################################################
 #
-# get_pinmappings - Get all pin mappings from the database
-#
-##############################################################################
-def get_pinmappings(cursor=None):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-       Return value:
-            Dictionary with pin number, pin_name
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-
-       """
-    if ((type(cursor) != MySQLdb.cursors.Cursor)):
-        return 1
-            
-    try:
-        cursor.execute("SELECT `a`.`pin_number`, `a`.`pin_name` , `b`.`service` \
-                        FROM `tbl_serv_pinmappings` AS `a` \
-                            LEFT JOIN `tbl_serv_services` AS `b` \
-                            ON `a`.`services_fk` = `b`.`serv_services_key` \
-                        ")
-        rs = cursor.fetchall()
-        
-        pindict = {}
-        for row in rs:
-            pindict[row[0]] = (row[1], row[2])
-        if len(pindict) == 0:
-            raise
-        return pindict
-            
-    except:
-        logger = get_logger()
-        logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return 2
-### END get_pinmappings()
-
-
-##############################################################################
-#
-# get_servicemappings - Get all service mappings from the database
-#
-##############################################################################
-def get_servicemappings(cursor=None):
-    """Arguments: 
-            cursor: cursor of the database connection to be used for the query
-       Return value:
-            Dictionary with mappings
-            1 if there is an error in the arguments passed to the function
-            2 if there was an error in processing the request
-
-       """
-    if ((type(cursor) != MySQLdb.cursors.Cursor)):
-        return 1
-        
-    try:
-        cursor.execute("SELECT `serv_services_key`, `service`, `abbreviation` FROM `tbl_serv_services`")
-        rs = cursor.fetchall()
-        
-        servicedict = {}
-        for row in rs:
-            servicedict[row[0]] = (row[1], row[2])
-        return servicedict
-            
-    except:
-        logger = get_logger()
-        logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return 2
-### END get_servicemappings()
-
-
-##############################################################################
-#
 # get_slot - Get slot for specific observer and platform from the database
 #
 ##############################################################################
@@ -902,49 +830,6 @@ def release_db_lock(cursor, conn, key, expiry_time=10):
         return FAILED
     return(0)
 ### END release_db_lock()
-
-
-##############################################################################
-#
-# write_errorlog - Writes a message to the errorlog table tbl_serv_errorlog.
-#
-##############################################################################
-def write_errorlog(cursor=None, conn=None, testid=0, obsid=0, message="", timestamp=0.0):
-    # Check the arguments:
-    if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(conn) != MySQLdb.connections.Connection) or (type(testid) != int) or (type(obsid) != int) or (type(message) != str) or (len(message) <= 0) or (type(timestamp) != float) or (timestamp < 0.0)):
-        return FAILED
-    if ((testid != 0) and (check_test_id(cursor, testid) != 0)):
-        return FAILED
-    if ((obsid != 0) and (check_observer_id(cursor, obsid) <= 0)):
-        return FAILED
-    else: 
-        obskey = check_observer_id(cursor, obsid)
-    
-    # Prepare timestamp:
-    if (timestamp <= 0.0):
-        timestamp = time.time()
-
-    # Set the status in the database
-    sql = "INSERT INTO `tbl_serv_errorlog` (`errormessage`, `timestamp`, `test_fk`, `observer_fk`) VALUES ('%s', %f" %(re.escape(message), timestamp)
-    if testid != 0:
-        sql += ", %d"%testid
-    else:
-        sql += ", NULL"
-    if obsid != 0:
-        sql += ", %d"%obskey
-    else:
-        sql += ", NULL"
-    sql += ");"
-    try:
-        cursor.execute(sql)
-        conn.commit()
-    except:
-        # There was an error in the database connection:
-        logger = get_logger()
-        logger.error("Error when executing %s: %s: %s" %(sql, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-        return FAILED
-    return(0)
-### END write_errorlog()
 
 
 ##############################################################################
