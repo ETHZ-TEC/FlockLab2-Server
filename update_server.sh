@@ -40,16 +40,18 @@ else
         printf "done.\n"
     fi
 fi
-# tools
-RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools/ ${USER}@${HOST}:tools  2>&1)
-if [ -z "$RES" ]; then
-    echo "Tools are up to date."
-else
-    printf "Updating tools... "
-    rsync ${RSYNCPARAMS} -e 'ssh -q' tools/ ${USER}@${HOST}:tools
-    if [ $? -ne 0 ]; then
-        printf "Failed to copy files!\n"
+# tools -> only sync on dev server
+if [ $HOST = "flocklab-dev-server" ]; then
+    RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools/ ${USER}@${HOST}:tools  2>&1)
+    if [ -z "$RES" ]; then
+        echo "Tools are up to date."
     else
-        printf "done.\n"
+        printf "Updating tools... "
+        rsync ${RSYNCPARAMS} -e 'ssh -q' tools/ ${USER}@${HOST}:tools
+        if [ $? -ne 0 ]; then
+            printf "Failed to copy files!\n"
+        else
+            printf "done.\n"
+        fi
     fi
 fi

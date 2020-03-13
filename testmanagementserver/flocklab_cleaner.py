@@ -229,6 +229,30 @@ def main(argv):
             else:
                 logger.debug("No stuck threads found.")
             
+            # Check for offline observers and mark them accordingly in the database
+            sql = """SELECT `observer_id`, `ethernet_address`, `status` FROM `tbl_serv_observer`
+                     WHERE `status` = 'offline' OR `status` = 'online'
+                  """
+            cur.execute(sql)
+            rs = cur.fetchall()
+            if rs:
+                for obs in rs:
+                    cmd = ["timeout", "1", "ping", "-c", "1", obs[1]]
+                    logger.debug("pinging observer fl-%02d with command %s" % (int(obs[0]), " ".join(cmd)))
+                    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                    ret = p.wait()
+                    if ret != 0:
+                        logger.error("Observer %d (%s) appears to be offline." % (int(obs[0]), obs[1]))
+                        if obs[2] == 'online':
+                            cur.execute("UPDATE `tbl_serv_observer` SET status='offline' WHERE observer_id=%d" % int(obs[0]))
+                            cn.commit()
+                            logger.info("Observer %d (%s) marked as 'offline' in the database." % (int(obs[0]), obs[1]))
+                    else:
+                        logger.debug("Observer %d (%s) is online." % (int(obs[0]), obs[1]))
+                        if obs[2] == 'offline':
+                            cur.execute("UPDATE `tbl_serv_observer` SET status='online' WHERE observer_id=%d" % int(obs[0]))
+                            cn.commit()
+                            logger.info("Observer %d (%s) marked as 'online' in the database." % (int(obs[0]), obs[1]))
         except:
             msg = "Encountered error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
             logger.error(msg)
