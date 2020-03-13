@@ -457,11 +457,11 @@ def main(argv):
                         """
             for obsid in usedObsidsList:
                 if obsid in obsiddict:
-                    platf = next(iter(obsiddict[obsid].values()))[0].lower()
+                    platf = obsiddict[obsid][0].lower()
                     for p in obsiddict[obsid].values():
-                        if platf!=p[1].lower():
+                        if platf != p.lower():
                             if not quiet:
-                                print(("Element targetConf: Observer ID %s has images of several platform types assigned." %(obsid)))
+                                print(("Element targetConf: Observer ID %s has images of several platform types assigned." % (obsid)))
                             errcnt = errcnt + 1
                             break
                 else:
@@ -489,7 +489,7 @@ def main(argv):
                                 break
                     if not adaptFound:
                         if not quiet:
-                            print(("Element targetConf: Observer ID %s has currently no target adapter for %s installed." %(obsid, platf)))
+                            print(("Element targetConf: Observer ID %s has currently no target adapter for %s installed." % (obsid, platf)))
                         errcnt = errcnt + 1
                 if platf is not None:
                     cur.execute(sql_cores %(platf))

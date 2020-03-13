@@ -163,7 +163,7 @@ def main(argv):
             delay = int(calendar.timegm(time.strptime(str(test[1]), '%Y-%m-%d %H:%M:%S'))) - flocklab.config.getint("tests", "setuptime") - int(time.time())
             if delay < 0:
                 delay = 0 
-            logger.info("Call process to start test %s with delay %s" % (testid,delay))
+            logger.info("Call process to start test %s with delay %ss." % (testid,delay))
             p = multiprocessing.Process(target=test_startstopabort, args=(testid, False, delay))
             p.start()
     else:

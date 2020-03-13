@@ -1244,7 +1244,7 @@ def main(argv):
                 msg = msg + "\t * ERROR: %s\n" % (str(error))
             for warn in warnings:
                 msg = msg + "\t * WARNING: %s\n" % (str(warn))
-            send_mail_to_admin(msg)
+            flocklab.send_mail_to_admin(msg)
         
         # Get the stop time from the database
         cur.execute("SELECT `time_end_wish` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)

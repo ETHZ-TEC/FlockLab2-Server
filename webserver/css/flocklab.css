@@ -44,7 +44,7 @@ div.container {
     background-color: #FFFFFF;
     /* background-image: url(../pics/bg_container.png);*/
     /* background-repeat: repeat-x; */
-    border: 0px solid gray;
+    border: 0px solid #DDD;
     font-family: Verdana, Arial, Helvetica, sans-serif;
     font-size: small;
 }
@@ -278,7 +278,7 @@ div.login form input[type="text"], div.login form input[type="password"] {
 *.warning {
     height: auto;
     min-height: 50px;
-    border: solid 2px gray;
+    border: solid 1px #DDD;
     padding: 2px;
     background-image: url(../pics/bg_warning.png);
     background-repeat: repeat-x;
@@ -293,7 +293,7 @@ p.warning {
 *.info {
     height: auto;
     min-height: 50px;
-    border: solid 0px #DDD;
+    border: solid 1px #DDD;
     padding: 2px;
     background-image: url(../pics/bg_info.png);
     background-repeat: repeat-x;
@@ -407,7 +407,7 @@ div.content table.recaptchatable {
     border-bottom:1px solid #ddd;
     text-align:left;
     font-size: .9em;
-    color: gray;
+    color: #DDD;
     width: 100%;
 }
 
