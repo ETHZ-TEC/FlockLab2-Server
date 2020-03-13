@@ -493,7 +493,7 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
         else {
             flog("nopower");
             $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
-            $split_path = $CONFIG['testmanagementserver']['basedir'];
+            $split_path = $CONFIG['testmanagementserver']['toolsdir'];
             $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
             exec($cmd , $output, $ret);
             if ($ret > 0)

@@ -238,7 +238,7 @@ def main(argv):
             if rs:
                 for obs in rs:
                     cmd = ["timeout", "1", "ping", "-c", "1", obs[1]]
-                    logger.debug("pinging observer fl-%02d with command %s" % (int(obs[0]), " ".join(cmd)))
+                    #logger.debug("pinging observer fl-%02d with command %s" % (int(obs[0]), " ".join(cmd)))
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     ret = p.wait()
                     if ret != 0:
@@ -248,7 +248,7 @@ def main(argv):
                             cn.commit()
                             logger.info("Observer %d (%s) marked as 'offline' in the database." % (int(obs[0]), obs[1]))
                     else:
-                        logger.debug("Observer %d (%s) is online." % (int(obs[0]), obs[1]))
+                        #logger.debug("Observer %d (%s) is online." % (int(obs[0]), obs[1]))
                         if obs[2] == 'offline':
                             cur.execute("UPDATE `tbl_serv_observer` SET status='online' WHERE observer_id=%d" % int(obs[0]))
                             cn.commit()

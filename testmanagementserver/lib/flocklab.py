@@ -159,7 +159,7 @@ def connect_to_db():
     try:
         cn = MySQLdb.connect(host=config.get('database','host'), user=config.get('database','user'), passwd=config.get('database','password'), db=config.get('database','database'), charset='utf8', use_unicode=True) 
         cur = cn.cursor()
-        #cur.execute("SET sql_mode=''")     # TODO check whether this is needed
+        cur.execute("SET sql_mode=''")
     except:
         logger = get_logger()
         logger.error("Could not connect to the database because: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
