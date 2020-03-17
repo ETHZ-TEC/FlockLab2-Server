@@ -85,11 +85,6 @@
         <span class="formfield qtip_show" title="Provide file in ELF (Executable and Linkable Format) such as exe, srec or sba.">Image File (ELF):*</span><input type="file" name="imagefile" id="imagefile" size="27" class="required"><br />
         <span class="formfield">Name:*</span><input type="text" name="name" size="27" class="required" value="'.(isset($_POST['name'])?htmlentities($_POST['name']):'').'"><br />
         <span class="formfield">Description:</span><textarea name="description" size="27">'.(isset($_POST['description'])?htmlentities($_POST['description']):'').'</textarea><br />
-        <span class="formfield">OS:*</span><select name="os" class="required"><option />';
-    foreach(get_available_os() as $key => $os) {
-      echo '<option value="'.$key.'"'.(isset($_POST['os']) && $_POST['os']==$key?' selected="true"':'').'>'.$os.'</option>';
-    }
-    echo '</select><br />
         <span class="formfield">Platform:*</span><select name="platform" class="required"><option />';
     foreach(get_available_platforms() as $key => $platform) {
       foreach($platform as $pcore) {
