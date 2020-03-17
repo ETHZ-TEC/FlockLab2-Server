@@ -2,6 +2,7 @@
 
 import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib, lxml.etree, MySQLdb, signal
 import lib.flocklab as flocklab
+import flocklab as fltools
 
 
 logger = None
@@ -910,6 +911,19 @@ def prepare_testresults(testid, cur):
             logger.debug("XML config copied to results folder.")
         else:
             logger.warn("Could not copy XML config to test results directory.")
+    
+    # Generate plot ---
+    if flocklab.config.getint('viz', 'generate_plots'):
+        if not os.path.isdir(flocklab.config.get('viz', 'dir')):
+            os.mkdir(flocklab.config.get('viz', 'dir'))
+        logger.debug("Generating plots...")
+        try:
+            fltools.visualizeFlocklabTrace(testresultsdir, outputDir=flocklab.config.get('viz', 'dir'), interactive=False)
+            logger.debug("Plots generated.")
+        except Exception:
+            logger.error("Failed to generate results plot for test %d. %s: %s" % (testid, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        except SystemExit:
+            pass
     
     # Archive test results ---
     cmd = [flocklab.config.get('dispatcher', 'archiverscript'),"--testid=%d" % testid]

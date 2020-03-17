@@ -416,6 +416,7 @@ def main(argv):
                 if obsid == "ALL":
                     # expand
                     rs = flocklab.get_obsids(cur, platform, stati)
+                    print("Found '%s' for platform '%s' and stati '%s'." % (str(rs), platform, stati))
                     if rs:
                         obsidlist.extend(rs)
                 else:

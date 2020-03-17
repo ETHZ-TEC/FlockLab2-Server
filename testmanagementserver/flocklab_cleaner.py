@@ -112,17 +112,15 @@ def main(argv):
                     
                     # Delete cached test results ---
                     archive_path = "%s/%s%s" % (flocklab.config.get('archiver','archive_dir'), testid, flocklab.config.get('archiver','archive_ext'))
-                    viz_pathes = glob.glob("%s/%s_*" % (flocklab.config.get('viz','imgdir'), testid))
                     pathes = [archive_path]
-                    pathes.extend(viz_pathes)
                     for path in pathes:
                         if os.path.exists(path):
                             if os.path.isfile(path):
                                 os.remove(path)
                             else:
                                 shutil.rmtree(path)
-                            logger.debug("Removed path %s for test %s."%(path, testid))
-                            
+                            logger.debug("Removed path %s for test %s." % (path, testid))
+                    
                     # Delete test itself ---
                     if delete_all:
                         # Delete test itself:
@@ -130,27 +128,27 @@ def main(argv):
                                     WHERE (`serv_tests_key` = %s)
                                  """
                         starttime = time.time()
-                        num_deleted_rows = cur.execute(sql%(testid))
+                        num_deleted_rows = cur.execute(sql % (testid))
                         cn.commit()
-                        logger.debug("Deleted %i rows of data in table tbl_serv_tests for test ID %s in %f seconds" %(num_deleted_rows, testid, (time.time()-starttime)))
+                        logger.debug("Deleted %i rows of data in table tbl_serv_tests for test ID %s in %f seconds" % (num_deleted_rows, testid, (time.time()-starttime)))
                     else:
                         # Set test status to deleted but keep metadata ---
                         flocklab.set_test_status(cur, cn, int(testid), "deleted")
                         logger.debug("Set status for test ID %s to 'deleted'" %(testid))
-                    
+            
             # Delete old entries in viz cache ---
             keeptime = flocklab.config.getint('cleaner', 'keeptime_viz')
-            earliest_keeptime = time.time() - (keeptime*86400)
-            imgdir_path = flocklab.config.get('viz','imgdir')
-            if os.path.isdir(imgdir_path):
-                for f in os.listdir(imgdir_path):
-                    path = os.path.join(imgdir_path, f)
+            earliest_keeptime = time.time() - (keeptime * 86400)
+            vizdir = flocklab.config.get('viz','dir')
+            if os.path.isdir(vizdir):
+                for f in os.listdir(vizdir):
+                    path = os.path.join(vizdir, f)
                     if os.stat(path).st_mtime < earliest_keeptime:
-                        logger.debug("Removing viz cache %s..."%path)
+                        logger.debug("Removing plots %s..." % path)
                         shutil.rmtree(path)
             else:
-                logger.debug("Directory '%s' does not exist." % imgdir_path)
-              
+                logger.debug("Directory '%s' does not exist." % vizdir)
+            
             # Get parameters ---
             now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
             maxtestcleanuptime = flocklab.config.getint('cleaner', 'max_test_cleanuptime')

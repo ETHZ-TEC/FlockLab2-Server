@@ -603,9 +603,9 @@ def get_obsids(cursor=None, platform=None, status=None):
                    LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
                    LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
                    LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
-                   WHERE obs.status IN (%s) AND '%s' IN (slot1.name, slot2.name, slot3.name, slot4.name)
+                   WHERE obs.status IN (%s) AND '%s' IN (LOWER(slot1.name), LOWER(slot2.name), LOWER(slot3.name), LOWER(slot4.name))
                    ORDER BY obs.observer_id;
-                   """ % (status, platform))
+                   """ % (status, platform.lower()))
     obslist = []
     for rs in cursor.fetchall():
         obslist.append(rs[0])
@@ -961,94 +961,6 @@ def is_test_running(cursor=None):
         logger.error("%s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return None
 ### is_test_running())
-
-
-##############################################################################
-#
-# VIZ stuff
-#
-##############################################################################
-def viz_plot(t, d, testdir, obsid, imgdir):
-    fig = matplotlib.figure.Figure(figsize=(2*(t[len(t)-1] - t[0]), 1))
-    ax = fig.add_axes([0., 0., 1., 1.])
-    ax.patch.set_facecolor(None)
-    fig.patch.set_alpha(0.)
-    ax.set_frame_on(False)
-    ax.axes.get_yaxis().set_visible(False)
-    ax.axes.get_xaxis().set_visible(False)
-    canvas = matplotlib.backends.backend_agg.FigureCanvasAgg(fig)
-    ax.plot(t, d, '-', color = '#001050', linewidth=2)
-    ax.axis((t[0], t[len(t)-1], -1, 40))
-    canvas.get_renderer().clear() 
-    canvas.draw()
-    try:
-        os.makedirs('%s/%s' % (imgdir, testdir))
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
-    canvas.print_figure('%s/%s/power_%d_%d.png' % (imgdir, testdir, obsid, t[0]*1e3), pad_inches=0, dpi=50, transparent=True)
-### END viz_plot()
-
-
-def viz_powerprofiling(testid, owner_fk, values, obsid, imgdir, logger):
-    #logger.debug("Viz %i values" % len(values[0]))
-    # samples, count, start, end
-    t=[]
-    d=[]
-    try:
-        if len(values[0]) != len(values[1]):
-            raise Exception("Could not process data, timestamp count and value count must be equal.")
-        for i in range(len(values[0])): # packets
-            start = time.time()
-            t.extend(values[0][i])
-            d.extend(values[1][i])
-            if t[0] is None:
-                logger.warn("first timestamp in list is none.")
-            if t[-1] is None:
-                logger.warn("last timestamp in list is none.")
-            if t[-1] < t[0]:
-                logger.warn("timestamps are not propperly ordered. t[0]: %f, t[-1]: %f." % (t[0], t[-1]))
-            if (t[-1]-t[0] >= 2) | (i==len(values[0])-1):
-                try:
-                    viz_plot(t, d, "%d_%d"%(testid, owner_fk), obsid, imgdir)
-                except:
-                    msg = "Viz error: %s: %s, data t: %f .. %f size(t)=%d" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]),t[0],t[-1],len(t))
-                    msg = msg.join(traceback.format_list(traceback.extract_tb(sys.exc_info()[2])))
-                    logger.error(msg)
-                t=[]
-                d=[]
-            #logger.debug("Viz time spent %f" % (time.time() - start))
-    except: 
-        logger.error("Error in viz_powerprofiling: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-### END viz_powerprofiling()
-
-
-def viz_gpio_monitor(testid, owner_fk, values, obsid, imgdir, logger):
-    # gpio; edge; timestamp;
-    # print max time int values per file to gpiom_<obsid>_<starttime>.json
-    try:
-        os.makedirs('%s/%d_%d' % (imgdir, testid, owner_fk))
-    except OSError as exception:
-        if exception.errno != errno.EEXIST:
-            raise
-    starttime = 0
-    try:
-        for i in range(len(values)):
-            e = values[i]
-            if starttime == 0:
-                starttime = float(e[2])
-                f = open('%s/%d_%d/gpiom_%d_%d.json' % (imgdir, testid, owner_fk, obsid, 1e3 * starttime), 'w')
-                f.write('{"e":[')
-            if (float(e[2]) - starttime > 5) or (i==len(values)-1):
-                f.write('{"t":%d,"p":%s,"l":%s}\n' % (int(round((float(e[2]) - starttime) * 1e3)), e[0], e[1]))
-                f.write(']}\n')
-                f.close()
-                starttime = 0
-            else:
-                f.write('{"t":%d,"p":%s,"l":%s},\n' % (int(round((float(e[2]) - starttime) * 1e3)), e[0], e[1]))
-    except: 
-        logger.error("Error in viz_gpio_monitor: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
-### END viz_gpio_monitor()
 
 
 ##############################################################################

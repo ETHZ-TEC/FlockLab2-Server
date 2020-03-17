@@ -162,18 +162,16 @@ def read_from_db_file(dbfile):
 #        and aggregates them into single test result files.
 #
 ##############################################################################
-def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=None, resultfile_lock=None, commitsize=1, vizimgdir=None, parse_f=None, convert_f=None, viz_f=None, logqueue=None):
+def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=None, resultfile_lock=None, commitsize=1, parse_f=None, convert_f=None, logqueue=None):
     try:
         _errors = []
         cur_p = multiprocessing.current_process()
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir,f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
-        #logqueue.put_nowait((loggername, logging.DEBUG, "Import file %s"%obsdbfile_path))
         # Open file:
         dbfile = open(obsdbfile_path, 'rb')
         rows = 0
-        viz_values = []
         conv_values = []
         while not dbfile.closed:
             # Process DB file line by line:
@@ -181,7 +179,6 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
                 # Parse one line:
                 buf = read_from_db_file(dbfile)
                 obsdata = parse_f(buf)
-                viz_values.append(obsdata)
                 # Convert data if needed:
                 if convert_f != None:
                     conv_data = convert_f(obsdata, obsid, nodeid)
@@ -189,10 +186,6 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
                     rows += 1
                 # Visualize data:
                 if (commitsize > 0) & (rows >= commitsize):
-                    if viz_f != None:
-                        #logqueue.put_nowait((loggername, logging.DEBUG, "Viz started..."))
-                        viz_f(testid, owner_fk, viz_values, obsid, vizimgdir, logger)
-                        #logqueue.put_nowait((loggername, logging.DEBUG, "Viz done."))
                     # Write data to file:
                     #logqueue.put_nowait((loggername, logging.DEBUG, "Opening file %s for writing..." % (resultfile_path)))
                     resultfile_lock.acquire()
@@ -203,7 +196,6 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
                     logqueue.put_nowait((loggername, logging.DEBUG, "Committed results to %s after %d rows" % (resultfile_path, rows)))
                     rows = 0
                     conv_values = []
-                    viz_values = []
             except DbFileEof:
                 # logqueue.put_nowait((loggername, logging.DEBUG, "DbFileEof has occurred."))
                 break # dbfile has been closed in parser (most likely because EOF was reached)
@@ -212,11 +204,7 @@ def worker_convert_and_aggregate(queueitem=None, nodeid=None, resultfile_path=No
                 _errors.append((msg, errno.EIO, obsid))
                 logqueue.put_nowait((loggername, logging.ERROR, msg))
         if (len(conv_values) > 0):
-            # There is still data left. Do a last commit:
-            if (viz_f != None) and (len(viz_values) > 0):
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz started..."))
-                viz_f(testid, owner_fk, viz_values, obsid, vizimgdir, logger)
-                #logqueue.put_nowait((loggername, logging.DEBUG, "Viz done."))
+            # There is still data left. Do a last commit
             # Write data to file:
             #logqueue.put_nowait((loggername, logging.DEBUG, "Opening file %s for final writing..." % (resultfile_path)))
             resultfile_lock.acquire()
@@ -1013,9 +1001,7 @@ def main(argv):
         signal.signal(signal.SIGTERM, sigterm_handler)
         signal.signal(signal.SIGINT,  sigterm_handler)
         # Loop through the folders and assign work to the worker processes:
-        vizimgdir = flocklab.config.get('viz','imgdir')
         commitsize = flocklab.config.getint('fetcher', 'commitsize')
-        enableviz = flocklab.config.getint('viz','enablepreview')
         loggerprefix = "(Mainloop) "
         workmanager = WorkManager()
         
@@ -1054,17 +1040,13 @@ def main(argv):
                 worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], logqueue, None]
                 worker_f    = worker_gpiotracing
                 logger.debug(loggerprefix + "resultfile_path: %s" % str(testresultsfile_dict['gpiotracing'][0]))
-                #if (enableviz == 1):
-                #    worker_args[6] = flocklab.viz_gpio_monitor
             elif (re.search("^powerprofiling_[0-9]{14}\.rld$", f) != None):
                 pool        = service_pools_dict['powerprofiling'] 
                 worker_args = [nextitem, nodeid, testresultsfile_dict['powerprofiling'][0], logqueue, ppFileFormat]
                 worker_f    = worker_powerprof
-                #if (enableviz == 1):
-                #    worker_args[6] = flocklab.viz_powerprofiling
             elif (re.search("^serial_[0-9]{14}\.db$", f) != None):
                 pool        = service_pools_dict['serial']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, vizimgdir, parse_serial, convert_serial, None, logqueue]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, parse_serial, convert_serial, logqueue]
             elif (re.search("^error_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['logs']
                 worker_args = [nextitem, nodeid, testresultsfile_dict['errorlog'][0], logqueue, None]

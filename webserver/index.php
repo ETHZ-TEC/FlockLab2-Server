@@ -169,13 +169,13 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
             <table id="test_overview" class="tablesorter" style="display:none">
                 <thead>
                     <tr>
-                        <th width="50px">ID</th>
+                        <th width="35px">ID</th>
                         <th width="113px">Title</th>
                         <th width="135px">Description</th>
-                        <th width="20px" class='qtip_show' title='State'>State</th>
-                        <th width="190px">Start</th>
-                        <th width="190px">End</th>
-                        <th width="70px" class='qtip_show' title='Actions'>Actions</th>
+                        <th width="35px" class='qtip_show' title='State'>State</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th width="80px" class='qtip_show' title='Actions'>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -251,16 +251,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                             echo "<td>" . htmlentities($row['description']) . "</td>";
                         else
                             echo "<td class='qtip_show' title='" . htmlentities($row['description']) . "'>" . htmlentities(substr($row['description'],0,$max_len)) . "...</td>";
-                        // Status: dependent of state of test
-                        // check viz status
-                        $viz = "";
-                        /*if (!is_null($row['time_start_act'])) {
-                            $d = new DateTime($row['time_start_act']);
-                            if ($now - $d->format('U') < 21 * 24 * 3600) {
-                                if (file_exists($CONFIG['viz']['dir'].'/'.$row['serv_tests_key'].'_'. $_SESSION['serv_users_key']))
-                                    $viz="<img src='pics/icons/chart.png' style='margin-left:5px' height='16px' alt='Results' title='Preview results' class='qtip_show'  onClick='document.resprev.testid.value = " . $row['serv_tests_key'] . ";document.resprev.submit();'>";
-                            }
-                        }*/
+                        // Status
                         echo "<td>";
                         echo "<span style='display:none'>".$row['test_status']."</span>"; // needed to make cell sortable by JQuery
                         echo "<img src='".state_icon($row['test_status'])."' height='16px' alt='".state_short_description($row['test_status'])."' title='".state_long_description($row['test_status'])."' class='qtip_show' >";
@@ -268,21 +259,21 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         // Start time: dependent of state of test
                         if ( $running || $cleaningup || $finished || $failed || $aborting || $syncing || $synced || $retentionexp) {
                             echo "<td title='Actual start time' class='qtip_show'>" . date_to_tzdate($row['time_start_act']). "</td>";
-            }
+                        }
                         elseif ($preparing || $planned) {
                             echo "<td title='Planned start time' class='qtip_show'><i class='starttime'>" . date_to_tzdate($row['time_start_wish']). "</i></td>";
-            }
+                        }
                         else
                             echo "<td title='Test is not schedulable' class='qtip_show'>n/a</td>";
                         // End time: dependent of state of test
                         if ($planned || $preparing || $running) {
                             echo "<td title='Planned end time' class='qtip_show'><i class='endtime'>" . date_to_tzdate($row['time_end_wish']). "</i></td>";
-            }
+                        }
                         elseif ($cleaningup || $finished || $failed || $syncing  || $synced || $retentionexp) {
                             echo "<td title='Actual end time' class='qtip_show'>" . date_to_tzdate($row['time_end_act']). "</td>";
-            }
-            elseif ($aborting)
-                echo "<td title='Test is currently aborting' class='qtip_show'>n/a</td>";
+                        }
+                        elseif ($aborting)
+                            echo "<td title='Test is currently aborting' class='qtip_show'>n/a</td>";
                         elseif (!$schedulable)
                             echo "<td title='Test is not schedulable' class='qtip_show'>n/a</td>";
                         else
@@ -296,21 +287,22 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         } elseif ($running) {
                             echo "<span style='display:none'>running</span>"; // needed to make cell sortable by JQuery
                             echo "<img src='pics/icons/cancel.png' height='16px' alt='Abort' title='Abort test' class='qtip_show link' onClick='document.tstabrt.testid.value = " . $row['serv_tests_key'] . ";document.tstabrt.submit();'>";
-                            /*echo "<img src='pics/icons/chart.png' style='margin-left:5px' height='16px' alt='Results' title='Preview results' class='qtip_show'  onClick='document.resprev.testid.value = " . $row['serv_tests_key'] . ";document.resprev.submit();'>";*/
                         } elseif ($preparing || $cleaningup || $syncing || $synced) {
                             echo "<span style='display:none'>preparing</span>"; // needed to make cell sortable by JQuery
-                            //echo "<img src='pics/icons/cancel.png' height='16px' alt='Abort' title='Abort test' class='qtip_show' onClick='document.tstabrt.testid.value = " . $row['serv_tests_key'] . ";document.tstabrt.submit();'>";
-                            echo $viz;
                         } elseif ($finished) {
                             echo "<span style='display:none'>finished</span>"; // needed to make cell sortable by JQuery
                             echo "<img src='pics/icons/trash.png' height='16px' alt='Delete' title='Delete test' class='qtip_show link' onClick='document.tstdel.testid.value = " . $row['serv_tests_key'] . ";document.tstdel.submit();'>";
                             echo "<img src='pics/icons/download.png' style='margin-left:5px' height='16px' alt='Download' title='Download results' class='qtip_show link' onClick='getResult(".$row['serv_tests_key'].", 100);'>";
-                            echo $viz;
+                            if ($CONFIG['viz']['generate_plots']) {
+                                $plot = $CONFIG['viz']['dir'].'/flocklab_plot_'.$row['serv_tests_key'].'.html';
+                                if (file_exists($plot)) {
+                                    echo "<a href='show_results_plot.php?t=".$row['serv_tests_key']."' target='_blank'><img src='pics/icons/chart.png' style='margin-left:5px' height='16px' alt='Results' title='Plot results' class='qtip_show' ></a>";
+                                }
+                            }
                         } elseif ($retentionexp) {
                             echo "<span style='display:none'>retentionexpiring</span>"; // needed to make cell sortable by JQuery
                             echo "<img src='pics/icons/trash.png' height='16px' alt='Delete' title='Delete test' class='qtip_show link' onClick='document.tstdel.testid.value = " . $row['serv_tests_key'] . ";document.tstdel.submit();'>";
                             echo "<img src='pics/icons/download.png' style='margin-left:5px' height='16px' alt='Download' title='Download results' class='qtip_show link' onClick='getResult(".$row['serv_tests_key'].", 100);'>";
-                            echo $viz;
                         } elseif ($failed) {
                             echo "<span style='display:none'>notschedulable</span>"; // needed to make cell sortable by JQuery
                             echo "<img src='pics/icons/trash.png' height='16px' alt='Delete' title='Delete test.' class='qtip_show link' onClick='document.tstdel.testid.value = " . $row['serv_tests_key'] . ";document.tstdel.submit();'>";
@@ -321,7 +313,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         } else {
                             echo "<span style='display:none'>unknown</span>"; // needed to make cell sortable by JQuery
                         }
-            echo "<img src='pics/icons/preview.png' style='margin-left:5px' height='16px' alt='Download config' title='Download test configuration.' class='qtip_show link' onClick='document.tstcdnl.testid.value = " . $row['serv_tests_key'] . ";document.tstcdnl.submit();'>";
+                        echo "<img src='pics/icons/preview.png' style='margin-left:5px' height='16px' alt='Download config' title='Download test configuration.' class='qtip_show link' onClick='document.tstcdnl.testid.value = " . $row['serv_tests_key'] . ";document.tstcdnl.submit();'>";
                         echo "</td>";
                         echo "</tr>";
                     }
@@ -349,7 +341,6 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
             <form name="tstdel" method="post" action="test_delete.php"><input type="hidden" name="testid" value=""></form>
             <form name="tstedt" method="post" action="test_edit.php"><input type="hidden" name="testid" value=""></form>
             <form name="tstabrt" method="post" action="test_abort.php"><input type="hidden" name="testid" value=""></form>
-            <form name="resprev" method="post" action="result_preview_viz.php"><input type="hidden" name="testid" value=""></form>
             <form name="resdwn" method="post" id="downloadform" action="result_download_archive.php"><input type="hidden" name="testid" value=""><input type="hidden" name="query" value=""></form>
             <form name="tstcdnl" method="post" action="testconfig_download.php"><input type="hidden" name="testid" value=""></form>
             <p><a style="color:#666666;text-decoration:none;" href="newtest.php"><span class="texticon">+</span> add new test</a></p>
