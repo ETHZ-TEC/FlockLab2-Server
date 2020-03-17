@@ -334,7 +334,7 @@
 <!-- Type definition for platforms -->
 <xs:simpleType name="platformType">
   <xs:restriction base="xs:string">
-    <xs:pattern value="dpp|dpp2lora|dpp2lorahg|nrf5"/>
+    <xs:pattern value="tmote|dpp|dpp2lora|dpp2lorahg|nrf5"/>
   </xs:restriction>
 </xs:simpleType>
 
