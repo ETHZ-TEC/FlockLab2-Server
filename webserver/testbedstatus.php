@@ -67,8 +67,8 @@
 </script>
 <h1>Observer Status</h1>
 <br />
-<div style="position:relative;margin-left:60px;padding:0;width:776px;height:800px;background-color:#fff">
-    <div id="graph-bg" style="width:776px;height:800px;z-index:1;position:absolute;background:url(pics/flocklab_floormap.png);opacity:0.6;filter:alpha(opacity=60);"></div>
+<div style="position:relative;margin-left:60px;padding:0;width:776px;height:420px;background-color:#fff">
+    <div id="graph-bg" style="width:776px;height:420px;z-index:1;position:absolute;background:url(pics/flocklab_floormap.png);opacity:0.6;filter:alpha(opacity=60);"></div>
     <div id="graph" style="width:776px;height:419px;z-index:2;position:absolute"></div>
 </div>
 
