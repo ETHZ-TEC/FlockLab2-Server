@@ -14,7 +14,7 @@
 
     if ($_POST['q'] == 'obs' && isset($_POST['platform'])) {
       $db = db_connect();
-      $platform = mysqli_real_escape_string($db, $_POST['platform']);
+      $platform = strtolower(mysqli_real_escape_string($db, $_POST['platform']));
       // return a list of the currently available observers
       $sql = "SELECT obs.observer_id AS obsid FROM flocklab.tbl_serv_observer AS obs
               LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key
@@ -25,7 +25,7 @@
               LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
               LEFT JOIN flocklab.tbl_serv_tg_adapt_list AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key
               LEFT JOIN flocklab.tbl_serv_tg_adapt_types AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
-              WHERE obs.status IN $status AND '$platform' IN (slot1.name, slot2.name, slot3.name, slot4.name)
+              WHERE obs.status IN $status AND '$platform' IN (LOWER(slot1.name), LOWER(slot2.name), LOWER(slot3.name), LOWER(slot4.name))
               ORDER BY obs.observer_id;";
       $res = mysqli_query($db, $sql);
       if (!$res) {
