@@ -433,7 +433,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             obsid = int(obsid)
                             obskey = obsdict_id[obsid][0]
                             xmldict_key[obskey][1].write(xmlblock)
-                            #logger.debug("Wrote obsSerialConf XML for observer ID %s" %obsid)
                 else:
                     logger.debug("No <serialConf> found, not using serial service.")
                 
@@ -456,7 +455,6 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             obsid = int(obsid)
                             obskey = obsdict_id[obsid][0]
                             xmldict_key[obskey][1].write(xmlblock)
-                            #logger.debug("Wrote obsDebugConf XML for observer ID %s" %obsid)
                 else:
                     logger.debug("No <debugConf> found, not using debug service.")
                 
@@ -465,39 +463,18 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 if gmconfs:
                     for gmconf in gmconfs:
                         obsids = gmconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
-                        pinconfs = gmconf.xpath('d:pinConf', namespaces=ns)
                         pinlist = gmconf.xpath('d:pins', namespaces=ns)
                         xmlblock = "<obsGpioMonitorConf>\n"
                         if pinlist:
                             xmlblock += "\t<pins>" + pinlist[0].text.strip() + "</pins>\n"
-                        for pinconf in pinconfs:
-                            pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
-                            edge = pinconf.xpath('d:edge', namespaces=ns)[0].text.strip()
-                            mode = pinconf.xpath('d:mode', namespaces=ns)[0].text.strip()
-                            xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<edge>%s</edge>\n\t\t<mode>%s</mode>\n" %(pin, edge, mode)
-                            cb_gs_add = pinconf.xpath('d:callbackGpioActAdd', namespaces=ns)
-                            if cb_gs_add:
-                                pin = cb_gs_add[0].xpath('d:pin', namespaces=ns)[0].text.strip()
-                                level = cb_gs_add[0].xpath('d:level', namespaces=ns)[0].text.strip()
-                                offsets = cb_gs_add[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip()
-                                offsetms = cb_gs_add[0].xpath('d:offsetMicrosecs', namespaces=ns)[0].text.strip()
-                                xmlblock += "\t\t<callbackGpioSetAdd>\n\t\t\t<pin>%s</pin>\n\t\t\t<level>%s</level>\n\t\t\t<offsetSecs>%s</offsetSecs>\n\t\t\t<offsetMicrosecs>%s</offsetMicrosecs>\n\t\t</callbackGpioSetAdd>\n" %(pin, level, offsets, offsetms)
-                            cb_pp_add = pinconf.xpath('d:callbackPowerProfAdd', namespaces=ns)
-                            if cb_pp_add:
-                                duration = cb_pp_add[0].xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()
-                                offsets = cb_pp_add[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip()
-                                offsetms = cb_pp_add[0].xpath('d:offsetMicrosecs', namespaces=ns)[0].text.strip()
-                                xmlblock += "\t\t<callbackPowerprofAdd>\n\t\t\t<duration>%s</duration>\n\t\t\t<offsetSecs>%s</offsetSecs>\n\t\t\t<offsetMicrosecs>%s</offsetMicrosecs>\n\t\t</callbackPowerprofAdd>\n" %(duration, offsets, offsetms)
-                            xmlblock += "\t</pinConf>\n"
                         xmlblock += "</obsGpioMonitorConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)
                             obskey = obsdict_id[obsid][0]
                             xmldict_key[obskey][1].write(xmlblock)
-                          #logger.debug("Wrote obsGpioMonitorConf XML for observer ID %s" %obsid)
                 else:
                     logger.debug("No <gpioTracingConf> found, not using GPIO tracing service.")
-                        
+                
                 # gpioActuationConf ---
                 # Create 2 pin settings for every observer used in the test: 
                 #        1) Pull reset pin of target low when test is to start
@@ -520,24 +497,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     for pinconf in pinconfs:
                         pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
                         level = pinconf.xpath('d:level', namespaces=ns)[0].text.strip()
-                        abs_tim = pinconf.xpath('d:absoluteTime', namespaces=ns)
-                        if abs_tim:
-                            absdatetime = absolute2absoluteUTC_time(abs_tim[0].xpath('d:absoluteDateTime', namespaces=ns)[0].text.strip())
-                            ret = abs_tim[0].xpath('d:absoluteMicrosecs', namespaces=ns)
-                            if ret:
-                                absmicrosec = int(ret[0].text.strip())
-                            else:
-                                absmicrosec = 0
-                        rel_tim = pinconf.xpath('d:relativeTime', namespaces=ns)
-                        if rel_tim:
-                            relsec = int(rel_tim[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip())
-                            ret = rel_tim[0].xpath('d:offsetMicrosecs', namespaces=ns)
-                            if ret:
-                                relmicrosec = int(ret[0].text.strip())
-                            else:
-                                relmicrosec = 0
-                            # Relative times need to be converted into absolute times:
-                            absmicrosec, absdatetime = relative2absolute_time(starttime, relsec, relmicrosec)    
+                        ofs = pinconf.xpath('d:offset', namespaces=ns)
+                        if ofs:
+                            ofs = ofs[0].text.strip()
                         periodic = pinconf.xpath('d:periodic', namespaces=ns)
                         if periodic:
                             interval = int(periodic[0].xpath('d:intervalMicrosecs', namespaces=ns)[0].text.strip())
@@ -545,12 +507,11 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         else:
                             interval = 0
                             count = 1
-                        xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>%s</level>\n\t\t<absoluteTime>\n\t\t\t<absoluteDateTime>%s</absoluteDateTime>\n\t\t\t<absoluteMicrosecs>%s</absoluteMicrosecs>\n\t\t</absoluteTime>\n\t\t<intervalMicrosecs>%i</intervalMicrosecs>\n\t\t<count>%i</count>\n\t</pinConf>\n" %(pin, level, absdatetime, absmicrosec, interval, count)
+                        xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>%s</level>\n\t\t<offset>%d</offset>\n\t\t<intervalMicrosecs>%i</intervalMicrosecs>\n\t\t<count>%i</count>\n\t</pinConf>\n" %(pin, level, ofs, interval, count)
                     for obsid in obsids:
                         obsid = int(obsid)
                         obskey = obsdict_id[obsid][0]
                         xmldict_key[obskey][1].write(xmlblock)
-                        #logger.debug("Wrote obsGpioSettingConf XML for observer ID %s" %obsid)
                 xmlblock = "</obsGpioSettingConf>\n\n"
                 for obskey in obsdict_key.keys():
                     xmldict_key[obskey][1].write(xmlblock)
@@ -560,46 +521,26 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 if ppconfs:
                     for ppconf in ppconfs:
                         obsids = ppconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
-                        profconfs = ppconf.xpath('d:profConf', namespaces=ns)
                         xmlblock = "<obsPowerprofConf>\n"
-                        for profconf in profconfs:
-                            duration = profconf.xpath('d:duration', namespaces=ns)
-                            if duration:
-                                duration = duration[0].text.strip()
-                            else:
-                                try:
-                                    duration = int(profconf.xpath('d:durationMillisecs', namespaces=ns)[0].text.strip()) / 1000
-                                except:
-                                    duration = 0
-                            #xmlblock += "\t<profConf>\n"
-                            xmlblock += "\t<duration>%s</duration>" % duration
-                            # calculate the sampling start
-                            offset  = profconf.xpath('d:offset', namespaces=ns)
-                            rel_tim = profconf.xpath('d:relativeTime', namespaces=ns)
-                            abs_tim = profconf.xpath('d:absoluteTime', namespaces=ns)
-                            if offset:
-                                offset = int(offset[0].text.strip())
-                                tstart = datetime.datetime.timestamp(starttime + datetime.timedelta(seconds=offset))
-                            elif abs_tim:
-                                tstart = datetime.datetime.timestamp(flocklab.get_xml_timestamp(abs_tim[0].xpath('d:absoluteDateTime', namespaces=ns)[0].text.strip()))
-                            elif rel_tim:
-                                relsec = int(rel_tim[0].xpath('d:offsetSecs', namespaces=ns)[0].text.strip())
-                                tstart = datetime.datetime.timestamp(starttime + datetime.timedelta(seconds=relsec))
-                            xmlblock += "\n\t<starttime>%s</starttime>" % (tstart)
-                            # check if config contains samplingRate:
-                            samplingrate    = profconf.xpath('d:samplingRate', namespaces=ns)
-                            samplingdivider = profconf.xpath('d:samplingDivider', namespaces=ns)
-                            if samplingrate:
-                                samplingrate = samplingrate[0].text.strip()
-                                xmlblock += "\n\t<samplingRate>%s</samplingRate>" % samplingrate
-                            elif samplingdivider:
-                                samplingdivider = samplingdivider[0].text.strip()
-                                xmlblock += "\n\t<samplingDivider>%s</samplingDivider>" % samplingdivider
-                            else:
-                                samplingdivider = flocklab.config.get('dispatcher', 'default_sampling_divider')
-                                xmlblock += "\n\t<samplingDivider>%s</samplingDivider>" % samplingdivider
-                            #xmlblock += "\n\t</profConf>\n"
-                            break    # for now, only parse the first block
+                        duration = ppconf.xpath('d:duration', namespaces=ns)
+                        if duration:
+                            duration = duration[0].text.strip()
+                        else:
+                            # if duration not given, run power profiling for the duration of the test
+                            duration = (stoptime - starttime).total_seconds()
+                            logger.debug("Power profiling duration set to %ds." % (duration))
+                        xmlblock += "\t<duration>%s</duration>" % duration
+                        # calculate the sampling start
+                        offset  = ppconf.xpath('d:offset', namespaces=ns)
+                        if offset:
+                            offset = int(offset[0].text.strip())
+                            tstart = datetime.datetime.timestamp(starttime + datetime.timedelta(seconds=offset))
+                        xmlblock += "\n\t<starttime>%s</starttime>" % (tstart)
+                        # check if config contains samplingRate:
+                        samplingrate    = ppconf.xpath('d:samplingRate', namespaces=ns)
+                        if samplingrate:
+                            samplingrate = samplingrate[0].text.strip()
+                            xmlblock += "\n\t<samplingRate>%s</samplingRate>" % samplingrate
                         xmlblock += "\n</obsPowerprofConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)

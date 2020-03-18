@@ -192,13 +192,6 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
-    <xs:element name="mode" minOccurs="0">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="pck|ascii|raw"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:element>
     <xs:element name="remoteIp" type="ipType" minOccurs="0"/>
   </xs:all>
 </xs:complexType>
@@ -220,41 +213,7 @@
 <xs:complexType name="gpioTracingConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:choice>
-      <xs:element name="pinConf" type="gpioTracingPinConfType" minOccurs="1" maxOccurs="unbounded"/>
-      <xs:element name="pins" type="pinTracingListType"/>
-    </xs:choice>
-  </xs:sequence>
-</xs:complexType>
-<xs:complexType name="gpioTracingPinConfType">
-  <xs:sequence>
-    <xs:element name="pin" type="pinTracingType"/>
-    <xs:element name="edge">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="rising|falling|both"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:element>
-    <xs:element name="mode">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="single|continuous"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:element>
-    <xs:choice minOccurs="0" maxOccurs="1">
-      <xs:element name="callbackGpioActAdd">
-        <xs:complexType>
-          <xs:group ref="gpioTracCallbackActAddGroup"/>
-        </xs:complexType>
-      </xs:element>
-      <xs:element name="callbackPowerProfAdd">
-        <xs:complexType>
-          <xs:group ref="gpioTraccallbackPowerProfAddGroup"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:choice>
+    <xs:element name="pins" type="pinTracingListType" minOccurs="0" maxOccurs="1"/>
   </xs:sequence>
 </xs:complexType>
 
@@ -275,18 +234,7 @@
         <xs:group ref="gpioActuationPeriodicGroup"/>
       </xs:complexType>
     </xs:element>
-    <xs:choice>
-      <xs:element name="relativeTime">
-        <xs:complexType>
-          <xs:group ref="timingRelativeGroup"/>
-        </xs:complexType>
-      </xs:element>
-      <xs:element name="absoluteTime">
-        <xs:complexType>
-          <xs:group ref="timingAbsoluteGroup"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:choice>
+    <xs:element name="offset" type="offsetSecsType"/>
   </xs:sequence>
 </xs:complexType>
 
@@ -295,31 +243,10 @@
 <xs:complexType name="powerProfilingConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:element name="fileFormat" type="profConfFileFormat" minOccurs="0" maxOccurs="1"/>
-    <xs:element name="profConf" type="profConfType" minOccurs="1" maxOccurs="1"/>
-  </xs:sequence>
-</xs:complexType>
-<xs:complexType name="profConfType">
-  <xs:sequence>
-    <xs:choice>
-      <xs:element name="durationMillisecs" type="powerProfDurationMSType"/>
-      <xs:element name="duration" type="powerProfDurationType"/>
-    </xs:choice>
-    <xs:choice>
-      <xs:element name="offset" type="offsetSecsType"/>
-      <xs:element name="relativeTime">
-        <xs:complexType>
-          <xs:group ref="timingRelativeGroup"/>
-        </xs:complexType>
-      </xs:element>
-      <xs:element name="absoluteTime">
-        <xs:complexType>
-          <xs:group ref="timingAbsoluteGroup"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:choice>
-    <xs:choice>
-      <xs:element name="samplingDivider" type="powerProfSamplingDividerType" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="offset" type="offsetSecsType" minOccurs="1" maxOccurs="1"/>
+    <xs:choice minOccurs="0" maxOccurs="3">
+      <xs:element name="fileFormat" type="profConfFileFormat" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="duration" type="powerProfDurationType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="samplingRate" type="powerProfSamplingRateType" minOccurs="0" maxOccurs="1"/>
     </xs:choice>
   </xs:sequence>
@@ -398,24 +325,6 @@
   </xs:restriction>
 </xs:simpleType>
 
-<!-- Group definitions for GPIO tracing callbacks -->
-<xs:group name="gpioTracCallbackActAddGroup">
-  <xs:all>
-    <xs:element name="pin" type="pinActType"/>
-    <xs:element name="level" type="pinActLevelType"/>
-    <xs:element name="offsetSecs" type="offsetSecsType"/>
-    <xs:element name="offsetMicrosecs" type="microsecsType"/>
-  </xs:all>
-</xs:group>
-
-<xs:group name="gpioTraccallbackPowerProfAddGroup">
-  <xs:all>
-    <xs:element name="durationMillisecs" type="powerProfDurationMSType"/>
-    <xs:element name="offsetSecs" type="offsetSecsType"/>
-    <xs:element name="offsetMicrosecs" type="microsecsType"/>
-  </xs:all>
-</xs:group>
-
 <!-- Type definition for power profiling file format -->
 <xs:simpleType name="profConfFileFormat">
   <xs:restriction base="xs:string">
@@ -424,26 +333,11 @@
   </xs:restriction>
 </xs:simpleType>
 
-<!-- Type definition for duration of a power profile in milliseconds -->
-<xs:simpleType name="powerProfDurationMSType">
-  <xs:restriction base="xs:integer">
-    <xs:minInclusive value="50"/>
-    <xs:maxInclusive value="3600000"/>
-  </xs:restriction>
-</xs:simpleType>
-
 <!-- Type definition for duration of a power profile in seconds -->
 <xs:simpleType name="powerProfDurationType">
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="1"/>
     <xs:maxInclusive value="3600"/>
-  </xs:restriction>
-</xs:simpleType>
-
-<!-- Type definition for samling divider of a power profile -->
-<xs:simpleType name="powerProfSamplingDividerType">
-  <xs:restriction base="xs:integer">
-    <xs:pattern value="1|2|4|8|16|32|64|640|6400|64000"/>
   </xs:restriction>
 </xs:simpleType>
 
@@ -469,21 +363,6 @@
     <xs:maxInclusive value="999999"/>
   </xs:restriction>
 </xs:simpleType>
-
-<!-- Group definitions for timing groups -->
-<xs:group name="timingRelativeGroup">
-  <xs:all>
-    <xs:element name="offsetSecs" type="offsetSecsType"/>
-    <xs:element name="offsetMicrosecs" type="microsecsType" minOccurs="0" maxOccurs="1"/>
-  </xs:all>
-</xs:group>
-
-<xs:group name="timingAbsoluteGroup">
-  <xs:all>
-    <xs:element name="absoluteDateTime" type="xs:dateTime"/>
-    <xs:element name="absoluteMicrosecs" type="microsecsType" minOccurs="0" maxOccurs="1"/>
-  </xs:all>
-</xs:group>
 
 <!-- Type definition for slot assignements -->
 <xs:simpleType name="slotNrType">

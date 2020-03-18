@@ -92,12 +92,13 @@ def usage():
 #
 ##############################################################################
 def main(argv):
-    quiet      = False
-    userid     = None
-    xmlpath    = None
-    schemapath = None
-    testid     = None
-    userrole   = ""
+    quiet        = False
+    userid       = None
+    xmlpath      = None
+    schemapath   = None
+    testid       = None
+    userrole     = ""
+    testDuration = 0
     
     # Open the log and create logger:
     logger = flocklab.get_logger(debug=debug)
@@ -416,7 +417,7 @@ def main(argv):
                 if obsid == "ALL":
                     # expand
                     rs = flocklab.get_obsids(cur, platform, stati)
-                    print("Found '%s' for platform '%s' and stati '%s'." % (str(rs), platform, stati))
+                    #print("Found '%s' for platform '%s' and stati '%s'." % (str(rs), platform, stati))
                     if rs:
                         obsidlist.extend(rs)
                 else:
@@ -547,7 +548,8 @@ def main(argv):
             pins = gpiomonconf.find('d:pins', namespaces=ns)
             if pins != None:
                 if usesdpp2lora and "INT2" in pins.text:
-                    print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
+                    if not quiet:
+                        print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
                     errcnt = errcnt + 1
                     break
             pinconfs = gpiomonconf.xpath('d:pinConf', namespaces=ns)
@@ -620,87 +622,28 @@ def main(argv):
             if not quiet:
                 print("Element powerProfilingConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
-        # Check simple offset tag
-        rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:offset', namespaces=ns)
+        # Check offset tag (mandatory element)
+        rs = tree.xpath('//d:powerProfilingConf/d:offset', namespaces=ns)
         total_samples = 0
         for elem in rs:
-            ppStart = int(elem.text)
-            elem2 = elem.getparent().find('d:durationMillisecs', namespaces=ns)
-            if elem2 is not None:
-                ppDuration = int(elem2.text) / 1000
+            ppOffset = int(elem.text)
+            elem2 = elem.getparent().findtext('d:duration', namespaces=ns)
+            if elem2 != None:
+                ppDuration = int(elem2.strip())
             else:
-                elem2 = elem.getparent().find('d:duration', namespaces=ns)
-                ppDuration = int(elem2.text)
+                # assume sampling duration = test duration
+                ppDuration = testDuration - ppOffset
             total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent(), ns)
-            if (ppStart > testDuration):
+            if (ppOffset + ppDuration) > testDuration:
                 if not quiet:
-                    print(("Line %d: element offset: The offset is bigger than the test duration, thus the action will never take place." % (elem.sourceline)))
+                    print(("Line %d: element duration/offset: Profiling lasts longer than test." % (elem2.sourceline)))
                 errcnt = errcnt + 1
-            elif (ppStart + ppDuration > testDuration):
-                if not quiet:
-                    print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
-                errcnt = errcnt + 1
-        # Check relative timings:
-        rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:relativeTime/d:offsetSecs', namespaces=ns)
-        for elem in rs:
-            ppMicroSecs = elem.getparent().find('d:offsetMicrosecs', namespaces=ns)
-            if ppMicroSecs is not None:
-                ppStart = float(ppMicroSecs.text) / 1000000 + int(elem.text)
-            else:
-                ppStart = int(elem.text)
-            elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
-            if elem2 is not None:
-                ppDuration = int(elem2.text) / 1000
-            else:
-                elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
-                ppDuration = int(elem2.text)
-            total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent().getparent(), ns)
-            if (ppStart > testDuration):
-                if not quiet:
-                    print(("Line %d: element offsetSecs: The offset is bigger than the test duration, thus the action will never take place." % (elem.sourceline)))
-                errcnt = errcnt + 1
-            elif (ppStart + ppDuration > testDuration):
-                if not quiet:
-                    print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
-                errcnt = errcnt + 1
-        # Check absolute timings:
-        rs = tree.xpath('//d:powerProfilingConf/d:profConf/d:absoluteTime/d:absoluteDateTime', namespaces=ns)
-        for elem in rs:
-            if sched_asap:
-                if not quiet:
-                    print(("Line %d: element absoluteDateTime: For test scheduling method ASAP, only relative timed actions are allowed." %(elem.sourceline)))
-                errcnt = errcnt + 1
-            else:
-                ppMicroSecs = elem.getparent().find('d:absoluteMicrosecs', namespaces=ns)
-                eventTime = flocklab.get_xml_timestamp(elem.text)
-                if ppMicroSecs is not None:
-                    ppStart = float(ppMicroSecs.text) / 1000000 + eventTime
-                else:
-                    ppStart = eventTime
-                elem2 = elem.getparent().getparent().find('d:durationMillisecs', namespaces=ns)
-                if elem2 is not None:
-                    ppDuration = int(elem2.text) / 1000
-                else:
-                    elem2 = elem.getparent().getparent().find('d:duration', namespaces=ns)
-                    ppDuration = int(elem2.text)
-                total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent().getparent(), ns)
-                if (ppStart > testEnd):
-                    if not quiet:
-                        print(("Line %d: element absoluteDateTime: The action is scheduled after the test ends, thus the action will never take place." %(elem.sourceline)))
-                    errcnt = errcnt + 1
-                elif (ppStart < testStart):
-                    if not quiet:
-                        print(("Line %d: element absoluteDateTime: The action is scheduled before the test starts, thus the action will never take place." %(elem.sourceline)))
-                    errcnt = errcnt + 1
-                elif (ppStart + ppDuration > testEnd):
-                    if not quiet:
-                        print(("Line %d: element duration/durationMillisecs: Profiling lasts longer than test." % (elem2.sourceline)))
-                    errcnt = errcnt + 1
-    
+        
         # check total number of samples (for now, just multiply the total by the number of observers)
         total_samples = total_samples * len(ids)
         if total_samples > flocklab.config.getint('tests', 'powerprofilinglimit'):
-            print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
+            if not quiet:
+                print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
             errcnt = errcnt + 1
       
     #===========================================================================
