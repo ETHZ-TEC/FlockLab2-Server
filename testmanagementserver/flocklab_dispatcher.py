@@ -697,7 +697,10 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         else:
             status = 'cleaning up'
         logger.debug("Setting test status in DB to %s..." %status)
-        flocklab.set_test_status(cur, cn, testid, status)
+        if flocklab.set_test_status(cur, cn, testid, status) != flocklab.SUCCESS:
+            msg = "Failed to set test status in DB."
+            errors.append(msg)
+            logger.error(msg)
         
         # Stop serial proxy ---
         # Get the XML config from the database and check if the serial service was used in the test:

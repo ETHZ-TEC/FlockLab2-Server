@@ -690,7 +690,7 @@ def set_test_status(cursor=None, conn=None, testid=0, status=None):
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return FAILED
-    return(0)
+    return SUCCESS
 ### END set_test_status()
 
 

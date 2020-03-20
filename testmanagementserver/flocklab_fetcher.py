@@ -949,19 +949,19 @@ def main(argv):
             cpus_serial = flocklab.config.getint('fetcher', 'cpus_serial')
         else:
             cpus_serial = 0
-            cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_serial')
+            #cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_serial')
         # CPUs for GPIO tracing:
         if servicesUsed_dict['gpiotracing'] == True:
             cpus_gpiomonitoring    = flocklab.config.getint('fetcher', 'cpus_gpiomonitoring')
         else:
             cpus_gpiomonitoring = 0
-            cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_gpiomonitoring')
+            #cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_gpiomonitoring')
         # CPUs for powerprofiling:
         if servicesUsed_dict['powerprofiling'] == True:
             cpus_powerprofiling    = flocklab.config.getint('fetcher', 'cpus_powerprofiling')
         else:
             cpus_powerprofiling = 0
-            cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_powerprofiling')
+            #cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_powerprofiling')
         # If there are free CPUs left, give them to GPIO tracing and power profiling evenly as these services need the most CPU power:
         if cpus_free > 0:
             if (cpus_powerprofiling > 0) and (cpus_gpiomonitoring > 0):

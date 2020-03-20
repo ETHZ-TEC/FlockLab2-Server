@@ -361,15 +361,17 @@ def main(argv):
                                     print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." % (line, core, str(dbimg))))
                                 errcnt = errcnt + 1
                             else:
-                                obsiddict[obsid][core] = ret[0]
+                                obsiddict[obsid][core] = ret[0]   # target platform
+                                if "dpp2lora" in ret[0].lower():
+                                    usesdpp2lora = True
             
-            # If embedded image IDs are present, check if they have a corresponding <imageConf> which is valid:
+            # If embedded image IDs are present, check if they have a corresponding <embeddedImageConf> which is valid:
             if embimageid:
                 for embimg, line in zip(embimageid, embimageid_line):
-                    imageconf = tree.xpath('//d:imageConf/d:embeddedImageId[text()="%s"]/..' %(embimg), namespaces=ns)
+                    imageconf = tree.xpath('//d:embeddedImageConf/d:embeddedImageId[text()="%s"]/..' %(embimg), namespaces=ns)
                     if not imageconf:
                         if not quiet:
-                            print(("Line %d: element embeddedImageId: There is no corresponding element imageConf with embeddedImageId %s defined." %(line, embimg)))
+                            print(("Line %d: element embeddedImageId: There is no corresponding element embeddedImageConf with embeddedImageId %s defined." %(line, embimg)))
                         errcnt = errcnt + 1
                     else:
                         # Get os and platform and put it into dictionary for later use:
@@ -527,6 +529,17 @@ def main(argv):
                 print("Element serialConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
         
+        # debugConf additional validation
+        (debugObsIds, duplicates, allInList) = check_obsids(tree, '//d:debugConf/d:obsIds', ns, obsidlist)
+        if duplicates:
+            if not quiet:
+                print("Element debugConf: Some observer IDs have been used more than once.")
+            errcnt = errcnt + 1
+        if not allInList:
+            if not quiet:
+                print("Element debugConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
+            errcnt = errcnt + 1
+        
         # gpioTracingConf additional validation ---------------------------------------
         #    * observer ids need to have a targetConf associated and must be unique
         #    * Every (pin, edge) combination can only be used once.
@@ -544,27 +557,23 @@ def main(argv):
         # Check (pin, edge) combinations:
         gpiomonconfs = tree.xpath('//d:gpioTracingConf', namespaces=ns)
         for gpiomonconf in gpiomonconfs:
-            combList = []
+            usesDebug = False
+            obsIds = gpiomonconf.findtext('d:obsIds', namespaces=ns).split()
+            # check if one of the used observers also uses the debug service
+            for obs in obsIds:
+                if obs in debugObsIds:
+                    usesDebug = True
             pins = gpiomonconf.find('d:pins', namespaces=ns)
-            if pins != None:
-                if usesdpp2lora and "INT2" in pins.text:
-                    if not quiet:
-                        print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
-                    errcnt = errcnt + 1
-                    break
-            pinconfs = gpiomonconf.xpath('d:pinConf', namespaces=ns)
-            for pinconf in pinconfs:
-                pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text
-                edge = pinconf.xpath('d:edge', namespaces=ns)[0].text
-                combList.append((pin, edge))
-                if usesdpp2lora and pin == "INT2":
-                    errcnt = errcnt + 1
-                    print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % pinconf.sourceline)
-                    break
-            if (len(combList) != len(set(combList))):
+            if usesdpp2lora and "INT2" in pins.text:
                 if not quiet:
-                    print(("Line %d: element gpioTracingConf: Every (pin, edge) combination can only be used once per observer configuration." %(gpiomonconf.sourceline)))
+                    print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
                 errcnt = errcnt + 1
+                break
+            if usesDebug and ("LED1" in pins.text or "LED3" in pins.text):
+                if not quiet:
+                    print("Line %d: Pins LED1 and LED3 cannot be traced on target platform DPP2LoRa in conjunction with the debug service." % (pins.sourceline))
+                errcnt = errcnt + 1
+                break
         
         # gpioActuationConf additional validation ---------------------------
         #    * observer ids need to have a targetConf associated and must be unique
@@ -640,12 +649,13 @@ def main(argv):
                 errcnt = errcnt + 1
         
         # check total number of samples (for now, just multiply the total by the number of observers)
-        total_samples = total_samples * len(ids)
-        if total_samples > flocklab.config.getint('tests', 'powerprofilinglimit'):
-            if not quiet:
-                print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
-            errcnt = errcnt + 1
-      
+        if ids:
+            total_samples = total_samples * len(ids)
+            if total_samples > flocklab.config.getint('tests', 'powerprofilinglimit'):
+                if not quiet:
+                    print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
+                errcnt = errcnt + 1
+        
     #===========================================================================
     # All additional tests finished. Clean up and exit.
     #===========================================================================

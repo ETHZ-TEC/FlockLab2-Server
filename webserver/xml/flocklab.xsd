@@ -50,7 +50,7 @@
     <!-- Power profiling service configuration. If service is not to be used, do not specify this element. -->
     <xs:element name="powerProfilingConf" type="powerProfilingConfType"/>
     <!-- Target image configuration. If only images from database are to be used, do not specify this element. -->
-    <xs:element name="imageConf" type="imageConfType"/>
+    <xs:element name="embeddedImageConf" type="embeddedImageConfType"/>
     <!-- Debug service configuration. If service is not to be used, do not specify this element. -->
     <xs:element name="debugConf" type="debugConfType"/>
   </xs:choice>
@@ -143,7 +143,7 @@
 </xs:group>
 
 <!-- Configuration of target images -->
-<xs:complexType name="imageConfType">
+<xs:complexType name="embeddedImageConfType">
   <xs:all>
     <xs:element name="embeddedImageId" type="embeddedImageIdType"/>
     <xs:element name="name">
@@ -213,7 +213,7 @@
 <xs:complexType name="gpioTracingConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:element name="pins" type="pinTracingListType" minOccurs="0" maxOccurs="1"/>
+    <xs:element name="pins" type="pinTracingListType" minOccurs="1" maxOccurs="1"/>
   </xs:sequence>
 </xs:complexType>
 
@@ -375,7 +375,7 @@
 <!-- Type definition for test duration in seconds -->
 <xs:simpleType name="testDurationSecsType">
   <xs:restriction base="xs:integer">
-    <xs:minInclusive value="10"/>
+    <xs:minInclusive value="60"/>
   </xs:restriction>
 </xs:simpleType>
 

@@ -213,12 +213,10 @@ def main(argv):
                                   WHERE `serv_tests_key`=%d AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d
                               """
                         if cur.execute(sql % (testid, now, maxtestcleanuptime)) > 0:
-                            # thread is stuck -> add to kill list
-                            pids.append(pid)
-            if len(pids) > 0:
-                # kill the stuck threads
-                for pid in pids:
-                    os.kill(pid, signal.SIGKILL)
+                            # thread is stuck -> add to list and kill
+                            pids.append(str(pid))
+                            os.kill(pid, signal.SIGKILL)
+            if len(pids) > 0:Z
                 msg = "%d stuck threads terminated (PIDs: %s)" % (len(pids), ", ".join(pids))
                 logger.info(msg)
                 emails = flocklab.get_admin_emails(cur)

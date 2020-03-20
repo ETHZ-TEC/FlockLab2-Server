@@ -29,6 +29,7 @@ function db_connect()
     mysqli_query($dbh, $sql) or flocklab_die('Cannot init timezone for database connection because: ' . mysqli_error($dbh));
     $sql='SET sql_mode=""';
     mysqli_query($dbh, $sql) or flocklab_die('Cannot set sql mode for database connection because: ' . mysqli_error($dbh));
+    mysqli_query($dbh, "set names 'utf8'") or flocklab_die('Cannot set names for database connection because: ' . mysqli_error($dbh));
     return($dbh);
 }
 
@@ -1077,7 +1078,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 $dbImages[$row['serv_targetimages_key']] = Array('platform' => $row['platforms_fk']);
             mysqli_close($db);
         }
-        foreach($testconfig->imageConf as $im) {
+        foreach($testconfig->embeddedImageConf as $im) {
             $eId = trim($im->embeddedImageId);
             if(array_key_exists($eId, $embeddedImages)) {
                 array_push($errors, "Provided embedded images do not have unique IDs.");
@@ -1206,8 +1207,8 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         // strip all embedded images from xml config
                         // add embedded images to db
                         $comment = '';
-                        while (count($testconfig->imageConf) > 0) {
-                            $imgEId = trim($testconfig->imageConf[0]->embeddedImageId);
+                        while (count($testconfig->embeddedImageConf) > 0) {
+                            $imgEId = trim($testconfig->embeddedImageConf[0]->embeddedImageId);
                             if ($embeddedImages[$imgEId]['used']) {
                                 $imgId = check_image_duplicate($embeddedImages[$imgEId]);
                                 if ($imgId === false) {
@@ -1224,7 +1225,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                                 unset($embeddedImages[$imgEId]);
                                 $comment.="<!-- stripped embedded image '".$imgEId."', image is not used in this test -->\n";
                             }
-                            unset($testconfig->imageConf[0]);
+                            unset($testconfig->embeddedImageConf[0]);
                         }
                         $xml_config = $testconfig->asXML();
                         $xml_config = preg_replace('#</testConf>#s', $comment.'</testConf>', $xml_config);

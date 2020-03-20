@@ -33,7 +33,7 @@
     <serialConf>
         <obsIds>02 04 05 07 08</obsIds>
         <baudrate>115200</baudrate>
-        <port>usb</port>
+        <port>serial</port>
     </serialConf>
 
     <!-- GPIO Tracing Service configuration -->
@@ -52,7 +52,7 @@
         <duration>30</duration>
     </powerProfilingConf>
 
-    <imageConf>
+    <embeddedImageConf>
         <embeddedImageId>Image_1</embeddedImageId>
         <name>Hello world</name>
         <description>Hello world application for a CC430 in FlockLab</description>
@@ -1022,5 +1022,5 @@ X0gAX19TWVNTTklWAF9fU1VNRVhUAF9fUDNNQVA0NV9IAF9fTENEQk00AF9fU1ZTTUxDVExfTABf
 X1BKRElSAF9fT1AyX0wAX19BREMxMENUTDFfTABfX2lzcl80MABfX1BCUkVOAHJmMWFfc3RhcnRf
 dHgA
 </data>
-    </imageConf>
+    </embeddedImageConf>
 </testConf>
