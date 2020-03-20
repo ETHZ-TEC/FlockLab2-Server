@@ -14,7 +14,7 @@
   require_once('include/presets.php');
 ?>
 <?php
-  $statsfilename = "statistics.dat";
+  $statsfilename = "statistics_old.dat";
   $stats = parse_ini_file($statsfilename);
   
   function create_pie_chart($elem_id, $data_array) {
@@ -110,9 +110,9 @@
   .numberField { text-align: right; }
 </style>
 
-<h1>Flocklab 2 Statistics</h1>
+<h1>Flocklab 1 Statistics</h1>
 <br />
-&nbsp;&nbsp;<i>Note: you can find the archived statistics of the old FlockLab <a href="statistics_old.php">here</a>.</i>
+&nbsp;&nbsp;<i>Note: this is a static page that won't be updated anymore, since FlockLab 1 has been replaced by FlockLab 2.</i>
 <br />
 <div class="chartContainer">
   <table>

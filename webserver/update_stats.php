@@ -21,7 +21,7 @@ function collect_stats($filename)
 {
   if (!is_string($filename)) return;
 
-  $testoverhead = 2 * 3 * 60;           // config value
+  $testoverhead = 2 * 1 * 60;           // config value
   
   // --- start data collection ---
   
@@ -70,18 +70,12 @@ function collect_stats($filename)
   $tests_per_mote = Array();
   $tmotetests_per_year = Array();
   $tmotetestcnt = 0;
-  $cc430tests_per_year = Array();
-  $cc430testcnt = 0;
-  $opaltests_per_year = Array();
-  $opaltestcnt = 0;
-  $tinynodetests_per_year = Array();
-  $tinynodetestcnt = 0;
   $dpptests_per_year = Array();
   $dpptestcnt = 0;
-  $openmotetests_per_year = Array();
-  $openmotetestcnt = 0;
   $dpp2tests_per_year = Array();
   $dpp2testcnt = 0;
+  $nrftests_per_year = Array();
+  $nrftestcnt = 0;
   $serial_per_year = Array();
   $serialcnt = 0;
   $gpiotracing_per_year = Array();
@@ -98,12 +92,9 @@ function collect_stats($filename)
     $testcnt = $testcnt + $row['num'];    
     // initialize with 0
     $tmotetests_per_year[$year] = 0;
-    $cc430tests_per_year[$year] = 0;
-    $opaltests_per_year[$year] = 0;
-    $tinynodetests_per_year[$year] = 0;
     $dpptests_per_year[$year] = 0;
-    $openmotetests_per_year[$year] = 0;
     $dpp2tests_per_year[$year] = 0;
+    $nrftests_per_year[$year] = 0;
     $sql = 'select pname, count(*) as c from (select distinct test_fk, tbl_serv_platforms.name as pname from tbl_serv_map_test_observer_targetimages left join tbl_serv_targetimages on (targetimage_fk = serv_targetimages_key) left join tbl_serv_platforms on (platforms_fk = serv_platforms_key)) as a left join tbl_serv_tests as b on (a.test_fk = b.serv_tests_key) where year(time_start_act) = '.$year.' and pname is not null group by pname';
     $rs2 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     while ($row = mysqli_fetch_array($rs2)) {
@@ -115,25 +106,16 @@ function collect_stats($filename)
       if ($row['pname'] == 'Tmote') {
         $tmotetests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
         $tmotetestcnt = $tmotetestcnt + $row['c'];
-      } else if ($row['pname'] == 'CC430') {
-        $cc430tests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
-        $cc430testcnt = $cc430testcnt + $row['c'];
-      } else if ($row['pname'] == 'Opal') {
-        $opaltests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
-        $opaltestcnt = $opaltestcnt + $row['c'];
-      } else if ($row['pname'] == 'TinyNode') {
-        $tinynodetests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
-        $tinynodetestcnt = $tinynodetestcnt + $row['c'];
       } else if ($row['pname'] == 'DPP') {
         $dpptests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
         $dpptestcnt = $dpptestcnt + $row['c'];
-      } else if ($row['pname'] == 'OpenMote') {
-        $openmotetests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
-        $openmotetestcnt = $openmotetestcnt + $row['c'];
       } else if ($row['pname'] == 'DPP2LoRa') {
         $dpp2tests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
         $dpp2testcnt = $dpp2testcnt + $row['c'];
-      }
+      } else if ($row['pname'] == 'nRF5') {
+        $nrftests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
+        $nrftestcnt = $dpptestcnt + $row['c'];
+      } 
     }
     // Tests by service
     $sql = 'select year(time_start_act) as y, sum(1) as num_all, sum(ExtractValue(testconfig_xml, "count(/testConf/serialConf|/testConf/serialReaderConf)") > 0) as num_serial, sum(ExtractValue(testconfig_xml, "count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)") > 0) as num_tracing, sum(ExtractValue(testconfig_xml, "count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)") > 0) as num_actuation, sum(ExtractValue(testconfig_xml, "count(/testConf/powerProfilingConf|/testConf/powerprofConf)") > 0) as num_power from tbl_serv_tests where year(time_start_act) = '.$year;
@@ -153,12 +135,9 @@ function collect_stats($filename)
   // Users by service and node type
   $activeusers_per_year = Array();
   $tmoteusers_per_year = Array();
-  $cc430users_per_year = Array();
-  $opalusers_per_year = Array();
-  $tinynodeusers_per_year = Array();
   $dppusers_per_year = Array();
   $dpp2users_per_year = Array();
-  $openmoteusers_per_year = Array();
+  $nrfusers_per_year = Array();
   $serialusers_per_year = Array();
   $gpiotracingusers_per_year = Array();
   $gpioactuationusers_per_year = Array();
@@ -171,28 +150,19 @@ function collect_stats($filename)
     $activeusers_per_year[$year] = $row['num'];
     // initialize with 0
     $tmoteusers_per_year[$year] = 0;
-    $cc430users_per_year[$year] = 0;
-    $opalusers_per_year[$year] = 0;
-    $tinynodeusers_per_year[$year] = 0;
     $dppusers_per_year[$year] = 0;
     $dpp2users_per_year[$year] = 0;
-    $openmoteusers_per_year[$year] = 0;
+    $nrfusers_per_year[$year] = 0;
     $sql = 'select pname, count(distinct owner_fk) as c from (select distinct test_fk, tbl_serv_platforms.name as pname from tbl_serv_map_test_observer_targetimages left join tbl_serv_targetimages on (targetimage_fk = serv_targetimages_key) left join tbl_serv_platforms on (platforms_fk = serv_platforms_key)) as a left join tbl_serv_tests as b on (a.test_fk = b.serv_tests_key) where year(time_start_act) = '.$year.' and time_start_act is not null and pname is not null group by pname';
     $rs2 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     while ($row = mysqli_fetch_array($rs2)) {
       if ($row['pname'] == 'Tmote') {
         $tmoteusers_per_year[$year] = round($row['c'] / $num_users * 100);    // in percent
-      } else if ($row['pname'] == 'CC430') {
-        $cc430users_per_year[$year] = round($row['c'] / $num_users * 100);
-      } else if ($row['pname'] == 'Opal') {
-        $opalusers_per_year[$year] = round($row['c'] / $num_users * 100);
-      } else if ($row['pname'] == 'TinyNode') {
-        $tinynodeusers_per_year[$year] = round($row['c'] / $num_users * 100);
       } else if ($row['pname'] == 'DPP') {
         $dppusers_per_year[$year] = round($row['c'] / $num_users * 100);
-      } else if ($row['pname'] == 'OpenMote') {
-        $openmoteusers_per_year[$year] = round($row['c'] / $num_users * 100);
       } else if ($row['pname'] == 'DPP2LoRa') {
+        $dpp2users_per_year[$year] = round($row['c'] / $num_users * 100);
+      } else if ($row['pname'] == 'nRF5') {
         $dpp2users_per_year[$year] = round($row['c'] / $num_users * 100);
       }
     }
@@ -278,24 +248,15 @@ utilization_per_week = \"".str_replace('"', '\'', serialize($utilization_per_wee
 tmote_tests = ".(string)$tmotetestcnt."
 tmote_per_year = \"".str_replace('"', '\'', serialize($tmotetests_per_year))."\"
 tmoteusers_per_year = \"".str_replace('"', '\'', serialize($tmoteusers_per_year))."\"
-cc430_tests = ".(string)$cc430testcnt."
-cc430_per_year = \"".str_replace('"', '\'', serialize($cc430tests_per_year))."\"
-cc430users_per_year = \"".str_replace('"', '\'', serialize($cc430users_per_year))."\"
-opal_tests = ".(string)$opaltestcnt."
-opal_per_year = \"".str_replace('"', '\'', serialize($opaltests_per_year))."\"
-opalusers_per_year = \"".str_replace('"', '\'', serialize($opalusers_per_year))."\"
-tinynode_tests = ".(string)$tinynodetestcnt."
-tinynode_per_year = \"".str_replace('"', '\'', serialize($tinynodetests_per_year))."\"
-tinynodeusers_per_year = \"".str_replace('"', '\'', serialize($tinynodeusers_per_year))."\"
-openmote_tests = ".(string)$openmotetestcnt."
-openmote_per_year = \"".str_replace('"', '\'', serialize($openmotetests_per_year))."\"
-openmoteusers_per_year = \"".str_replace('"', '\'', serialize($openmoteusers_per_year))."\"
 dpp_tests = ".(string)$dpptestcnt."
 dpp_per_year = \"".str_replace('"', '\'', serialize($dpptests_per_year))."\"
 dppusers_per_year = \"".str_replace('"', '\'', serialize($dppusers_per_year))."\"
 dpp2_tests = ".(string)$dpp2testcnt."
 dpp2_per_year = \"".str_replace('"', '\'', serialize($dpp2tests_per_year))."\"
 dpp2users_per_year = \"".str_replace('"', '\'', serialize($dpp2users_per_year))."\"
+nrf_tests = ".(string)$dpp2testcnt."
+nrf_per_year = \"".str_replace('"', '\'', serialize($dpp2tests_per_year))."\"
+nrfusers_per_year = \"".str_replace('"', '\'', serialize($dpp2users_per_year))."\"
 
 [services]
 serial_tests = ".(string)$serialcnt."

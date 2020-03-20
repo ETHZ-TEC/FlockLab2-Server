@@ -1,0 +1,61 @@
+
+[general]
+last_update = 1584027877
+
+[users]
+registered = 375
+active = 2
+num_countries = 30
+country = "a:12:{s:11:'Switzerland';i:113;s:7:'Germany';i:45;s:5:'India';i:43;s:13:'United States';i:43;s:6:'others';i:31;s:5:'China';i:25;s:6:'Sweden';i:20;s:14:'United Kingdom';i:18;s:25:'Iran, Islamic Republic Of';i:13;s:9:'Singapore';i:11;s:7:'Ireland';i:7;s:6:'Brazil';i:6;}"
+num_institutions = 138
+institution = "a:11:{s:6:'others';i:175;s:10:'ETH Zurich';i:104;s:39:'Purdue University at Indianapolis IUPUI';i:28;s:33:'Chalmers University of Technology';i:12;s:12:'TU Darmstadt';i:12;s:10:'TU Dresden';i:12;s:42:'National Institute of Technology Karnataka';i:9;s:21:'University of Warwick';i:7;s:32:'Nanyang Technological University';i:6;s:32:'National University of Singapore';i:5;s:18:'Uppsala University';i:5;}"
+users_per_year = "a:8:{i:2012;s:1:'6';i:2013;s:2:'19';i:2014;s:2:'55';i:2015;s:2:'65';i:2016;s:2:'65';i:2017;s:2:'78';i:2018;s:2:'81';i:2019;s:2:'69';}"
+
+[tests]
+num_tests = 70521
+tests_per_year = "a:8:{i:2012;s:3:'156';i:2013;s:4:'4020';i:2014;s:4:'6714';i:2015;s:4:'8525';i:2016;s:4:'8863';i:2017;s:5:'12116';i:2018;s:5:'12570';i:2019;s:5:'16000';}"
+tests_per_mote = "a:12:{s:5:'Tmote';i:46018;s:3:'DPP';i:8159;s:8:'DPP2LoRa';i:4576;s:5:'CC430';i:3964;s:4:'ACM2';i:2381;s:4:'Opal';i:2220;s:8:'TinyNode';i:1854;s:8:'OpenMote';i:558;s:7:'Wismote';i:291;s:5:'Mica2';i:191;s:4:'Iris';i:179;s:10:'DPP2LoRaHG';i:70;}"
+avg_setup_time = 96
+avg_cleanup_time = 92
+avg_runtime = 1030
+runtime_cdf = "a:20:{i:3;d:20;i:6;d:41;i:9;d:53;i:12;d:69;i:15;d:72;i:18;d:75;i:21;d:77;i:25;d:81;i:28;d:81;i:31;d:81;i:34;d:89;i:37;d:90;i:40;d:90;i:43;d:91;i:46;d:91;i:49;d:91;i:52;d:91;i:55;d:91;i:58;d:91;i:61;d:94;}"
+utilization_per_year = "a:8:{i:2012;d:4;i:2013;d:24;i:2014;d:41;i:2015;d:45;i:2016;d:45;i:2017;d:57;i:2018;d:55;i:2019;d:40;}"
+utilization_per_week = "a:45:{s:11:'2019 week 1';d:2;s:11:'2019 week 9';d:4;s:12:'2019 week 10';d:10;s:12:'2019 week 11';d:18;s:12:'2019 week 12';d:8;s:12:'2019 week 13';d:24;s:12:'2019 week 14';d:13;s:12:'2019 week 15';d:27;s:12:'2019 week 16';d:28;s:12:'2019 week 17';d:32;s:12:'2019 week 18';d:48;s:12:'2019 week 19';d:21;s:12:'2019 week 20';d:43;s:12:'2019 week 21';d:38;s:12:'2019 week 22';d:64;s:12:'2019 week 23';d:102;s:12:'2019 week 24';d:98;s:12:'2019 week 25';d:101;s:12:'2019 week 26';d:87;s:12:'2019 week 27';d:13;s:12:'2019 week 28';d:13;s:12:'2019 week 29';d:17;s:12:'2019 week 30';d:17;s:12:'2019 week 31';d:41;s:12:'2019 week 32';d:18;s:12:'2019 week 33';d:25;s:12:'2019 week 34';d:57;s:12:'2019 week 35';d:59;s:12:'2019 week 36';d:45;s:12:'2019 week 37';d:32;s:12:'2019 week 38';d:52;s:12:'2019 week 39';d:38;s:12:'2019 week 40';d:22;s:12:'2019 week 41';d:10;s:12:'2019 week 42';d:59;s:12:'2019 week 43';d:33;s:12:'2019 week 44';d:19;s:12:'2019 week 45';d:32;s:12:'2019 week 46';d:39;s:12:'2019 week 47';d:58;s:12:'2019 week 48';d:48;s:12:'2019 week 49';d:70;s:12:'2019 week 50';d:93;s:12:'2019 week 51';d:19;s:12:'2019 week 52';d:24;}"
+
+[motes]
+tmote_tests = 46018
+tmote_per_year = "a:8:{i:2012;d:85;i:2013;d:63;i:2014;d:61;i:2015;d:61;i:2016;d:70;i:2017;d:79;i:2018;d:77;i:2019;d:50;}"
+tmoteusers_per_year = "a:8:{i:2012;d:67;i:2013;d:89;i:2014;d:96;i:2015;d:95;i:2016;d:98;i:2017;d:90;i:2018;d:80;i:2019;d:70;}"
+cc430_tests = 3964
+cc430_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;d:17;i:2015;d:11;i:2016;d:15;i:2017;d:4;i:2018;d:1;i:2019;i:0;}"
+cc430users_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;d:11;i:2015;d:8;i:2016;d:11;i:2017;d:14;i:2018;d:11;i:2019;i:0;}"
+opal_tests = 2220
+opal_per_year = "a:8:{i:2012;i:0;i:2013;d:9;i:2014;d:6;i:2015;d:4;i:2016;d:4;i:2017;d:3;i:2018;d:3;i:2019;d:0;}"
+opalusers_per_year = "a:8:{i:2012;i:0;i:2013;d:16;i:2014;d:4;i:2015;d:2;i:2016;d:3;i:2017;d:1;i:2018;d:1;i:2019;d:1;}"
+tinynode_tests = 1854
+tinynode_per_year = "a:8:{i:2012;d:13;i:2013;d:13;i:2014;d:3;i:2015;d:2;i:2016;d:2;i:2017;d:2;i:2018;d:3;i:2019;d:1;}"
+tinynodeusers_per_year = "a:8:{i:2012;d:33;i:2013;d:26;i:2014;d:7;i:2015;d:2;i:2016;d:5;i:2017;d:1;i:2018;d:6;i:2019;d:1;}"
+openmote_tests = 558
+openmote_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;i:0;i:2015;d:4;i:2016;d:0;i:2017;d:2;i:2018;i:0;i:2019;d:0;}"
+openmoteusers_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;i:0;i:2015;d:8;i:2016;d:2;i:2017;d:4;i:2018;i:0;i:2019;d:3;}"
+dpp_tests = 8159
+dpp_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;i:0;i:2015;i:0;i:2016;d:8;i:2017;d:12;i:2018;d:14;i:2019;d:25;}"
+dppusers_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;i:0;i:2015;i:0;i:2016;d:8;i:2017;d:10;i:2018;d:26;i:2019;d:9;}"
+dpp2_tests = 4576
+dpp2_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;i:0;i:2015;i:0;i:2016;i:0;i:2017;d:0;i:2018;d:3;i:2019;d:24;}"
+dpp2users_per_year = "a:8:{i:2012;i:0;i:2013;i:0;i:2014;i:0;i:2015;i:0;i:2016;i:0;i:2017;d:1;i:2018;d:4;i:2019;d:33;}"
+
+[services]
+serial_tests = 69427
+serial_per_year = "a:8:{i:2012;d:63;i:2013;d:98;i:2014;d:93;i:2015;d:98;i:2016;d:99;i:2017;d:99;i:2018;d:99;i:2019;d:100;}"
+serialusers_per_year = "a:8:{i:2012;d:100;i:2013;d:100;i:2014;d:98;i:2015;d:98;i:2016;d:100;i:2017;d:99;i:2018;d:99;i:2019;d:100;}"
+gpiotracing_tests = 40201
+gpiotracing_per_year = "a:8:{i:2012;d:80;i:2013;d:33;i:2014;d:43;i:2015;d:35;i:2016;d:45;i:2017;d:42;i:2018;d:71;i:2019;d:88;}"
+gpiotracingusers_per_year = "a:8:{i:2012;d:50;i:2013;d:74;i:2014;d:62;i:2015;d:52;i:2016;d:49;i:2017;d:67;i:2018;d:72;i:2019;d:67;}"
+gpioactuation_tests = 24209
+gpioactuation_per_year = "a:8:{i:2012;d:1;i:2013;d:27;i:2014;d:21;i:2015;d:37;i:2016;d:19;i:2017;d:31;i:2018;d:38;i:2019;d:48;}"
+gpioactuationusers_per_year = "a:8:{i:2012;d:33;i:2013;d:37;i:2014;d:20;i:2015;d:22;i:2016;d:20;i:2017;d:35;i:2018;d:49;i:2019;d:43;}"
+powerprof_tests = 27168
+powerprof_per_year = "a:8:{i:2012;d:24;i:2013;d:8;i:2014;d:24;i:2015;d:30;i:2016;d:21;i:2017;d:32;i:2018;d:65;i:2019;d:53;}"
+powerprofusers_per_year = "a:8:{i:2012;d:33;i:2013;d:42;i:2014;d:62;i:2015;d:52;i:2016;d:38;i:2017;d:58;i:2018;d:64;i:2019;d:61;}"
+
