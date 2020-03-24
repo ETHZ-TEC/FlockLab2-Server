@@ -77,7 +77,7 @@
         <legend>Upload XML to validate</legend>
         <span class="formfield">XML File:*</span><input type="file" name="xmlfile" id="xmlfile" size="27" class="required"><br />
     <p>A template XML test configuration can be downloaded <a href="xml/flocklab_template.xml" target="_blank">here</a>, the XML schema file against which is validated can be found <a href="xml/flocklab.xsd" target="_blank">here</a>.<br>
-    Detailed information is available on the <a href="https://gitlab.ethz.ch/tec/public/flocklab/wikis/Man/XmlConfig">FlockLab XML Test Configuration File Help page</a>.</p>
+    Detailed information is available on the <a href="https://gitlab.ethz.ch/tec/public/flocklab/flocklab/-/wikis/Man/XmlConfig">FlockLab XML Test Configuration File Help page</a>.</p>
     </fieldset>
     <p></p>
     <input type="hidden" name="first" value="no">
