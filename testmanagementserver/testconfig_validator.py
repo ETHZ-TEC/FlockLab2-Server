@@ -29,7 +29,7 @@ def check_obsids(tree, xpathExpr, namespace, obsidlist=None):
     list(map(foundObsids.extend, tmp))
     
     if "ALL" in foundObsids:
-        return (obsidlist, duplicates, allInList)
+        return (obsidlist, False, True)
     
     # Check for duplicates:
     if ( (len(foundObsids) != len(set(foundObsids))) ):
@@ -37,7 +37,7 @@ def check_obsids(tree, xpathExpr, namespace, obsidlist=None):
     
     # Check if all obs ids are in the list:
     for obsid in foundObsids:
-        if obsid not in obsidlist:
+        if obsid.lstrip('0') not in obsidlist:
             allInList = False
     
     # Return the values to the caller:
@@ -269,9 +269,6 @@ def main(argv):
                     print("Element obsIds/targetIds: Id lists must not have tabs as separators.")
                 errcnt = errcnt + 1
     
-    # For platform dpp2lora, prevent the use of the unused (floating) pin INT2
-    usesdpp2lora = False
-    
     if errcnt == 0:
         sched_abs  = tree.xpath('//d:generalConf/d:scheduleAbsolute', namespaces=ns)
         sched_asap = tree.xpath('//d:generalConf/d:scheduleAsap', namespaces=ns)
@@ -306,16 +303,20 @@ def main(argv):
         # Loop through all targetConf elements:
         obsidlist = []
         obsiddict = {}
+        platform  = None
         targetconfs = tree.xpath('//d:targetConf', namespaces=ns)
         for targetconf in targetconfs:
-            targetids = None
-            dbimageid = None
+            targetids  = None
+            dbimageid  = None
             embimageid = None
-            platform = None
             # Get elements:
             obsids = targetconf.xpath('d:obsIds', namespaces=ns)[0].text.split()
             ret = targetconf.xpath('d:targetIds', namespaces=ns)
             if ret:
+                if "ALL" in obsids:
+                    if not quiet:
+                        print("Can't set targetIds when 'ALL' is used as observer ID.")
+                    errcnt = errcnt + 1
                 targetids = ret[0].text.split()
                 targetids_line = ret[0].sourceline 
             ret = targetconf.xpath('d:dbImageId', namespaces=ns)
@@ -352,7 +353,17 @@ def main(argv):
                         errcnt = errcnt + 1
                     else:
                         # Put data into dictionary for later use:
+                        pf = ret[0]
                         core = int(ret[1])
+                        if platform == None:
+                            platform = pf
+                        elif platform != pf:
+                            if not quiet:
+                                print("Line %d: using target images of different platforms is not allowed." % (line))
+                            errcnt = errcnt + 1
+                        if "ALL" in obsids:
+                            obsids.remove("ALL")
+                            obsids.extend(flocklab.get_obsids(cur, platform, stati))
                         for obsid in obsids:
                             if obsid not in obsiddict:
                                 obsiddict[obsid] = {}
@@ -360,10 +371,10 @@ def main(argv):
                                 if not quiet:
                                     print(("Line %d: element dbImageId: There is already an image for core %d (image with ID %s)." % (line, core, str(dbimg))))
                                 errcnt = errcnt + 1
+                                break
                             else:
-                                obsiddict[obsid][core] = ret[0]   # target platform
-                                if "dpp2lora" in ret[0].lower():
-                                    usesdpp2lora = True
+                                obsiddict[obsid][core] = platform   # target platform
+                                logger.debug("Target image for platform %s (core %d) found." % (platform, core))
             
             # If embedded image IDs are present, check if they have a corresponding <embeddedImageConf> which is valid:
             if embimageid:
@@ -375,7 +386,16 @@ def main(argv):
                         errcnt = errcnt + 1
                     else:
                         # Get os and platform and put it into dictionary for later use:
-                        platform = imageconf[0].xpath('d:platform', namespaces=ns)[0].text
+                        pf = imageconf[0].xpath('d:platform', namespaces=ns)[0].text
+                        if platform == None:
+                            platform = pf
+                        elif platform != pf:
+                            if not quiet:
+                                print("Line %d: using target images of different platforms is not allowed." % (line))
+                            errcnt = errcnt + 1
+                        if "ALL" in obsids:
+                            obsids.remove("ALL")
+                            obsids.extend(flocklab.get_obsids(cur, platform, stati))
                         try:
                             core = int(imageconf[0].xpath('d:core', namespaces=ns)[0].text)
                         except:
@@ -392,8 +412,6 @@ def main(argv):
                             obsiddict[obsid][core] = platform
                         # Get the image and save it to a temporary file:
                         image = imageconf[0].xpath('d:data', namespaces=ns)[0].text
-                        if "dpp2lora" in platform.lower():
-                            usesdpp2lora = True
                         # For target platform DPP2LoRa, the <data> tag may be empty
                         if len(image.strip()) == 0 and (platform.lower() == "dpp2lora" or platform.lower() == "dpp2lorahg"):
                             continue   # skip image validation
@@ -413,26 +431,28 @@ def main(argv):
                             errcnt = errcnt + 1
                         # Remove temporary file:
                         os.remove(imagefilename)
-            
+        
             # Put obsids into obsidlist:
             for obsid in obsids:
-                if obsid == "ALL":
-                    # expand
-                    rs = flocklab.get_obsids(cur, platform, stati)
-                    #print("Found '%s' for platform '%s' and stati '%s'." % (str(rs), platform, stati))
-                    if rs:
-                        obsidlist.extend(rs)
+                if obsid == "ALL":   # expand
+                    res = flocklab.get_obsids(cur, platform, stati)
+                    if res:
+                        logger.debug("Found observer IDs %s for platform '%s' and stati '%s'." % (", ".join(rs), platform, stati))
+                        obsidlist.extend(res)
                 else:
-                    obsidlist.append(obsid)
-                
-        # if there is just one target config and a list of observers is not provided, then fetch a list of all observers from the database
+                    obsidlist.append(obsid.lstrip('0'))   # remove leading zeros
+        
         if not obsidlist or (len(obsidlist) == 0):
             print("No observer ID found.")
             errcnt = errcnt + 1
         # Remove duplicates and check if every observer has the correct target adapter installed:
         obsidlist = list(set(obsidlist))
         (obsids, duplicates, allInList) = check_obsids(tree, '//d:targetConf/d:obsIds', ns, obsidlist)
-        if duplicates:
+        if not allInList:
+            if not quiet:
+                print("Element targetConf: Not all used observers have a target config assigned.")
+            errcnt = errcnt + 1
+        elif duplicates:
             if not quiet:
                 print("Element targetConf: Some observer IDs have been used more than once.")
             errcnt = errcnt + 1
@@ -564,7 +584,7 @@ def main(argv):
                 if obs in debugObsIds:
                     usesDebug = True
             pins = gpiomonconf.find('d:pins', namespaces=ns)
-            if usesdpp2lora and "INT2" in pins.text:
+            if ("dpp2lora" in platform.lower()) and ("INT2" in pins.text):
                 if not quiet:
                     print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
                 errcnt = errcnt + 1
@@ -630,6 +650,7 @@ def main(argv):
         if not allInList:
             if not quiet:
                 print("Element powerProfilingConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
+                print("List: %s, used IDs: %s" % (str(obsidlist), str(ids)))
             errcnt = errcnt + 1
         # Check offset tag (mandatory element)
         rs = tree.xpath('//d:powerProfilingConf/d:offset', namespaces=ns)
