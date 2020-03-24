@@ -81,10 +81,9 @@
         while ($row = mysqli_fetch_array($rs)) {
             $i++;
             echo ($i%2 == 1) ? "<tr class='even'>" : "<tr class='odd'>";
-            if ($row['observer_id'] < 10)
-                echo "<td>0";
-            else
-                echo "<td>";
+            echo "<td>";
+            /*if ($row['observer_id'] < 10)
+                echo "0";*/
             echo $row['observer_id'] . "</td>";
             echo "<td>" . $row['status'] . "</td>";
             echo "<td class='qtip_show targetplatform' title='";

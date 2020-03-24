@@ -6,6 +6,16 @@
           $plot = $CONFIG['viz']['dir'].'/flocklab_plot_'.$_GET['t'].'.html';
           if (file_exists($plot)) {
               echo file_get_contents($plot);
+              /*$fh = fopen($plot,"r");
+              if ($fh) {
+                  // read and print html file line by line
+                  $line = fgets($fh);
+                  while ($line !== false) {
+                      echo $line;
+                      $line = fgets($fh);
+                  }
+                  fclose($fh);
+              }*/
           } else {
               echo "file '$plot' not found";
           }
