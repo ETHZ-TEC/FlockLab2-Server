@@ -25,8 +25,13 @@ class Error(Exception):
 #
 ##############################################################################
 def test_startstopabort(testid=None, abort=False, delay=0):
+    global logger
+    
     if ((type(testid) != int) or (testid <= 0)):
         return -1
+    
+    if not logger:
+        logger = flocklab.get_logger()
     
     # change status of test that the next scheduler will skip this test
     try:

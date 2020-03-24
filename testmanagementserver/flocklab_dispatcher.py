@@ -1124,8 +1124,7 @@ def main(argv):
     try:
         (cn, cur) = flocklab.connect_to_db()
     except:
-        msg = "Could not connect to database"
-        flocklab.error_logandexit(msg, errno.EAGAIN)
+        flocklab.error_logandexit("Could not connect to database", errno.EAGAIN)
     
     # Check test ID:
     ret = flocklab.check_test_id(cur, testid)
@@ -1133,13 +1132,13 @@ def main(argv):
         cur.close()
         cn.close()
         if ret == 3:
-            msg = "Test ID %d does not exist in database." %testid
+            msg = "Test ID %d does not exist in database." % testid
             flocklab.error_logandexit(msg, errno.EINVAL)
         else:
             msg = "Error when trying to get test ID from database: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             flocklab.error_logandexit(msg, errno.EIO)
     else:
-        logger.debug("Checking test ID %d passed"%testid)
+        logger.debug("Checking test ID %d passed" % testid)
     
     # Register signal handler
     signal.signal(signal.SIGTERM,  sigterm_handler)
@@ -1208,12 +1207,25 @@ def main(argv):
             abort = True
             stoptimestamp = time.time()
         
+        # close MySQL connection, otherwise it will time out
+        try:
+            cur.close()
+            cn.close()
+        except:
+            pass
+        
         # Wait for the test to stop ---
         if not abort:
             logger.debug("Waiting for the test to stop... (%ds left)" % (int(stoptimestamp - time.time())))
             while not abort and time.time() < stoptimestamp:
                 time.sleep(0.1)
             logger.debug("Stopping test now...")
+        
+        # Reconnect to the database:
+        try:
+            (cn, cur) = flocklab.connect_to_db()
+        except:
+            flocklab.error_logandexit("Could not connect to database", errno.EAGAIN)
     
     # Stop or abort the test ---
     if abort:

@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-import sys, os, getopt, errno, traceback, logging, time, __main__, shutil, glob, datetime, subprocess, signal
+import sys, os, getopt, errno, traceback, logging, time, __main__, shutil, glob, datetime, subprocess, signal, multiprocessing
 import lib.flocklab as flocklab
 import flocklab_scheduler as scheduler
 
@@ -153,26 +153,10 @@ def main(argv):
             now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
             maxtestcleanuptime = flocklab.config.getint('cleaner', 'max_test_cleanuptime')
             
-            # Check for tests that are still running, but should have been stopped ---
-            sql = """SELECT `serv_tests_key`, `test_status` FROM `tbl_serv_tests` 
-                     WHERE (`test_status` = 'running') AND (`time_end_wish` <= '%s') AND (`dispatched` = 0)
-                  """
-            cur.execute(sql % (now))
-            rs = cur.fetchall()
-            if rs:
-                # start process for each test which has to be stopped
-                for test in rs:
-                    testid = int(test[0])
-                    logger.debug("Call process to stop test %d (status: %s)." %  (testid, test[1]))
-                    p = multiprocessing.Process(target=scheduler.test_startstopabort, args=(testid, True))
-                    p.start()
-            else:
-                logger.debug("No tests found that need to be aborted.")
-            
             # Check for tests that are stuck ---
             sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
-                     WHERE `test_status` IN ('preparing', 'aborting', 'syncing', 'synced')
-                     AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d
+                     WHERE ((`test_status` IN ('preparing', 'aborting', 'syncing', 'synced')) OR (`test_status` = 'running' AND `dispatched` = 1))
+                     AND (TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d)
                   """
             if cur.execute(sql % (now, maxtestcleanuptime)) <= 0:
                 logger.debug("No stuck tests found.")
@@ -190,6 +174,22 @@ def main(argv):
                 emails = flocklab.get_admin_emails(cur)
                 if emails != flocklab.FAILED:
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
+            
+            # Check for tests that are still running, but should have been stopped (NOTE: needs to be AFTER the checking for stuck tests!) ---
+            sql = """SELECT `serv_tests_key`, `test_status` FROM `tbl_serv_tests` 
+                     WHERE (`test_status` = 'running') AND (`time_end_wish` <= '%s') AND (`dispatched` = 0)
+                  """
+            cur.execute(sql % (now))
+            rs = cur.fetchall()
+            if rs:
+                # start process for each test which has to be stopped
+                for test in rs:
+                    testid = int(test[0])
+                    logger.debug("Call process to stop test %d (status: %s)." %  (testid, test[1]))
+                    p = multiprocessing.Process(target=scheduler.test_startstopabort, args=(testid, True))
+                    p.start()
+            else:
+                logger.debug("No tests found that need to be aborted.")
             
             # Check for stuck threads
             cmd = ["ps", "-U", "flocklab", "-o", "pid:5=,cmd:100=,etime="]
@@ -216,7 +216,7 @@ def main(argv):
                             # thread is stuck -> add to list and kill
                             pids.append(str(pid))
                             os.kill(pid, signal.SIGKILL)
-            if len(pids) > 0:Z
+            if len(pids) > 0:
                 msg = "%d stuck threads terminated (PIDs: %s)" % (len(pids), ", ".join(pids))
                 logger.info(msg)
                 emails = flocklab.get_admin_emails(cur)
