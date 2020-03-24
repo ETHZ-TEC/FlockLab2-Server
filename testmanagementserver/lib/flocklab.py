@@ -245,8 +245,7 @@ def get_user_role(cursor=None, userid=0):
 #
 ##############################################################################
 def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
-    if not config:
-        return FAILED
+    config = get_config()
     # Check the arguments:
     if ((type(message) != str) or ((type(recipients) != str) and (type(recipients) != list) and (type(recipients) != tuple)) or (type(attachments) != list)):
         return FAILED
@@ -292,11 +291,11 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
         s.sendmail(config.get('email', 'flocklab_email'), recipients, mail.as_string())
         s.close()
     except:
-        logger = get_logger()
-        logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        if logger:
+            logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         return FAILED
     
-    return (0)
+    return SUCCESS
 ### END send_mail()
 
 
@@ -306,18 +305,18 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
 #
 ##############################################################################
 def batch_send_mail(subject="[FlockLab]", message="", recipients=[], attachments=[]):
-    if not message:
-        return
+    if not message or (type(recipients) != list):
+        return FAILED
     if not recipients:
         # no email provided -> extract all addresses from the database
         try:
           config = get_config()
-          logger = get_logger()
           (cn, cur) = connect_to_db()
           cur.execute("""SELECT email FROM `tbl_serv_users` WHERE is_active=1;""")
           ret = cur.fetchall()
           if not ret:
-              logger.error("failed to get user emails from database")
+              if logger:
+                  logger.error("failed to get user emails from database")
               cur.close()
               cn.close()
               return FAILED
@@ -327,7 +326,8 @@ def batch_send_mail(subject="[FlockLab]", message="", recipients=[], attachments
           cur.close()
           cn.close()
         except Exception as e:
-            logger.error("could not connect to database: " + sys.exc_info()[1][0])
+            if logger:
+                logger.error("could not connect to database: " + sys.exc_info()[1][0])
             return FAILED
     # interactive, user can abort this process at any time
     print("mail content:\n" + message)
@@ -339,11 +339,14 @@ def batch_send_mail(subject="[FlockLab]", message="", recipients=[], attachments
             sys.stdout.flush()
             time.sleep(1)
         print(" ")
-        for usermail in r:
-            send_mail(subject=s, message=msg, recipients=usermail)
-            print("email sent to " + usermail)
+        for usermail in recipients:
+            if send_mail(subject=subject, message=message, recipients=usermail) != SUCCESS:
+                print("failed to send email to %s" % usermail)
+            else:
+                print("email sent to %s" % usermail)
     except KeyboardInterrupt:
         print("\naborted")
+    return SUCCESS
 ### END batch_send_mail()
 
 
@@ -849,16 +852,18 @@ def release_db_lock(cursor, conn, key, expiry_time=10):
 def send_mail_to_admin(message):
     if message is None:
         return FAILED
-    logger = get_logger()
     # Send email to admin:
     try:
         admin_emails = get_admin_emails()
         if admin_emails == FAILED:
-            logger.error("Error when getting admin emails from database")
+            if logger:
+                logger.error("Error when getting admin emails from database")
+            return FAILED
         else:
             send_mail(subject="[FlockLab %s]" % (scriptname.replace('.', '_').split('_')[1].capitalize()), message=message, recipients=admin_emails)
     except:
-        logger.error("error_logandexit(): Failed to send email to admin.")
+        if logger:
+            logger.error("error_logandexit(): Failed to send email to admin.")
         return FAILED
     return SUCCESS
 ### END send_mail_to_admin()

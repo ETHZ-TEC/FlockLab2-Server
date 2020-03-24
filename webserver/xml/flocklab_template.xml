@@ -23,21 +23,21 @@
 
     <!-- Target configuration -->
     <targetConf>
-        <obsIds>2 4 5 7 8</obsIds>
+        <obsIds>2 4 6 7 9</obsIds>
         <voltage>3.3</voltage>
         <embeddedImageId>Image_1</embeddedImageId>
     </targetConf>
 
     <!-- Serial Service configuration -->
     <serialConf>
-        <obsIds>2 4 5 7 8</obsIds>
+        <obsIds>2 4 6 7 9</obsIds>
         <baudrate>115200</baudrate>
         <port>serial</port>
     </serialConf>
 
     <!-- GPIO Tracing Service configuration -->
     <gpioTracingConf>
-        <obsIds>2 4 5 7 8</obsIds>
+        <obsIds>2 4 6 7 9</obsIds>
         <pins>LED1 INT1 INT2</pins>
     </gpioTracingConf>
 
@@ -46,9 +46,9 @@
 
     <!-- Power Profiling Service configuration -->
     <powerProfilingConf>
-        <obsIds>02 04</obsIds>
-        <offset>0</offset>
-        <duration>30</duration>
+        <obsIds>2 4</obsIds>
+        <offset>5</offset>
+        <duration>10</duration>
     </powerProfilingConf>
 
     <embeddedImageConf>
