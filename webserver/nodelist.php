@@ -39,7 +39,7 @@
     });
 </script>
 <h1>Node List (Targets)</h1>
-<?php 
+<?php
   /* Get all status information about the observers from the database and display them in the table. */
   $db = db_connect();
   $sql = "SELECT obs.observer_id, obs.status, obs.last_changed, 

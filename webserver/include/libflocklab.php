@@ -680,7 +680,7 @@ function countries() {
 ##############################################################################
 function get_obsids($platform_fk) {
     $obsids = "";
-    $userrole = get_user_role("rdaforno");
+    $userrole = get_user_role();
     $status = "'online'";
     if (stripos($userrole, "admin") !== false) {
         $status .= ", 'develop', 'internal'";
@@ -715,6 +715,28 @@ function explodeobsids($obsids, $platform_fk=null) {
         }
     }
     return explode(' ', trim(preg_replace('/\s\s+/', ' ', $obsids)));
+}
+
+##############################################################################
+#
+# get_used_observers()
+#    get a list of all currently used observers
+#
+##############################################################################
+function get_used_observers($platform_fk) {
+    $obsids = [];
+    $now = time();
+    $db = db_connect();
+    $sql = "SELECT b.`observer_id` as obsid FROM flocklab.tbl_serv_observer AS b
+            LEFT JOIN flocklab.tbl_serv_resource_allocation AS a ON b.serv_observer_key = a.observer_fk
+            WHERE UNIX_TIMESTAMP(a.`time_start`) < ".$now." AND UNIX_TIMESTAMP(a.`time_end`) > ".$now."
+            ORDER BY obsid;";
+    $res = mysqli_query($db, $sql);
+    if ($res) {
+        $obsids = array_unique(array_column(mysqli_fetch_all($res, MYSQLI_ASSOC), "obsid"));
+    }
+    mysqli_close($db);
+    return $obsids;
 }
 
 ##############################################################################

@@ -20,8 +20,14 @@
           ORDER BY observer_id;";
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get observer information from database because: ' . mysqli_error($db));
   mysqli_close($db);
+  
+  // get currently used observers
+  $obslist = get_used_observers();
   $js = '';
   while ($row = mysqli_fetch_array($rs)) {
+      if (in_array($row['observer_id'], $obslist)) {
+          $row['status'] = 'in use';
+      }
       $js.='$(sensornodes).each(function(){ if (this.node_id=='.$row['observer_id'].') { this.status="'.$row['status'].'"}});'."\n";
   }
 ?>
@@ -43,7 +49,7 @@
 
         force.node.add(pv.Dot)
         .shapeSize(function(d) {return 230;})
-        .fillStyle(function(d) { return d.status=='online'?"green":(d.status=='offline'?"red":"grey"); })
+        .fillStyle(function(d) { return d.status=='online'?"green":(d.status=='offline'?"red":(d.status=='in use'?"yellow":"grey")); })
         .strokeStyle(function() {return this.fillStyle().darker()})
         .lineWidth(1)
         .left(function(d) {return d.x})
@@ -58,11 +64,10 @@
         
         vis.render();
         
-        // interactive platform names
-        $('.targetplatform').bind('mouseover', function(event) {
-            $('.targetplatform').removeClass('bold');
-            $('.targetplatform:contains(' + $(this).text()+')').addClass('bold');
-        });
+        // refresh this page in 30 seconds
+        setTimeout(function() {
+            location.reload();
+        }, 30000);
     });
 </script>
 <h1>Observer Status</h1>

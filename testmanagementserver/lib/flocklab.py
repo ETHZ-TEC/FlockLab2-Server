@@ -620,7 +620,7 @@ def get_obsids(cursor=None, platform=None, status=None):
                        """ % (status, platform.lower()))
     obslist = []
     for rs in cursor.fetchall():
-        obslist.append(rs[0].lstrip('0'))   # remove leading zeros
+        obslist.append(str(rs[0]).lstrip('0'))   # remove leading zeros
     return map(str, obslist)    # return as list of strings
 ### END get_obsids()
 
