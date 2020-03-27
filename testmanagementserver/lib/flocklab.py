@@ -273,6 +273,9 @@ def send_mail(subject="[FlockLab]", message="", recipients="", attachments=[]):
     else:
         return FAILED
     
+    if logger:
+        logger.debug("Sending mail to %s..." % (mail['To']))
+    
     # If there are attachments, attach them to the email:
     for path in attachments:
         fp = open(path, 'rb')

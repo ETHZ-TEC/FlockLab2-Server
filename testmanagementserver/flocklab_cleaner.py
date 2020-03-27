@@ -145,7 +145,7 @@ def main(argv):
                     path = os.path.join(vizdir, f)
                     if os.stat(path).st_mtime < earliest_keeptime:
                         logger.debug("Removing plots %s..." % path)
-                        shutil.rmtree(path)
+                        os.remove(path)
             else:
                 logger.debug("Directory '%s' does not exist." % vizdir)
             
