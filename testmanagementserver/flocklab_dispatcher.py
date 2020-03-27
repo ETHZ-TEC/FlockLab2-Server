@@ -756,7 +756,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
                 warnings.append(msg)
                 thread.abort()
         # Wait again for the aborted threads:
-        for (thread, obskey) in thread_list:    
+        for (thread, obskey) in thread_list:
             thread.join(timeout=10)
             if thread.isAlive():
                 msg = "Thread for test stop on observer ID %s is still alive but should be aborted now." %(str(obsdict_key[obskey][1]))
@@ -1216,7 +1216,7 @@ def main(argv):
         
         # Wait for the test to stop ---
         if not abort:
-            logger.debug("Waiting for the test to stop... (%ds left)" % (int(stoptimestamp - time.time())))
+            logger.info("Waiting for the test to stop... (%ds left)" % (int(stoptimestamp - time.time())))
             while not abort and time.time() < stoptimestamp:
                 time.sleep(0.1)
             logger.debug("Stopping test now...")
@@ -1284,9 +1284,9 @@ def main(argv):
         for e in err:
             errors.append(e)
         # Evaluate link measurement:
-        err = evalute_linkmeasurement(testid, cur)
-        for e in err:
-            errors.append(e)
+        #err = evalute_linkmeasurement(testid, cur)
+        #for e in err:
+        #    errors.append(e)
         if len(errors) == 0:
             status = 'finished'
     
