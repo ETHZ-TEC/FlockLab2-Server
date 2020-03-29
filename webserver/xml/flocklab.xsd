@@ -214,6 +214,7 @@
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
     <xs:element name="pins" type="pinTracingListType" minOccurs="1" maxOccurs="1"/>
+    <xs:element name="offset" type="offsetSecsType" minOccurs="0" maxOccurs="1"/>
   </xs:sequence>
 </xs:complexType>
 

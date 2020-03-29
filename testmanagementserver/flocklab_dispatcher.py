@@ -471,9 +471,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     for gmconf in gmconfs:
                         obsids = gmconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
                         pinlist = gmconf.xpath('d:pins', namespaces=ns)
+                        offset = gmconf.xpath('d:offset', namespaces=ns)
                         xmlblock = "<obsGpioMonitorConf>\n"
                         if pinlist:
                             xmlblock += "\t<pins>" + pinlist[0].text.strip() + "</pins>\n"
+                        if offset:
+                            xmlblock += "\t<offset>" + offset[0].text.strip() + "</offset>\n"
                         xmlblock += "</obsGpioMonitorConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)
