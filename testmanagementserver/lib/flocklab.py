@@ -48,7 +48,7 @@ def load_config():
     global config
     if config:
         if logger:
-            logger.warn("Config already loaded")
+            logger.warning("Config already loaded")
         return SUCCESS
     config = get_config()
     if not config:
@@ -85,7 +85,7 @@ def get_config():
 def init_logger(loggername=scriptname):
     global logger
     if logger:
-        logger.warn("Logger already initialized.")
+        logger.warning("Logger already initialized.")
         return SUCCESS        # already initialized
     logger = get_logger(loggername)
     if not logger:
@@ -137,7 +137,7 @@ def log_error(msg=""):
 
 def log_warning(msg=""):
     global logger
-    logger.warn(msg)
+    logger.warning(msg)
 ### END log_warning()
 
 def log_debug(msg=""):
@@ -1118,7 +1118,7 @@ def parse_int(s):
             res = int(float(s.strip())) # higher success rate if first parsed to float
         except ValueError:
             if logger:
-                logger.warn("Could not parse %s to int." % (str(s)))
+                logger.warning("Could not parse %s to int." % (str(s)))
     return res
 ### END parse_int()
 
@@ -1187,6 +1187,7 @@ def patch_binary(symbol=None, value=None, binaryfile=None, arch=None):
 ##############################################################################
 #
 # bin_to_hex()   converts a binary (ELF) file to Intel hex format
+#                -> as alternative, use intelhex python module
 #
 ##############################################################################
 def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
@@ -1225,3 +1226,34 @@ def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
 
     return SUCCESS
 ### END bin_to_hex()
+
+
+##############################################################################
+#
+# is_hex_file()   checks whether the file is an intel hex file (basic checks only!)
+#
+##############################################################################
+def is_hex_file(filename=None, data=None):
+    if filename == None and data == None:
+        return FAILED
+    if (filename != None and not os.path.isfile(filename)):
+        return FAILED
+    try:
+        if filename != None:
+            f = open(filename, 'rb')
+            data = f.read()
+            f.close()
+        # try to decode as ASCII, if it fails then this is not a hex file
+        decoded_data = data.decode('ascii')
+        lines = decoded_data.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line == "":
+                continue
+            if len(line.strip()) > 44 or line[0] != ':':
+                return False
+        return True
+    except:
+        pass   # not a valid hex file
+    return False
+### END is_hex_file()

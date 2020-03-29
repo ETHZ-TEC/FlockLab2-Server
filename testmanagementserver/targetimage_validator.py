@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, os, getopt, errno, subprocess, MySQLdb, syslog, configparser, traceback
+import sys, os, getopt, errno, subprocess, MySQLdb, syslog, configparser, traceback, intelhex, re
 import lib.flocklab as flocklab
 
 
@@ -42,14 +42,14 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hqi:p:c:", ["help", "quiet", "image=", "platform=", "core="])
     except getopt.GetoptError as err:
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     for opt, arg in opts:
         if opt in ("-i", "--image"):
             imagepath = arg
             if (not os.path.exists(imagepath) or not os.path.isfile(imagepath)):
-                logger.warn("Wrong API usage: image binary file does not exist")
+                logger.warning("Wrong API usage: image binary file does not exist")
                 sys.exit(errno.EINVAL)
         elif opt in ("-p", "--platform"):
             platform = arg
@@ -64,17 +64,33 @@ def main(argv):
             if not quiet:
                 print("Wrong API usage")
                 usage()
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
     # Check mandatory arguments:
     if ((imagepath == None) or (platform == None)):
         if not quiet:
             print("Wrong API usage")
             usage()
-        logger.warn("Wrong API usage")
+        logger.warning("Wrong API usage")
         sys.exit(errno.EINVAL)
     
-    # Connect to the DB:
+    # Just basic checking for Intel HEX files ---
+    if "hex" in os.path.splitext(imagepath)[1].lower() or flocklab.is_hex_file(imagepath) == True:
+        logger.info("Hex file detected.")
+        try:
+            hexfile = intelhex.IntelHex(imagepath)
+            segs = hexfile.segments()
+            binarysize = 0
+            for seg in segs:
+                binarysize = binarysize + (seg[1] - seg[0])
+            logger.info("Binary size is %d bytes." % binarysize)
+        except:
+            logger.warning("Parsing the hex file failed.")
+            sys.exit(flocklab.FAILED)
+        sys.exit(flocklab.SUCCESS)
+    
+    # ELF file checking below ---
+    
     try:
         (cn, cur) = flocklab.connect_to_db()
     except:
@@ -88,8 +104,8 @@ def main(argv):
     cur.execute(sql %(str(platform).lower(), core))
     ret = cur.fetchone()
     if not ret:
-        err_str = "Could not find platform %s in database. Exiting..." % (str(platform)) 
-        logger.warn(err_str)
+        err_str = "Could not find platform %s in database. Exiting..." % (str(platform))
+        logger.warning(err_str)
         if not quiet:
             print(err_str)
         cn.close()
@@ -123,7 +139,7 @@ def main(argv):
         ret = flocklab.SUCCESS
     else:
         err_str = "Target image validation failed. Please check your target image."
-        logger.debug(err_str)
+        logger.warning(err_str)
         if not quiet:
             print(err_str)
         ret = errno.EBADMSG

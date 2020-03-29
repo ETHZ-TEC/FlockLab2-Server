@@ -135,10 +135,10 @@ class UpdateSlotAssignThread(threading.Thread):
                     self.Queue.put(msg)
 
                 except MySQLdb.Error as err:
-                    self.Logger.warn(str(err))
+                    self.Logger.warning(str(err))
                     sys.exit(errno.EIO)
                 except:
-                    self.Logger.warn("Error updating serial ID: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+                    self.Logger.warning("Error updating serial ID: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
                 finally:
                     cur.close()
                     cn.close()
@@ -179,11 +179,11 @@ def main(argv):
         opts, args = getopt.getopt(argv, "hds:m:fo:de", ["help", "debug", "searchtime", "maxretries", "force", "observer", "develop", "email"])
     except getopt.GetoptError as err:
         print((str(err)))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
-        logger.warn("Error %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.warning("Error %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         sys.exit(errno.EINVAL)
     for opt, arg in opts:
         if opt in ("-h", "--help"):
@@ -198,7 +198,7 @@ def main(argv):
                 if (searchtime <= 0.0):
                     raise ValueError
             except:
-                logger.warn("Wrong API usage: %s" %str(arg))
+                logger.warning("Wrong API usage: %s" %str(arg))
                 usage()
                 sys.exit(errno.EINVAL)
         elif opt in ("-f", "--force"):
@@ -219,14 +219,14 @@ def main(argv):
                 if (maxretries < 0):
                     raise ValueError
             except:
-                logger.warn("Wrong API usage: %s" %str(arg))
+                logger.warning("Wrong API usage: %s" %str(arg))
                 usage()
                 sys.exit(errno.EINVAL)
         elif opt in ("-e", "--email"):
             email = True
         else:
             print("Wrong API usage")
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             usage()
             sys.exit(errno.EINVAL)
 
@@ -263,10 +263,10 @@ def main(argv):
                 """ % (status, observer)
             cur.execute(sql)
         except MySQLdb.Error as err:
-            logger.warn(str(err))
+            logger.warning(str(err))
             sys.exit(errno.EIO)
         except:
-            logger.warn("Error %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+            logger.warning("Error %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         rs = cur.fetchall()
         cur.close()
         cn.close()
@@ -280,7 +280,7 @@ def main(argv):
                 threadlist.append(t)
                 t.start()
             except:
-                logger.warn("Error when starting thread for observer %s: %s: %s" % (observerdata[1], str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+                logger.warning("Error when starting thread for observer %s: %s: %s" % (observerdata[1], str(sys.exc_info()[0]), str(sys.exc_info()[1])))
                 continue
         # Wait for threads to finish:
         logger.debug("Joining threads")
@@ -292,9 +292,9 @@ def main(argv):
                     thread_timeoutadd = 0
                 t.join(timeout=(10 + thread_timeoutadd))
                 if t.isAlive():
-                    logger.warn("Timeout when joining thread - is still alive...")
+                    logger.warning("Timeout when joining thread - is still alive...")
             except:
-                logger.warn("Error when joining threads...")
+                logger.warning("Error when joining threads...")
                 continue
         # Get all messages from the threads which are now in the queue and send them to the admin:
         try:
@@ -315,7 +315,7 @@ def main(argv):
                 else:
                     print(msg)
         except:
-            logger.warn("Error when sending change notifications to admin. %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+            logger.warning("Error when sending change notifications to admin. %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
 
     logger.debug("Slot assignment updater finished.")
 

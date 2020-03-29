@@ -46,7 +46,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "ehdt:", ["email", "help", "debug", "testid=" ])
     except getopt.GetoptError as err:
         print(str(err))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -67,15 +67,15 @@ def main(argv):
                 if testid <= 0:
                     raise
             except:
-                logger.warn("Wrong API usage: testid has to be a positive number")
+                logger.warning("Wrong API usage: testid has to be a positive number")
                 sys.exit(errno.EINVAL)
         else:
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
 
     # Check if necessary parameters are set ---
     if ((testid == -1)):
-        logger.warn("Wrong API usage")
+        logger.warning("Wrong API usage")
         sys.exit(errno.EINVAL)
         
     # Add Test ID to logger name ---
@@ -146,10 +146,10 @@ def main(argv):
         try:
             nice_level = flocklab.config.getint('archiver', 'nice_level')
         except:
-            logger.warn("Could not read nice_level from config file. Setting level to 10.")
+            logger.warning("Could not read nice_level from config file. Setting level to 10.")
             nice_level = 10
         if nice_level not in list(range(0,20)):
-            logger.warn("Defined nice_level %d from config file is out of bounds. Setting level to 10."%nice_level)
+            logger.warning("Defined nice_level %d from config file is out of bounds. Setting level to 10."%nice_level)
             nice_level = 10
         tarcmd = ['tar', 'cf', '-', '-C', os.path.dirname(testresultsdir)]
         tarcmd.extend(resultparts)

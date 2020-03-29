@@ -94,7 +94,7 @@ def sigterm_handler(signum, frame):
         try:
             thread.join(shutdown_timeout)
         except:
-            logger.warn("Fetcher thread did not stop within %d seconds." % shutdown_timeout)
+            logger.warning("Fetcher thread did not stop within %d seconds." % shutdown_timeout)
     # Set DB status:
     logger.debug("Setting test status in DB to 'syncing'...")
     try:
@@ -103,7 +103,7 @@ def sigterm_handler(signum, frame):
         cur.close()
         cn.close()
     except:
-        logger.warn("Could not connect to database.")
+        logger.warning("Could not connect to database.")
     
     # Tell the main loop to stop:
     mainloop_stop = True
@@ -494,7 +494,7 @@ class FetchObsThread(threading.Thread):
                                     # Make sure the file is downloaded again at a later point:
                                     copyfilelist.remove(f)
                                     os.unlink("%s/%s" % (self._obsfiledir, fname))
-                                    self._logger.warn(self._loggerprefix + "FetchObsThread queue is full. Cannot put %s/%s on it." % (self._obsfiledir, fname))
+                                    self._logger.warning(self._loggerprefix + "FetchObsThread queue is full. Cannot put %s/%s on it." % (self._obsfiledir, fname))
                             # Remove remote files if any are left:
                             if (len(copyfilelist) > 0):
                                 cmd = ['ssh' ,'%s'%(self._obsethernet), "cd %s;"%self._obstestresfolder, "rm"]
@@ -562,7 +562,7 @@ def start_fetcher():
         msg = str(err)
         flocklab.error_logandexit(msg, errno.EIO)
     except:
-        logger.warn("Error %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.warning("Error %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
     rs = cur.fetchall()
     cur.close()
     cn.close()
@@ -599,7 +599,7 @@ def start_fetcher():
             thread.start()
             logger.debug("Started fetcher thread for observer %d" % (obsid))
         except:
-            logger.warn("Error when starting fetcher thread for observer %d: %s, %s" % (obsid, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+            logger.warning("Error when starting fetcher thread for observer %d: %s, %s" % (obsid, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
             continue
     
     return flocklab.SUCCESS
@@ -636,7 +636,7 @@ def stop_fetcher():
                 # check if there is a remaining fetcher process
                 pid = flocklab.get_fetcher_pid(testid)
                 if pid > 0 and pid != os.getpid():
-                    logger.warn("Found a remaining fetcher thread with PID %d, killing it now..." % (pid))
+                    logger.warning("Found a remaining fetcher thread with PID %d, killing it now..." % (pid))
                     os.kill(pid, signal.SIGKILL)
                 raise ValueError
         else:
@@ -650,7 +650,7 @@ def stop_fetcher():
             cur.close()
             cn.close()
         except:
-            logger.warn("Could not connect to database.")
+            logger.warning("Could not connect to database.")
         return errno.ENOPKG
     
     return flocklab.SUCCESS
@@ -756,7 +756,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "hedt:", ["help", "stop", "debug", "testid="])
     except getopt.GetoptError as err:
         print(str(err))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -775,20 +775,20 @@ def main(argv):
             except ValueError:
                 err = "Wrong API usage: testid has to be integer"
                 print(str(err))
-                logger.warn(str(err))
+                logger.warning(str(err))
                 usage()
                 sys.exit(errno.EINVAL)
         elif opt in ("-e", "--stop"):
             stop = True
         else:
             print("Wrong API usage")
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
     
     # Check if the necessary parameters are set ---
     if not testid:
         print("Wrong API usage")
-        logger.warn("Wrong API usage")
+        logger.warning("Wrong API usage")
         sys.exit(errno.EINVAL)
         
     # Check if the Test ID exists in the database ---
@@ -940,7 +940,7 @@ def main(argv):
             thread = LogQueueThread(logqueue, logger, LogQueueThread_stopEvent)
             thread.start()
         except:
-            logger.warn("Error when starting log queue thread: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+            logger.warning("Error when starting log queue thread: %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         
         # Determine the number of CPU's to be used for each aggregating process. If a service is not used, its CPUs are assigned to other services
         cpus_free = 0
@@ -983,7 +983,7 @@ def main(argv):
         
         service_pools_dict = { 'logs': cpus_logs, 'serial': cpus_serial, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling }
         if (cpus_total > multiprocessing.cpu_count()):
-            logger.warn("Number of requested CPUs for all aggregating processes (%d) is higher than number of available CPUs (%d) on system." % (cpus_total, multiprocessing.cpu_count()))
+            logger.warning("Number of requested CPUs for all aggregating processes (%d) is higher than number of available CPUs (%d) on system." % (cpus_total, multiprocessing.cpu_count()))
         
         # Start a worker process pool for every service:
         for service, cpus in service_pools_dict.items():
@@ -1057,7 +1057,7 @@ def main(argv):
                 worker_args = [nextitem, nodeid, testresultsfile_dict['timesynclog'][0], logqueue, None]
                 worker_f    = worker_logs
             else:
-                logger.warn(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
+                logger.warning(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
                 continue
             # Schedule worker function from the service's pool. The result will be reported to the callback function.
             pool.apply_async(func=worker_f, args=tuple(worker_args), callback=callback_f)
@@ -1085,7 +1085,7 @@ def main(argv):
             cur.close()
             cn.close()
         except:
-            logger.warn("Could not connect to database.")
+            logger.warning("Could not connect to database.")
         
         # Delete the obsfile directories as they are not needed anymore:
         if ((obsfiledir != None) and (os.path.exists(obsfiledir))):

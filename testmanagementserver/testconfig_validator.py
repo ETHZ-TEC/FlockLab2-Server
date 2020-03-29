@@ -110,7 +110,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hqu:s:x:t:", ["help", "quiet", "userid=", "schema=", "xml=", "testid="])
     except getopt.GetoptError as err:
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     for opt, arg in opts:
@@ -120,7 +120,7 @@ def main(argv):
                 if userid <= 0:
                     raise
             except:
-                logger.warn("Wrong API usage: userid has to be a positive number")
+                logger.warning("Wrong API usage: userid has to be a positive number")
                 sys.exit(errno.EINVAL)
         elif opt in ("-t", "--testid"):
             try:
@@ -128,17 +128,17 @@ def main(argv):
                 if testid <= 0:
                     raise
             except:
-                logger.warn("Wrong API usage: testid has to be a positive number")
+                logger.warning("Wrong API usage: testid has to be a positive number")
                 sys.exit(errno.EINVAL)
         elif opt in ("-s", "--schema"):
             schemapath = arg
             if (not os.path.exists(schemapath) or not os.path.isfile(schemapath)):
-                logger.warn("Wrong API usage: schema file '%s' does not exist" % schemapath)
+                logger.warning("Wrong API usage: schema file '%s' does not exist" % schemapath)
                 sys.exit(errno.EINVAL)
         elif opt in ("-x", "--xml"):
             xmlpath = arg
             if (not os.path.exists(xmlpath) or not os.path.isfile(xmlpath)):
-                logger.warn("Wrong API usage: XML file '%s' does not exist" % xmlpath)
+                logger.warning("Wrong API usage: XML file '%s' does not exist" % xmlpath)
                 sys.exit(errno.EINVAL)
         elif opt in ("-h", "--help"):
             usage()
@@ -149,7 +149,7 @@ def main(argv):
             if not quiet:
                 print("Wrong API usage")
                 usage()
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
     
     # Check mandatory arguments:
@@ -157,7 +157,7 @@ def main(argv):
         if not quiet:
             print("Wrong API usage")
             usage()
-        logger.warn("Wrong API usage")
+        logger.warning("Wrong API usage")
         sys.exit(errno.EINVAL)
     
     # Set the schemapath:
@@ -171,7 +171,7 @@ def main(argv):
     except:
         if not quiet:
             print("xmllint not found!")
-        logger.warn("xmllint not found!")
+        logger.warning("xmllint not found!")
         sys.exit(errno.EINVAL)
     
     # Connect to the DB:
@@ -185,7 +185,7 @@ def main(argv):
         userid = flocklab.get_test_owner(cur, testid)[0]
     userrole = flocklab.get_user_role(cur, userid)
     if userrole is None:
-        logger.warn("Could not determine role for user ID %d." % userid)
+        logger.warning("Could not determine role for user ID %d." % userid)
         sys.exit(errno.EAGAIN)
     
     # Valid stati for observers based on used permissions

@@ -237,7 +237,7 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv, "hd", ["help", "debug"])
     except getopt.GetoptError as err:
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -251,7 +251,7 @@ def main(argv):
         elif opt in ("-d", "--debug"):
             logger.setLevel(logging.DEBUG)
         else:
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
     
     # Connect to the DB ---

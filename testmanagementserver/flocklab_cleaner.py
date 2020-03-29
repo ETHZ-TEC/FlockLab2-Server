@@ -36,7 +36,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "dh", ["debug", "help"])
     except getopt.GetoptError as err:
         print(str(err))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -50,7 +50,7 @@ def main(argv):
             usage()
             sys.exit(flocklab.SUCCESS)
         else:
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
     
     # Allow only x instances ---
@@ -204,7 +204,7 @@ def main(argv):
                         command = line[6:106].strip()
                         runtime = line[106:].strip()
                     except:
-                        logger.warn("Failed to parse output of 'ps'. Line was: '%s'" % line)
+                        logger.warning("Failed to parse output of 'ps'. Line was: '%s'" % line)
                         break
                     if "testid=" in command:
                         testid = int(command.split('testid=', 1)[1].split()[0])

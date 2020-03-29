@@ -155,7 +155,7 @@ def update_configuration_from_db():
         logger.error(msg)
         flocklab.error_logandexit(msg, errno.EIO)
     except:
-        logger.warn("Error %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+        logger.warning("Error %s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
         raise
 ### END update_configuration_from_db
 
@@ -418,7 +418,7 @@ def sig_proxy(signum):
         if (pid == os.getpid()):
             return errno.ENOPKG
     else:
-        logger.warn("Command failed: %s" % (str(cmd)))
+        logger.warning("Command failed: %s" % (str(cmd)))
         return errno.ENOPKG
     # Signal the process to stop:
     if (pid > 0):
@@ -434,10 +434,10 @@ def sig_proxy(signum):
                     time.sleep(1)
                     shutdown_timeout = shutdown_timeout - 1
                 if os.path.exists(pidpath):
-                    logger.warn("Serial proxy is still running, sending it the SIGKILL signal...")
+                    logger.warning("Serial proxy is still running, sending it the SIGKILL signal...")
                     os.kill(pid, signal.SIGKILL)
         except:
-            logger.warn("Failed to send SIGKILL: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
+            logger.warning("Failed to send SIGKILL: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
     
     return flocklab.SUCCESS
 ### END sig_proxy
@@ -485,7 +485,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "hnsed", ["help", "notify", "start", "stop", "debug"])
     except getopt.GetoptError as err:
         print(str(err))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -506,7 +506,7 @@ def main(argv):
             notify = True
         else:
             print("Wrong API usage")
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
     
     # Start / stop the proxy ---

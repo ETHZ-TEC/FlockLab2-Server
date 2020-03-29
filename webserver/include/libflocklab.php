@@ -1308,7 +1308,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 $time_elapsed_secs = microtime(true) - $locktime;
                 echo "<!-- db lock time was ".$time_elapsed_secs." s -->";
                 // Ask the FlockLab scheduler to check for work:
-                trigger_scheduler();
+                trigger_scheduler(true);
             }
         }
     }

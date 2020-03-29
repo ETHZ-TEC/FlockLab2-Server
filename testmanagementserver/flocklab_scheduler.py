@@ -111,7 +111,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "dh", ["debug", "help"])
     except getopt.GetoptError as err:
         print(str(err))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -125,7 +125,7 @@ def main(argv):
             usage()
             sys.exit(flocklab.SUCCESS)
         else:
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
             
     # Connect to the database ---

@@ -289,31 +289,38 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 # Prepare image ---
                 (fd, imagepath) = tempfile.mkstemp()
                 binpath = "%s.ihex" % (os.path.splitext(imagepath)[0])
-                imagefile = os.fdopen(fd, 'w+b')
-                imagefile.write(binary)
-                imagefile.close()
-                logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" % (str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
                 
-                logger.debug("Found %s target architecture on platform %s for observer ID %s (node ID to be used: %s)." % (arch, platname, str(obs_id), str(node_id)))
-                
-                # binary patching
-                if (node_id != None):
-                    # set node ID
-                    if flocklab.patch_binary("FLOCKLAB_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
-                        msg = "Failed to patch symbol FLOCKLAB_NODE_ID in binary file %s." % (imagepath)
+                # First, check if image is already in hex format ---
+                if flocklab.is_hex_file(data=binary):
+                    f = open(binpath, "wb")
+                    f.write(binary)
+                    f.close()
+                else:
+                    imagefile = os.fdopen(fd, 'w+b')
+                    imagefile.write(binary)
+                    imagefile.close()
+                    logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" % (str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
+                    
+                    logger.debug("Found %s target architecture on platform %s for observer ID %s (node ID to be used: %s)." % (arch, platname, str(obs_id), str(node_id)))
+                    
+                    # binary patching
+                    if (node_id != None):
+                        # set node ID
+                        if flocklab.patch_binary("FLOCKLAB_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
+                            msg = "Failed to patch symbol FLOCKLAB_NODE_ID in binary file %s." % (imagepath)
+                            errors.append(msg)
+                            logger.error(msg)
+                        if flocklab.patch_binary("TOS_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
+                            msg = "Failed to patch symbol TOS_NODE_ID in binary file %s." % (imagepath)
+                            errors.append(msg)
+                            logger.error(msg)
+                    # convert elf to intel hex
+                    if flocklab.bin_to_hex(imagepath, arch, binpath) != flocklab.SUCCESS:
+                        msg = "Failed to convert image file %s to Intel hex format." % (imagepath)
                         errors.append(msg)
                         logger.error(msg)
-                    if flocklab.patch_binary("TOS_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
-                        msg = "Failed to patch symbol TOS_NODE_ID in binary file %s." % (imagepath)
-                        errors.append(msg)
-                        logger.error(msg)
-                # convert elf to intel hex
-                if flocklab.bin_to_hex(imagepath, arch, binpath) != flocklab.SUCCESS:
-                    msg = "Failed to convert image file %s to Intel hex format." % (imagepath)
-                    errors.append(msg)
-                    logger.error(msg)
-                    shutil.move(imagepath, binpath)
-                    logger.debug("Copied binary file without modification.")
+                        shutil.move(imagepath, binpath)
+                        logger.debug("Copied binary file without modification.")
                 
                 # Remove the original file which is not used anymore:
                 if os.path.exists(imagepath):
@@ -328,15 +335,15 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     logger.debug("Found adapter for %s on observer ID %s in slot %d" % (platname, obs_id, slot))
                 elif ret == 0:
                     slot = None
-                    msg = "Could not find an adapter for %s on observer ID %s" %(platname, obs_id)
+                    msg = "Could not find an adapter for %s on observer ID %s" % (platname, obs_id)
                     errors.append(msg)
                     logger.error(msg)
                 else:
                     slot = None
-                    msg = "Error when detecting adapter for %s on observer ID %s: function returned %d" %(platname, obs_id, ret)
+                    msg = "Error when detecting adapter for %s on observer ID %s: function returned %d" % (platname, obs_id, ret)
                     errors.append(msg)
                     logger.error(msg)
-                        
+                
                 # Write the dictionary for the image:
                 if not obs_fk in imagedict_key:
                     imagedict_key[obs_fk] = []
@@ -346,7 +353,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 
             # XML processing ---
             # Get the XML config from the database and generate a separate file for every observer used:
-            cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
+            cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" % testid)
             ret = cur.fetchone()
             if not ret:
                 msg = "No XML found in database for testid %d." %testid
@@ -735,7 +742,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         # Stop test on observers ---
         if not db_register_activity(testid, cur, cn, 'stop', iter(obsdict_key.keys())):
             msg = "Some observers were occupied while stopping test."
-            logger.warn(msg)
+            logger.warning(msg)
             warnings.append(msg)
         # Start a thread for each observer which calls the test stop script on the observer
         logger.info("Stopping test on observers...")
@@ -854,7 +861,7 @@ def prepare_testresults(testid, cur):
             et.write("%s/testconfig.xml" % testresultsdir, pretty_print=True)
             logger.debug("XML config copied to results folder.")
         else:
-            logger.warn("Could not copy XML config to test results directory.")
+            logger.warning("Could not copy XML config to test results directory.")
     
     # Generate plot ---
     if flocklab.config.getint('viz', 'generate_plots'):
@@ -1084,7 +1091,7 @@ def main(argv):
         opts, args = getopt.getopt(argv, "adht:", ["abort", "debug", "help", "testid="])
     except getopt.GetoptError as err:
         print(str(err))
-        logger.warn(str(err))
+        logger.warning(str(err))
         usage()
         sys.exit(errno.EINVAL)
     except:
@@ -1106,15 +1113,15 @@ def main(argv):
             except:
                 testid = 0
             if testid <= 0:
-                logger.warn("Wrong API usage: testid has to be a positive number")
+                logger.warning("Wrong API usage: testid has to be a positive number")
                 sys.exit(errno.EINVAL)
         else:
-            logger.warn("Wrong API usage")
+            logger.warning("Wrong API usage")
             sys.exit(errno.EINVAL)
 
     # Check if the necessary parameters are set: testid and either start, stop or abort has to be specified but not all.
     if not testid:
-        logger.warn("Wrong API usage")
+        logger.warning("Wrong API usage")
         sys.exit(errno.EINVAL)
 
     # Add testid to logger name
@@ -1184,7 +1191,7 @@ def main(argv):
         cn.commit()
         if len(errors) != 0:
             # Test start failed. Make it abort:
-            logger.warn("Going to abort test because of errors when trying to start it.")
+            logger.warning("Going to abort test because of errors when trying to start it.")
             abort = True
         # Inform user:
         ret = inform_user(testid, cur, action, errors, warnings)
@@ -1240,7 +1247,7 @@ def main(argv):
                 SET `cleanuptime` = %d
                 WHERE `serv_tests_key` = %d;
             """
-    cur.execute(sql%(int(time_needed), testid))
+    cur.execute(sql % (int(time_needed), testid))
     cn.commit()
     
     # Inform user:

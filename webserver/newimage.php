@@ -82,15 +82,15 @@
       <form id="uploadform" name="uploadform" method="post" action="newimage.php" enctype="multipart/form-data">
       <fieldset>
         <legend>Upload new test image</legend>
-        <span class="formfield qtip_show" title="Provide file in ELF (Executable and Linkable Format) such as exe, srec or sba.">Image File (ELF):*</span><input type="file" name="imagefile" id="imagefile" size="27" class="required"><br />
+        <span class="formfield qtip_show" title="Provide file in ELF (Executable and Linkable Format) or Intel hex format. Note that binary patching (assigning node IDs) is only supported with ELF files.">Image File (ELF/hex):*</span><input type="file" name="imagefile" id="imagefile" size="27" class="required"><br />
         <span class="formfield">Name:*</span><input type="text" name="name" size="27" class="required" value="'.(isset($_POST['name'])?htmlentities($_POST['name']):'').'"><br />
         <span class="formfield">Description:</span><textarea name="description" size="27">'.(isset($_POST['description'])?htmlentities($_POST['description']):'').'</textarea><br />
         <span class="formfield">Platform:*</span><select name="platform" class="required"><option />';
-    foreach(get_available_platforms() as $key => $platform) {
-      foreach($platform as $pcore) {
-          $cdesc = strlen($pcore['core_desc'])>0?': '.$pcore['core_desc']:'';
+    foreach (get_available_platforms() as $key => $platform) {
+      foreach ($platform as $pcore) {
+          $cdesc = strlen($pcore['core_desc']) > 0 ? ': '.$pcore['core_desc'] : '';
           $corekey = $key.'_'.$pcore['core'];
-          echo '<option value="'.$corekey.'"'.(isset($_POST['platform']) && $_POST['platform']==$key?' selected="true"':'').'>'.$pcore['name'].$cdesc.'</option>';
+          echo '<option value="'.$corekey.'"'.(isset($_POST['platform']) && $_POST['platform']==$corekey ? ' selected="true"' : '').'>'.$pcore['name'].$cdesc.'</option>';
       }
     }
     echo '</select><br />

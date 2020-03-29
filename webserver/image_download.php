@@ -13,16 +13,23 @@
 <?php
 if (isset($_POST['imageid']) && is_numeric($_POST['imageid']) && check_imageid($_POST['imageid'],$_SESSION['serv_users_key'])) {
   $db = db_connect();
-  $sql =  "SELECT `binary`, p.`name` `platform`
-    FROM tbl_serv_targetimages i
-    left join tbl_serv_platforms p on (i.platforms_fk = p.serv_platforms_key)
-    WHERE ".($_SESSION['is_admin']?"":("owner_fk = " . $_SESSION['serv_users_key'] . " AND "))."`serv_targetimages_key`=".mysqli_real_escape_string($db, $_POST['imageid']);
+  $sql =  "SELECT `binary`, p.`name` `platform`, `core`
+           FROM tbl_serv_targetimages i
+           LEFT JOIN tbl_serv_platforms p on (i.platforms_fk = p.serv_platforms_key)
+           WHERE ".($_SESSION['is_admin']?"":("owner_fk = " . $_SESSION['serv_users_key'] . " AND "))."`serv_targetimages_key`=".mysqli_real_escape_string($db, $_POST['imageid']);
   $res = mysqli_query($db, $sql);
   if ($res !== false) {
     $row = mysqli_fetch_assoc($res);
+    $fileext = ".exe";
+    if (!preg_match('/[^a-zA-Z0-9:\s]+/', $row['binary']) && $row['binary'][0] == ':') {
+      $fileext = ".hex";
+    }
+    // for platform DPP append the core
+    $coredict = ['cc430', 'bolt', 'msp432', 'sensor'];
+    $core = (strtolower($row['platform']) == "dpp") ? "_".$coredict[$row['core']] : "";
     // Send the file to the user's browser:
     header("Content-Type: binary/octet-stream");
-    header("Content-Disposition: attachment; filename=\"". $_POST['imageid'] .".".$row['platform'].".exe\"");
+    header("Content-Disposition: attachment; filename=\"image". $_POST['imageid'] ."_".strtolower($row['platform']).$core.$fileext."\"");
     echo $row['binary'];
   }
   else {
