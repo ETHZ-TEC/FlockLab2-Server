@@ -1218,7 +1218,7 @@ def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
             logger.error("Command %s returned with error code %d." % (" ".join(cmd), rs))
             return FAILED
         else:
-            logger.debug("Converted file %s to ihex." % (binaryfile))
+            logger.debug("Converted file %s to Intel hex." % (binaryfile))
     except OSError as err:
         msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
         logger.error(msg)

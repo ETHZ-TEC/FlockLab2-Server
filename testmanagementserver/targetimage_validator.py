@@ -76,14 +76,14 @@ def main(argv):
     
     # Just basic checking for Intel HEX files ---
     if "hex" in os.path.splitext(imagepath)[1].lower() or flocklab.is_hex_file(imagepath) == True:
-        logger.info("Hex file detected.")
+        logger.debug("Hex file detected.")
         try:
             hexfile = intelhex.IntelHex(imagepath)
             segs = hexfile.segments()
             binarysize = 0
             for seg in segs:
                 binarysize = binarysize + (seg[1] - seg[0])
-            logger.info("Binary size is %d bytes." % binarysize)
+            logger.debug("Binary size is %d bytes." % binarysize)
         except:
             logger.warning("Parsing the hex file failed.")
             sys.exit(flocklab.FAILED)

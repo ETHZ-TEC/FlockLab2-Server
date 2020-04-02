@@ -237,14 +237,16 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
     try:    
         logger.debug("Entering start_test() function...")
         # First, validate the XML file again. If validation fails, return immediately:
-        cmd = [flocklab.config.get('dispatcher','validationscript'), '--testid=%d'%testid]
+        cmd = [flocklab.config.get('dispatcher','validationscript'), '--testid=%d' % testid]
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         out, err = p.communicate()
         rs = p.returncode
         if rs != 0:
             logger.error("Error %s returned from %s" % (str(rs), flocklab.config.get('dispatcher','validationscript')))
             logger.error("Tried to execute: %s" % (" ".join(cmd)))
-            errors.append("Validation of XML failed. Output of script was: %s %s" % (str(out), str(err)))
+            msg = "Validation of XML failed. Output of script was: %s %s" % (str(out), str(err))
+            logger.error(msg)
+            errors.append(msg)
         
         if len(errors) == 0:
             # Update DB status ---
@@ -288,7 +290,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 
                 # Prepare image ---
                 (fd, imagepath) = tempfile.mkstemp()
-                binpath = "%s.ihex" % (os.path.splitext(imagepath)[0])
+                binpath = "%s.hex" % (os.path.splitext(imagepath)[0])
                 
                 # First, check if image is already in hex format ---
                 if flocklab.is_hex_file(data=binary):
@@ -347,7 +349,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 # Write the dictionary for the image:
                 if not obs_fk in imagedict_key:
                     imagedict_key[obs_fk] = []
-                imagedict_key[obs_fk].append((binpath, slot, platname, 0.0, core))
+                imagedict_key[obs_fk].append((binpath, slot, platname, core))
                 
             logger.info("Processed all target images from database.")
                 
@@ -400,9 +402,8 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                             slot = noImageSlot
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (slot))
                         else:
-                            xmldict_key[obskey][1].write("\t<firmware>%s</firmware>\n" % (imagedict_key[obskey][0][3]))
                             for coreimage in imagedict_key[obskey]:
-                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[4], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
+                                xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[3], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (imagedict_key[obskey][0][1]))
                             xmldict_key[obskey][1].write("\t<platform>%s</platform>\n" % (imagedict_key[obskey][0][2]))
                             xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][2]))
@@ -1199,8 +1200,8 @@ def main(argv):
         # Inform user:
         ret = inform_user(testid, cur, action, errors, warnings)
         
-        # Inform admins of errors and exit ---
-        if len(errors) > 0:
+        # Inform admins of errors ---
+        if len(errors) > 0 or len(warnings) > 0:
             msg = "The test %s with ID %d reported the following errors/warnings:\n\n" % (action, testid)
             for error in errors:
                 msg = msg + "\t * ERROR: %s\n" % (str(error))
@@ -1255,6 +1256,7 @@ def main(argv):
     
     # Inform user:
     ret = inform_user(testid, cur, action, errors, warnings)
+    
     # Wait until test has status synced or no more fetcher is running:
     status = flocklab.get_test_status(cur, cn, testid)
     while (status not in ('synced', 'finished', 'failed')):
@@ -1299,6 +1301,15 @@ def main(argv):
         #    errors.append(e)
         if len(errors) == 0:
             status = 'finished'
+    
+    # Inform admins of errors ---
+    if len(errors) > 0 or len(warnings) > 0:
+        msg = "The test %s with ID %d reported the following errors/warnings:\n\n" % (action, testid)
+        for error in errors:
+            msg = msg + "\t * ERROR: %s\n" % (str(error))
+        for warn in warnings:
+            msg = msg + "\t * WARNING: %s\n" % (str(warn))
+        flocklab.send_mail_to_admin(msg)
     
     # Update status (note: always treat 'abort' as 'failed' due to potentially incomplete / invalid results)
     logger.debug("Setting test status in DB to '%s'..." % status)

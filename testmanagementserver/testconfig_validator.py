@@ -578,11 +578,11 @@ def main(argv):
         gpiomonconfs = tree.xpath('//d:gpioTracingConf', namespaces=ns)
         for gpiomonconf in gpiomonconfs:
             usesDebug = False
-            obsIds = gpiomonconf.findtext('d:obsIds', namespaces=ns).split()
             # check if one of the used observers also uses the debug service
-            for obs in obsIds:
+            for obs in ids:
                 if obs in debugObsIds:
                     usesDebug = True
+                    break
             pins = gpiomonconf.find('d:pins', namespaces=ns)
             if ("dpp2lora" in platform.lower()) and ("INT2" in pins.text):
                 if not quiet:
