@@ -230,12 +230,7 @@
   <xs:sequence>
     <xs:element name="pin" type="pinActType"/>
     <xs:element name="level" type="pinActLevelType"/>
-    <xs:element name="periodic" minOccurs="0" maxOccurs="1">
-      <xs:complexType>
-        <xs:group ref="gpioActuationPeriodicGroup"/>
-      </xs:complexType>
-    </xs:element>
-    <xs:element name="offset" type="offsetSecsType"/>
+    <xs:element name="offset" type="offsetSecsFloatType"/>
   </xs:sequence>
 </xs:complexType>
 
@@ -315,7 +310,7 @@
 <!-- Type definition for actuation enabled GPIOs -->
 <xs:simpleType name="pinActType">
   <xs:restriction base="xs:string">
-    <xs:pattern value="SIG1|SIG2|RST"/>
+    <xs:pattern value="SIG1|SIG2"/>
   </xs:restriction>
 </xs:simpleType>
 
@@ -354,6 +349,14 @@
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="0"/>
     <xs:maxInclusive value="3600"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<!-- Type definition for time offset in seconds -->
+<xs:simpleType name="offsetSecsFloatType">
+  <xs:restriction base="xs:float">
+    <xs:minInclusive value="0.0"/>
+    <xs:maxInclusive value="4294.967295"/>
   </xs:restriction>
 </xs:simpleType>
 
@@ -396,28 +399,12 @@
   </xs:restriction>
 </xs:simpleType>
 
-<!-- Type definitions for periodic GPIO actuations -->
-<xs:simpleType name="periodicIntervalMicrosecsType">
-  <xs:restriction base="xs:integer">
-    <xs:minInclusive value="100"/>
-    <xs:maxInclusive value="3600000000"/>
-  </xs:restriction>
-</xs:simpleType>
-
 <xs:simpleType name="periodicCountType">
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="1"/>
     <xs:maxInclusive value="4294967295"/>
   </xs:restriction>
 </xs:simpleType>
-
-<!-- Group definition for GPIO actuation periodic group -->
-<xs:group name="gpioActuationPeriodicGroup">
-  <xs:all>
-    <xs:element name="intervalMicrosecs" type="periodicIntervalMicrosecsType"/>
-    <xs:element name="count" type="periodicCountType"/>
-  </xs:all>
-</xs:group>
 
 <!-- Type definition for IP addresses -->
 <xs:simpleType name="ipType">

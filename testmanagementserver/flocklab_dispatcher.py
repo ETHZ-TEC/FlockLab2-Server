@@ -487,9 +487,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     logger.debug("No <gpioTracingConf> found, not using GPIO tracing service.")
                 
                 # gpioActuationConf ---
-                # Create 2 pin settings for every observer used in the test: 
-                #        1) Pull reset pin of target low when test is to start
-                #        2) Pull reset pin of target high when test is to stop
+                # Create 2 pin settings for every observer used in the test:
+                #   1) Pull reset pin of target low when test is to start
+                #   2) Pull reset pin of target high when test is to stop
                 xmlblock = "<obsGpioSettingConf>\n"
                 startdatetime = starttime.strftime(flocklab.config.get("observer", "timeformat"))
                 startmicrosecs = starttime.microsecond
@@ -508,17 +508,8 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     for pinconf in pinconfs:
                         pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
                         level = pinconf.xpath('d:level', namespaces=ns)[0].text.strip()
-                        ofs = pinconf.xpath('d:offset', namespaces=ns)
-                        if ofs:
-                            ofs = ofs[0].text.strip()
-                        periodic = pinconf.xpath('d:periodic', namespaces=ns)
-                        if periodic:
-                            interval = int(periodic[0].xpath('d:intervalMicrosecs', namespaces=ns)[0].text.strip())
-                            count = int(periodic[0].xpath('d:count', namespaces=ns)[0].text.strip())
-                        else:
-                            interval = 0
-                            count = 1
-                        xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>%s</level>\n\t\t<offset>%d</offset>\n\t\t<intervalMicrosecs>%i</intervalMicrosecs>\n\t\t<count>%i</count>\n\t</pinConf>\n" %(pin, level, ofs, interval, count)
+                        ofs = pinconf.xpath('d:offset', namespaces=ns)[0].text.strip()
+                        xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>%s</level>\n\t\t<offset>%s</offset>\n\t</pinConf>\n" % (pin, level, ofs)
                     for obsid in obsids:
                         obsid = int(obsid)
                         obskey = obsdict_id[obsid][0]
