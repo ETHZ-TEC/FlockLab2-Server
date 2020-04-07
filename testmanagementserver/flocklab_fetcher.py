@@ -131,7 +131,7 @@ def convert_serial(obsdata, observer_id, node_id):
         result = "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], obsdata[1].decode('utf8').rstrip())
     except UnicodeDecodeError:
         # discard result, return empty string
-        result = "\n"   # "%s,%s,%s,%s,%s\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]], str(obsdata[1]))
+        result = "%s,%s,%s,%s,\n" % (obsdata[2], observer_id, node_id, serialdict[obsdata[0]])
     return result
 
 

@@ -14,6 +14,7 @@
 # -f <testid>:         fetch via webdav
 # -o <platform>:       get a list of the currently available (online) observers
 # -p:                  get a list of the available platforms
+# -i <testid>:         get test info (title, desc, status, start time etc.)
 # -h:                  display help
 #
 # For the commands -g and -f, the download directory can be specified as an additional argument.
@@ -32,7 +33,7 @@ SERVER_URL=https://flocklab.ethz.ch/user
 CURL_PARAMS='-sS -4 --insecure'
 FLAUTH_FILE=.flocklabauth
 NETRC_FILE=$HOME/.netrc
-DAV_URL=https://flocklab.ethz.ch/user/webdav
+DAV_URL=${SERVER_URL}/webdav
 DAV_CLIENT=cadaver
 
 if [ -f $FLAUTH_FILE ]
@@ -55,6 +56,12 @@ then
   done < "$NETRC_FILE"
 fi
 
+if [ -z "$USER" ] || [ -z "$PASSWORD" ]
+then
+  echo "No username or password found. Add your credentials to ~/.flocklabauth."
+  exit 1
+fi
+
 usage()
 {
 cat << EOF
@@ -71,6 +78,7 @@ OPTIONS:
    -f <testid>:         fetch test results (via webdav)
    -o <platform>:       get a list of currently available observers
    -p:                  get a list of available platforms
+   -i <testid>:         get test info (title, desc, status, start time etc.)
    -h:                  display this help page
 EOF
 }
@@ -141,7 +149,7 @@ then
   exit 1
 fi
 
-while getopts “v:c:a:d:f:g:o:ph” OPTION
+while getopts “v:c:a:d:f:g:o:pi:h” OPTION
 do
   case $OPTION in
     v)
@@ -291,6 +299,13 @@ do
       ;;
     p)
       RESPONSE=`curl $CURL_PARAMS -o - -F username="$USER" -F password="$PASSWORD" -F q="platform" $SERVER_URL/api.php`
+      if [ $? -eq 0 ]
+      then
+        echo $RESPONSE
+      fi
+      ;;
+    i)
+      RESPONSE=`curl $CURL_PARAMS -o - -F username="$USER" -F password="$PASSWORD" -F q="testinfo" -F id=$OPTARG $SERVER_URL/api.php`
       if [ $? -eq 0 ]
       then
         echo $RESPONSE

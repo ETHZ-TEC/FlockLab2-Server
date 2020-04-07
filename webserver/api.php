@@ -68,6 +68,28 @@
         echo json_encode(array('status' => 'ok', 'output' => join(" ", array_unique(array_filter($output)))));
       }
     }
+    else if ($_POST['q'] == 'testinfo') {
+      if (!isset($_POST['id'])) {
+        echo json_encode(array('status' => 'error', 'output' => 'no test ID specified'));
+        exit();
+      }
+      $db = db_connect();
+      $sql = "SELECT title, description, test_status as status, UNIX_TIMESTAMP(time_start_wish) AS start_planned, UNIX_TIMESTAMP(time_start_act) AS start_act, UNIX_TIMESTAMP(time_end_wish) AS end_planned, UNIX_TIMESTAMP(time_end_act) AS end_act
+              FROM `flocklab`.`tbl_serv_tests`
+              WHERE serv_tests_key=".intval($_POST['id'])." AND owner_fk=$_SESSION[serv_users_key]";
+      $res = mysqli_query($db, $sql);
+      if (!$res) {
+        echo json_encode(array('status' => 'error', 'output' => mysqli_error($db)));
+      }
+      else {
+        $row = mysqli_fetch_assoc($res);
+        if ($row) {
+          echo json_encode(array('status' => 'ok', 'output' => array('title' => $row['title'], 'description' => $row['description'], 'status' => $row['status'], 'start_planned' => $row['start_planned'], 'start' => $row['start_act'], 'end_planned' => $row['end_planned'], 'end' => $row['end_act'])));
+        } else {
+          echo json_encode(array('status' => 'error', 'output' => 'test ID '.intval($_POST['id']).' not found'));
+        }
+      }
+    }
     else {
       echo json_encode(array('status' => 'error', 'output' => 'unknown query'));
     }
