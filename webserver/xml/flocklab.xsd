@@ -379,7 +379,7 @@
 <!-- Type definition for test duration in seconds -->
 <xs:simpleType name="testDurationSecsType">
   <xs:restriction base="xs:integer">
-    <xs:minInclusive value="60"/>
+    <xs:minInclusive value="20"/>
   </xs:restriction>
 </xs:simpleType>
 
