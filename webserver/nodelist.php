@@ -28,8 +28,8 @@
         catch (err) {
             obs_tbl_state = null;
         }
-        if ( obs_tbl_state == null) {
-           obs_tbl_state = {s: [[0,1],[2,0]], p: 0};
+        if (obs_tbl_state == null) {
+           obs_tbl_state = {s: [0,0], p: 0};
         }
         $("#statustable").data('tablesorter').page = obs_tbl_state.p;
         $("#statustable").trigger("sorton",[obs_tbl_state.s]);
