@@ -151,7 +151,7 @@
 echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname']. '</h1>';
                 /* Get all test of the current user from the database and display them in the table. */
                 $db = db_connect();
-                $sql =    "SELECT serv_tests_key, title, description, time_start_act, time_start_wish, time_end_act, time_end_wish, test_status 
+                $sql = "SELECT serv_tests_key, title, description, time_start_act, time_start_wish, time_end_act, time_end_wish, test_status, ExtractValue(testconfig_xml, 'testConf/targetConf/dbImageId') image_ids
                         FROM tbl_serv_tests 
                         WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND test_status <> 'deleted' AND test_status <> 'todelete'
                         ORDER BY serv_tests_key DESC";
@@ -170,8 +170,9 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                 <thead>
                     <tr>
                         <th width="35px">ID</th>
-                        <th width="113px">Title</th>
-                        <th width="135px">Description</th>
+                        <th width="100px">Title</th>
+                        <th width="130px">Description</th>
+                        <th width="30px">IMG</th>
                         <th width="35px" class='qtip_show' title='State'>State</th>
                         <th>Start</th>
                         <th>End</th>
@@ -251,6 +252,8 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                             echo "<td>" . htmlentities($row['description']) . "</td>";
                         else
                             echo "<td class='qtip_show' title='" . htmlentities($row['description']) . "'>" . htmlentities(substr($row['description'],0,$max_len)) . "...</td>";
+                        // Image ID
+                        echo "<td class='qtip_show' title='image IDs used in this test'>" . $row['image_ids'] . "</td>";
                         // Status
                         echo "<td>";
                         echo "<span style='display:none'>".$row['test_status']."</span>"; // needed to make cell sortable by JQuery
