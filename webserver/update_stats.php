@@ -17,7 +17,7 @@ if (!set_time_limit(120)) {
 $statsFileName = "/home/flocklab/webserver/statistics.dat";
 
 
-function collect_stats($filename)
+function collect_stats($filename, $monthly)
 {
   if (!is_string($filename)) return;
 
@@ -84,7 +84,11 @@ function collect_stats($filename)
   $gpioactuationcnt = 0;
   $powerprof_per_year = Array();
   $powerprofcnt = 0;
-  $sql = 'select year(time_start_act) as y, count(*) as num from tbl_serv_tests where time_start_act is not null group by year(time_start_act)';
+  $granularity = "year";
+  if ($monthly) {
+    $granularity = "month";
+  }
+  $sql = "select $granularity(time_start_act) as y, count(*) as num from tbl_serv_tests where time_start_act is not null group by $granularity(time_start_act)";
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
   while ($row = mysqli_fetch_array($rs)) {
     $year = $row['y'];
@@ -95,7 +99,7 @@ function collect_stats($filename)
     $dpptests_per_year[$year] = 0;
     $dpp2tests_per_year[$year] = 0;
     $nrftests_per_year[$year] = 0;
-    $sql = 'select pname, count(*) as c from (select distinct test_fk, tbl_serv_platforms.name as pname from tbl_serv_map_test_observer_targetimages left join tbl_serv_targetimages on (targetimage_fk = serv_targetimages_key) left join tbl_serv_platforms on (platforms_fk = serv_platforms_key)) as a left join tbl_serv_tests as b on (a.test_fk = b.serv_tests_key) where year(time_start_act) = '.$year.' and pname is not null group by pname';
+    $sql = "select pname, count(*) as c from (select distinct test_fk, tbl_serv_platforms.name as pname from tbl_serv_map_test_observer_targetimages left join tbl_serv_targetimages on (targetimage_fk = serv_targetimages_key) left join tbl_serv_platforms on (platforms_fk = serv_platforms_key)) as a left join tbl_serv_tests as b on (a.test_fk = b.serv_tests_key) where $granularity(time_start_act) = $year and pname is not null group by pname";
     $rs2 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     while ($row = mysqli_fetch_array($rs2)) {
       if (array_key_exists($row['pname'], $tests_per_mote)) {
@@ -118,7 +122,7 @@ function collect_stats($filename)
       } 
     }
     // Tests by service
-    $sql = 'select year(time_start_act) as y, sum(1) as num_all, sum(ExtractValue(testconfig_xml, "count(/testConf/serialConf|/testConf/serialReaderConf)") > 0) as num_serial, sum(ExtractValue(testconfig_xml, "count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)") > 0) as num_tracing, sum(ExtractValue(testconfig_xml, "count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)") > 0) as num_actuation, sum(ExtractValue(testconfig_xml, "count(/testConf/powerProfilingConf|/testConf/powerprofConf)") > 0) as num_power from tbl_serv_tests where year(time_start_act) = '.$year;
+    $sql = "select $granularity(time_start_act) as y, sum(1) as num_all, sum(ExtractValue(testconfig_xml, 'count(/testConf/serialConf|/testConf/serialReaderConf)') > 0) as num_serial, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)') > 0) as num_tracing, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)') > 0) as num_actuation, sum(ExtractValue(testconfig_xml, 'count(/testConf/powerProfilingConf|/testConf/powerprofConf)') > 0) as num_power from tbl_serv_tests where $granularity(time_start_act) = $year";
     $rs3 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     $row = mysqli_fetch_array($rs3);
     
@@ -142,7 +146,7 @@ function collect_stats($filename)
   $gpiotracingusers_per_year = Array();
   $gpioactuationusers_per_year = Array();
   $powerprofusers_per_year = Array();
-  $sql = 'select year(time_start_act) as y, count(distinct owner_fk) as num from tbl_serv_tests group by year(time_start_act) having y is not null';
+  $sql = "select $granularity(time_start_act) as y, count(distinct owner_fk) as num from tbl_serv_tests group by $granularity(time_start_act) having y is not null";
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
   while ($row = mysqli_fetch_array($rs)) {
     $year = $row['y'];
@@ -153,7 +157,7 @@ function collect_stats($filename)
     $dppusers_per_year[$year] = 0;
     $dpp2users_per_year[$year] = 0;
     $nrfusers_per_year[$year] = 0;
-    $sql = 'select pname, count(distinct owner_fk) as c from (select distinct test_fk, tbl_serv_platforms.name as pname from tbl_serv_map_test_observer_targetimages left join tbl_serv_targetimages on (targetimage_fk = serv_targetimages_key) left join tbl_serv_platforms on (platforms_fk = serv_platforms_key)) as a left join tbl_serv_tests as b on (a.test_fk = b.serv_tests_key) where year(time_start_act) = '.$year.' and time_start_act is not null and pname is not null group by pname';
+    $sql = "select pname, count(distinct owner_fk) as c from (select distinct test_fk, tbl_serv_platforms.name as pname from tbl_serv_map_test_observer_targetimages left join tbl_serv_targetimages on (targetimage_fk = serv_targetimages_key) left join tbl_serv_platforms on (platforms_fk = serv_platforms_key)) as a left join tbl_serv_tests as b on (a.test_fk = b.serv_tests_key) where $granularity(time_start_act) = $year and time_start_act is not null and pname is not null group by pname";
     $rs2 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     while ($row = mysqli_fetch_array($rs2)) {
       if ($row['pname'] == 'Tmote') {
@@ -167,7 +171,7 @@ function collect_stats($filename)
       }
     }
     
-    $sql = 'select sum(num_all > 0) as user_all, sum(num_serial > 0) as user_serial, sum(num_tracing > 0) as user_tracing, sum(num_actuation > 0) as user_actuation, sum(num_power > 0) as user_power from (select year(time_start_act) as y, sum(1) as num_all, sum(ExtractValue(testconfig_xml, "count(/testConf/serialConf|/testConf/serialReaderConf)") > 0) as num_serial, sum(ExtractValue(testconfig_xml, "count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)") > 0) as num_tracing, sum(ExtractValue(testconfig_xml, "count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)") > 0) as num_actuation, sum(ExtractValue(testconfig_xml, "count(/testConf/powerProfilingConf|/testConf/powerprofConf)") > 0) as num_power from tbl_serv_tests where year(time_start_act) = '.$year.' and (test_status_preserved in ("finished", "retention expiring", "synced") or test_status_preserved is null) group by owner_fk) as stats;';
+    $sql = "select sum(num_all > 0) as user_all, sum(num_serial > 0) as user_serial, sum(num_tracing > 0) as user_tracing, sum(num_actuation > 0) as user_actuation, sum(num_power > 0) as user_power from (select $granularity(time_start_act) as y, sum(1) as num_all, sum(ExtractValue(testconfig_xml, 'count(/testConf/serialConf|/testConf/serialReaderConf)') > 0) as num_serial, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)') > 0) as num_tracing, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)') > 0) as num_actuation, sum(ExtractValue(testconfig_xml, 'count(/testConf/powerProfilingConf|/testConf/powerprofConf)') > 0) as num_power from tbl_serv_tests where $granularity(time_start_act) = $year and (test_status_preserved in ('finished', 'retention expiring', 'synced') or test_status_preserved is null) group by owner_fk) as stats;";
     $rs3 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     $row = mysqli_fetch_array($rs3);
     $serialusers_per_year[$year] = round($row['user_serial'] / $num_users * 100);        // in percent
@@ -203,7 +207,7 @@ function collect_stats($filename)
   }  
   // occupancy per year in percent
   $utilization_per_year = Array();
-  $sql = 'select year(time_start_act) as y, min(time_start_act) as minp, max(time_end_act) as maxp, max(time_end_act - time_start_act), sum(timestampdiff(SECOND,time_start_act,time_end_act)) as duration from tbl_serv_tests where (time_end_act is not null and time_start_act is not null and time_start_act < time_end_act and timestampdiff(SECOND,time_start_act,time_end_act) < 72 * 3600) group by  year(time_start_act)';
+  $sql = "select $granularity(time_start_act) as y, min(time_start_act) as minp, max(time_end_act) as maxp, max(time_end_act - time_start_act), sum(timestampdiff(SECOND,time_start_act,time_end_act)) as duration from tbl_serv_tests where (time_end_act is not null and time_start_act is not null and time_start_act < time_end_act and timestampdiff(SECOND,time_start_act,time_end_act) < 72 * 3600) group by  $granularity(time_start_act)";
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
   while ($row = mysqli_fetch_array($rs)) {
     $utilization_per_year[$row['y']] = round((($row['duration'] + $tests_per_year[$row['y']] * $testoverhead) / (strtotime($row['maxp']) - strtotime($row['minp'])) * 100));
@@ -214,7 +218,7 @@ function collect_stats($filename)
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
   $utilization_per_week = Array();
   while ($row = mysqli_fetch_array($rs)) {
-    $utilization_per_week[$row['y'].' week '.$row['w']] = round(($row['runtime'] + $row['num'] * $testoverhead) * 100 / 604800);
+    $utilization_per_week['week '.$row['w']] = round(($row['runtime'] + $row['num'] * $testoverhead) * 100 / 604800);
   }
   
   // --- data collection finished ---
@@ -278,5 +282,5 @@ powerprofusers_per_year = \"".str_replace('"', '\'', serialize($powerprofusers_p
   file_put_contents($filename, $new_stats);
 }
 
-collect_stats($statsFileName);
+collect_stats($statsFileName, true);
 ?>
