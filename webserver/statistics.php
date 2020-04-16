@@ -123,18 +123,15 @@
     <tr><td>Number of different institutions: </td><td class="numberField"><?php echo $stats['num_institutions']; ?></td></td></tr> 
     <tr><td></td></tr>
     <tr><td><b>Tests</b></td></tr>
-    <tr><td>Total number of tests since 2012: </td><td class="numberField"><?php echo $stats['num_tests']; ?></td></td></tr>
+    <tr><td>Total number of tests since 2020: </td><td class="numberField"><?php echo $stats['num_tests']; ?></td></td></tr>
     <tr><td>Average test duration [min]: </td><td class="numberField"><?php echo (string)round(intval($stats['avg_runtime']) / 60); ?></td></td></tr>
     <tr><td>Average setup + cleanup time overhead per test [s]: </td><td class="numberField"><?php echo (string)(intval($stats['avg_setup_time']) + intval($stats['avg_cleanup_time'])); ?></td></td></tr>
     <tr><td></td></tr>
     <tr><td><b>Used platforms</b></td></tr>
     <tr><td>Number of tests on the TmoteSky (TelosB) platform: </td><td class="numberField"><?php echo $stats['tmote_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['tmote_tests']); ?></td></tr>
-    <tr><td>Number of tests on the CC430 platform: </td><td class="numberField"><?php echo $stats['cc430_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['cc430_tests']); ?></td></tr>
-    <tr><td>Number of tests on the Opal platform: </td><td class="numberField"><?php echo $stats['opal_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['opal_tests']); ?></td></tr>
-    <tr><td>Number of tests on the TinyNode platform: </td><td class="numberField"><?php echo $stats['tinynode_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['tinynode_tests']); ?></td></tr>
-    <tr><td>Number of tests on the OpenMote platform: </td><td class="numberField"><?php echo $stats['openmote_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['openmote_tests']); ?></td></tr>
     <tr><td>Number of tests on the DPP platform: </td><td class="numberField"><?php echo $stats['dpp_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['dpp_tests']); ?></td></tr>
     <tr><td>Number of tests on the DPP2 (LoRa) platform: </td><td class="numberField"><?php echo $stats['dpp2_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['dpp2_tests']); ?></td></tr>
+    <tr><td>Number of tests on the nRF5 platform: </td><td class="numberField"><?php echo $stats['nrf_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['nrf_tests']); ?></td></tr>
     <tr><td></td></tr>
     <tr><td><b>Used services</b></td></tr>
     <tr><td>Number of tests with serial logging: </td><td class="numberField"><?php echo $stats['serial_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['serial_tests']); ?></td></tr>
@@ -168,14 +165,14 @@
     create_line_chart("chartUtilizationYear", $stats['utilization_per_year'], ["year", "utilization %"]);
     create_bar_chart("chartUtilizationWeek", $stats['utilization_per_week'], ["week", "utilization %"]);
     create_line_chart("chartTestRuntime", $stats['runtime_cdf'], ["runtime [minutes]", "percentage of tests"]);
-    $dataseries = [$stats['tmote_per_year'], $stats['cc430_per_year'], $stats['opal_per_year'], $stats['tinynode_per_year'], $stats['openmote_per_year'], $stats['dpp_per_year'], $stats['dpp2_per_year']];
-    $dataserieslabels = ['Tmote', 'CC430', 'Opal', 'TinyNode', 'OpenMote', 'DPP', 'DPP2'];
+    $dataseries = [$stats['tmote_per_year'], $stats['dpp_per_year'], $stats['dpp2_per_year'], $stats['nrf_per_year']];
+    $dataserieslabels = ['Tmote', 'DPP', 'DPP2LoRa', 'nRF5'];
     create_multi_line_chart("chartPlatformsYear", $dataseries, $dataserieslabels, ["year", "percentage of tests"]);
     $dataseries = [$stats['serial_per_year'], $stats['gpiotracing_per_year'], $stats['gpioactuation_per_year'], $stats['powerprof_per_year']];
     $dataserieslabels = ['serial logging', 'GPIO tracing', 'GPIO actuation', 'power profiling'];
     create_multi_line_chart("chartServicesYear", $dataseries, $dataserieslabels, ["year", "percentage of tests"]);
-    $dataseries = [$stats['tmoteusers_per_year'], $stats['cc430users_per_year'], $stats['opalusers_per_year'], $stats['tinynodeusers_per_year'], $stats['openmoteusers_per_year'], $stats['dppusers_per_year'], $stats['dpp2users_per_year']];
-    $dataserieslabels = ['Tmote', 'CC430', 'Opal', 'TinyNode', 'OpenMote', 'DPP', 'DPP2'];
+    $dataseries = [$stats['tmoteusers_per_year'], $stats['dppusers_per_year'], $stats['dpp2users_per_year'], $stats['nrfusers_per_year']];
+    $dataserieslabels = ['Tmote', 'DPP', 'DPP2LoRa', 'nRF5'];
     create_multi_line_chart("chartPlatformsUsers", $dataseries, $dataserieslabels, ["year", "percentage of users"]);
     $dataseries = [$stats['serialusers_per_year'], $stats['gpiotracingusers_per_year'], $stats['gpioactuationusers_per_year'], $stats['powerprofusers_per_year']];
     $dataserieslabels = ['serial logging', 'GPIO tracing', 'GPIO actuation', 'power profiling'];
