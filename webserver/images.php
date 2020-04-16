@@ -50,7 +50,7 @@
     while ($row = mysqli_fetch_assoc($rs))
         array_push($multicore, $row['name']);
     /* Get all test images of the current user from the database and display them in the table. */
-    $sql =   "SELECT `serv_targetimages_key`, `tbl_serv_targetimages`.`name` as `name`, `tbl_serv_targetimages`.`description` as `description`, `tbl_serv_architectures`.`description` as `core_desc`, `tbl_serv_platforms`.`name` as `platform_name`, `tbl_serv_targetimages`.`last_changed`, `test_fk`, `tbl_serv_tests`.`test_status` 
+    $sql =   "SELECT `serv_targetimages_key`, `tbl_serv_targetimages`.`name` as `name`, `tbl_serv_targetimages`.`description` as `description`, `tbl_serv_architectures`.`description` as `core_desc`, `tbl_serv_platforms`.`name` as `platform_name`, `tbl_serv_targetimages`.`last_changed`, GROUP_CONCAT(DISTINCT `test_fk` SEPARATOR ', ') test_ids, `tbl_serv_tests`.`test_status` 
               FROM `tbl_serv_targetimages`
               LEFT JOIN `tbl_serv_platforms` ON `platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`
               LEFT JOIN `tbl_serv_architectures` 
@@ -77,18 +77,19 @@
 <table id="test_overview" class="tablesorter" style="display:none">
     <thead>
         <tr>
-            <th width="50px">ID</th>
-            <th>Name</th>
-            <th>Description</th>
-            <th>Platform</th>
-            <th>Date</th>
+            <th width="40px">ID</th>
+            <th width="100px">Name</th>
+            <th width="200px">Description</th>
+            <th width="100px">Platform</th>
+            <th width="180px">Upload Date</th>
+            <th>Used in Test</th>
             <th width="60px" class='qtip_show' title='Actions'>Actions</th>
         </tr>
     </thead>
     <tbody>
 <?php 
     $i = 0;
-    $max_len = 16; // maximum length of text before beeing cut
+    $max_len = 30; // maximum length of text before beeing cut
     while ($row = mysqli_fetch_assoc($rs)) {
         $i++;
         if ($i%2 == 1) {
@@ -103,12 +104,17 @@
         if (strlen($row['description']) <= $max_len) 
             echo "<td>" . $row['description'] . "</td>";
         else
-            echo "<td class='qtip_show' title='" . $row['description'] . "'>" . substr($row['description'],0,$max_len) . "...</td>";
+            echo "<td class='qtip_show' title='" . $row['description'] . "'>" . substr($row['description'], 0, $max_len) . "...</td>";
         // Platform. If longer than $max_len characters, display as tooltip:
         $corenum = in_array($row['platform_name'], $multicore)?': '.$row['core_desc']:'';
         echo "<td class='qtip_show' title='" . $row['platform_name'] .$corenum. "'>" . $row['platform_name'] .$corenum. "</td>";
         // Date
-        echo "<td title='Date' class='qtip_show'>".date_to_tzdate($row['last_changed'])."</td>";
+        echo "<td title='upload date' class='qtip_show'>" . date_to_tzdate($row['last_changed']) . "</td>";
+        // Test IDs
+        if (strlen($row['test_ids']) <= $max_len)
+            echo "<td class='qtip_show' title='IDs of tests in which this image has been used'>" . $row['test_ids'] . "</td>";
+        else
+            echo "<td class='qtip_show' title='".$row['test_ids']."'>" . substr($row['test_ids'], 0, $max_len) . "...</td>";
         // Actions
         echo "<td>";
         if (is_null($row['test_fk']) || ($row['test_status'] == "deleted")) {
