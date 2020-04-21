@@ -488,15 +488,13 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 
                 # gpioActuationConf ---
                 # Create 2 pin settings for every observer used in the test:
-                #   1) Pull reset pin of target low when test is to start
-                #   2) Pull reset pin of target high when test is to stop
+                #   1) Pull reset pin of target high when test is to start
+                #   2) Pull reset pin of target low when test is to stop
                 xmlblock = "<obsGpioSettingConf>\n"
-                startdatetime = starttime.strftime(flocklab.config.get("observer", "timeformat"))
-                startmicrosecs = starttime.microsecond
-                xmlblock += "\t<pinConf>\n\t\t<pin>RST</pin>\n\t\t<level>low</level>\n\t\t<absoluteTime>\n\t\t\t<absoluteDateTime>%s</absoluteDateTime>\n\t\t\t<absoluteMicrosecs>%d</absoluteMicrosecs>\n\t\t</absoluteTime>\n\t\t<intervalMicrosecs>0</intervalMicrosecs>\n\t\t<count>1</count>\n\t</pinConf>\n" %(startdatetime, startmicrosecs)
-                stopdatetime = stoptime.strftime(flocklab.config.get("observer", "timeformat"))
-                stopmicrosecs = stoptime.microsecond
-                xmlblock += "\t<pinConf>\n\t\t<pin>RST</pin>\n\t\t<level>high</level>\n\t\t<absoluteTime>\n\t\t\t<absoluteDateTime>%s</absoluteDateTime>\n\t\t\t<absoluteMicrosecs>%d</absoluteMicrosecs>\n\t\t</absoluteTime>\n\t\t<intervalMicrosecs>0</intervalMicrosecs>\n\t\t<count>1</count>\n\t</pinConf>\n" %(stopdatetime, stopmicrosecs)
+                startdatetime = starttime.replace(tzinfo=datetime.timezone.utc).timestamp()      #.strftime(flocklab.config.get("observer", "timeformat"))
+                xmlblock += "\t<pinConf>\n\t\t<pin>RST</pin>\n\t\t<level>high</level>\n\t\t<timestamp>%s</timestamp>\n\t</pinConf>\n" % (startdatetime)
+                stopdatetime = stoptime.replace(tzinfo=datetime.timezone.utc).timestamp()        #.strftime(flocklab.config.get("observer", "timeformat"))
+                xmlblock += "\t<pinConf>\n\t\t<pin>RST</pin>\n\t\t<level>low</level>\n\t\t<timestamp>%s</timestamp>\n\t</pinConf>\n" % (stopdatetime)
                 for obskey in obsdict_key.keys():
                     xmldict_key[obskey][1].write(xmlblock)
                 # Now write the per-observer config:

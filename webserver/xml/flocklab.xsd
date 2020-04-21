@@ -223,7 +223,7 @@
 <xs:complexType name="gpioActuationConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:element name="pinConf" type="gpioActuationPinConfType" minOccurs="1" maxOccurs="unbounded"/>
+    <xs:element name="pinConf" type="gpioActuationPinConfType" minOccurs="1" maxOccurs="250"/>
   </xs:sequence>
 </xs:complexType>
 <xs:complexType name="gpioActuationPinConfType">
