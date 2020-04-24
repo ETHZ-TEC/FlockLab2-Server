@@ -117,7 +117,7 @@ class StartTestThread(threading.Thread):
     """    Thread which uploads all config files to an observer and
         starts the test on the observer. 
     """ 
-    def __init__(self, obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, testid):
+    def __init__(self, obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, testid, serialproxy):
         threading.Thread.__init__(self) 
         self._obskey        = obskey
         self._obsdict_key   = obsdict_key
@@ -126,6 +126,7 @@ class StartTestThread(threading.Thread):
         self._errors_queue  = errors_queue
         self._abortEvent    = threading.Event()
         self._testid        = testid
+        self._serialproxy   = serialproxy
         
     def run(self):
         errors = []
@@ -178,7 +179,9 @@ class StartTestThread(threading.Thread):
                 else:
                     logger.debug("Upload of target image and config XML to observer ID %s succeeded." % (self._obsdict_key[self._obskey][1]))
                     # Run the script on the observer which starts the test:
-                    remote_cmd = flocklab.config.get("observer", "starttestscript") + " --testid=%d --xml=%s/%s --serialport=%d" % (self._testid, testconfigfolder, os.path.basename(self._xmldict_key[self._obskey][0]), obsdataport)
+                    remote_cmd = flocklab.config.get("observer", "starttestscript") + " --testid=%d --xml=%s/%s" % (self._testid, testconfigfolder, os.path.basename(self._xmldict_key[self._obskey][0]))
+                    if self._serialproxy:
+                        remote_cmd += " --serialport=%d" % (obsdataport)
                     if debug:
                         remote_cmd += " --debug"
                     cmd = ['ssh', '%s' % (self._obsdict_key[self._obskey][2]), remote_cmd]
@@ -571,7 +574,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             thread_list = []
             errors_queue = queue.Queue()
             for obskey in obsdict_key.keys():
-                thread = StartTestThread(obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, testid)
+                thread = StartTestThread(obskey, obsdict_key, xmldict_key, imagedict_key, errors_queue, testid, serialProxyUsed)
                 thread_list.append((thread, obskey))
                 thread.start()
                 #DEBUG logger.debug("Started thread for test start on observer ID %s" %(str(obsdict_key[obskey][1])))
