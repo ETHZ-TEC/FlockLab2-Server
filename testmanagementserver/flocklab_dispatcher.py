@@ -538,6 +538,8 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         if offset:
                             offset = int(offset[0].text.strip())
                             tstart = datetime.datetime.timestamp(starttime + datetime.timedelta(seconds=offset))
+                        else:
+                            tstart = datetime.datetime.timestamp(starttime)
                         xmlblock += "\n\t<starttime>%s</starttime>" % (tstart)
                         # check if config contains samplingRate:
                         samplingrate    = ppconf.xpath('d:samplingRate', namespaces=ns)

@@ -99,6 +99,15 @@
           </xs:all>
         </xs:complexType>
       </xs:element>
+      <xs:element name="schedule">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="start" type="xs:dateTime" minOccurs="0"/>
+            <xs:element name="duration" type="testDurationSecsType"/>
+            <xs:element name="start" type="xs:dateTime" minOccurs="0"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
     </xs:choice>
     <xs:element name="emailResults" minOccurs="0" default="no">
       <xs:simpleType>

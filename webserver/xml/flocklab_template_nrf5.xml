@@ -6,9 +6,9 @@
         <description>
             Hello world test application for the nRF52840 dongle.
         </description>
-        <scheduleAsap>
-            <durationSecs>60</durationSecs>
-        </scheduleAsap>
+        <schedule>
+            <duration>60</duration>
+        </schedule>
         <emailResults>no</emailResults>
     </generalConf>
 

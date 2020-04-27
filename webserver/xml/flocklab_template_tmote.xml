@@ -6,9 +6,9 @@
         <description>
             Contiki NG hello world test application.
         </description>
-        <scheduleAsap>
-            <durationSecs>120</durationSecs>
-        </scheduleAsap>
+        <schedule>
+            <duration>120</duration>
+        </schedule>
         <emailResults>no</emailResults>
     </generalConf>
 

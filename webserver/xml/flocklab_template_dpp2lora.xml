@@ -6,9 +6,9 @@
         <description>
             A hello world app for the DPP2 LoRa platform.
         </description>
-        <scheduleAsap>
-            <durationSecs>120</durationSecs>
-        </scheduleAsap>
+        <schedule>
+            <duration>60</duration>
+        </schedule>
         <emailResults>no</emailResults>
     </generalConf>
 

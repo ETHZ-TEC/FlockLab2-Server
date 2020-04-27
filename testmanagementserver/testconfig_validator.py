@@ -272,6 +272,7 @@ def main(argv):
     if errcnt == 0:
         sched_abs  = tree.xpath('//d:generalConf/d:scheduleAbsolute', namespaces=ns)
         sched_asap = tree.xpath('//d:generalConf/d:scheduleAsap', namespaces=ns)
+        sched      = tree.xpath('//d:generalConf/d:schedule', namespaces=ns)
         if sched_abs:
             # The start date and time have to be in the future:
             rs = tree.xpath('//d:generalConf/d:scheduleAbsolute/d:start', namespaces=ns)
@@ -292,6 +293,8 @@ def main(argv):
             testDuration = testEnd - testStart
         elif sched_asap:
             testDuration = int(tree.xpath('//d:generalConf/d:scheduleAsap/d:durationSecs', namespaces=ns)[0].text)
+        elif sched:
+            testDuration = int(tree.xpath('//d:generalConf/d:schedule/d:duration', namespaces=ns)[0].text)
         
         # targetConf additional validation -------------------------------------------- 
         #    * DB image ids need to be in the database and binary field must not be empty
@@ -663,9 +666,9 @@ def main(argv):
         total_samples = 0
         for elem in rs:
             ppOffset = int(elem.text)
-            elem2 = elem.getparent().findtext('d:duration', namespaces=ns)
+            elem2 = elem.getparent().find('d:duration', namespaces=ns)
             if elem2 != None:
-                ppDuration = int(elem2.strip())
+                ppDuration = int(elem2.text.strip())
             else:
                 # assume sampling duration = test duration
                 ppDuration = testDuration - ppOffset

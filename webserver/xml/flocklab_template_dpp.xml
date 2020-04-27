@@ -6,9 +6,9 @@
         <description>
             A hello world example for the CC430 on the Dual Processor Platform (DPP).
         </description>
-        <scheduleAsap>
-            <durationSecs>60</durationSecs>
-        </scheduleAsap>
+        <schedule>
+            <duration>60</duration>
+        </schedule>
         <emailResults>no</emailResults>
     </generalConf>
 

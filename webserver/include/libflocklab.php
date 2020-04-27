@@ -476,14 +476,7 @@ function trigger_scheduler($debug = false) {
 
 // check quota
 function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
-    if (isset($testconfig->generalConf->scheduleAbsolute)) {
-        $test_start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
-        $test_end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
-        $this_runtime = ($test_end->format("U") -$test_start->format("U")) / 60;
-    }
-    else {
-        $this_runtime = $testconfig->generalConf->scheduleAsap->durationSecs / 60;
-    }
+    $this_runtime = $testconfig->generalConf->schedule->duration / 60;
     // check quota
     // 1. get scheduled tests / time for this user
     $db = db_connect();
@@ -513,52 +506,6 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
     }
     mysqli_close($db);
     return false;
-}
-
-// check schedulability
-function check_schedulability($testconfig, $exclude_test = NULL) {
-    global $CONFIG;
-    $db = db_connect();
-    $guard_sec = $CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'];
-    $guard_setup_sec = $CONFIG['tests']['setuptime'];
-    $guard_cleanup_sec = $CONFIG['tests']['cleanuptime'];
-    $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
-    $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
-    $start->setTimeZone(new DateTimeZone("UTC"));
-    $end->setTimeZone(new DateTimeZone("UTC"));
-    $now = new DateTime ();
-    $now->setTimeZone(new DateTimeZone("UTC"));
-    // check setup time
-    if ($start->format("U") - $guard_setup_sec < $now->format("U")) {
-        $sched=false;
-    }
-    else {
-        // 1) check for other tests
-        $sql = 'SELECT COUNT(*) as test_num
-        FROM `tbl_serv_tests`
-        WHERE ' .(is_null($exclude_test)?'':' `serv_tests_key`!='.$exclude_test.' AND ').' ('. 
-        // planned tests
-        '`test_status` NOT IN("finished","failed", "deleted", "todelete", "syncing", "synced", "retention expiring") AND (
-            (`time_start_wish` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_sec).' SECOND) AND `time_end_wish` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_sec).' SECOND))
-        OR  (`time_start_wish` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_sec).' SECOND) AND `time_end_wish` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_sec).' SECOND))))';
-        $res = mysqli_query($db, $sql) or flocklab_die('Cannot check schedulability: ' . mysqli_error($db));
-        $row = mysqli_fetch_assoc($res);
-        $sched = $row['test_num']==0;
-        // 2) check for reservations
-        if ($sched) {
-            $sql = 'SELECT max(`user_fk` = '.$_SESSION['serv_users_key'].') as `reservation_match`
-                FROM `tbl_serv_reservations` LEFT JOIN `tbl_serv_user_groups` ON `group_fk`=`group_id_fk`
-                WHERE (`time_start` < DATE_ADD("'.$end->format(DATE_ISO8601).'", INTERVAL '.($guard_sec).' SECOND) AND `time_end` > DATE_ADD("'.$start->format(DATE_ISO8601).'", INTERVAL '.(- $guard_sec).' SECOND))';
-            $res = mysqli_query($db, $sql) or flocklab_die('Cannot check schedulability: ' . mysqli_error($db));
-            if (mysqli_num_rows($res) > 0) {
-                $row = mysqli_fetch_assoc($res);
-                $sched = ($row['reservation_match']==1 || is_null($row['reservation_match']));
-            }
-            // else no reservation
-        }
-        mysqli_close($db);
-    }
-    return $sched;
 }
 
 // remove mappings
@@ -871,6 +818,8 @@ function resource_cleanup($targetnodes) {
     return $resources;
 }
 
+
+
 ##############################################################################
 #
 # schedule_test
@@ -888,28 +837,25 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     $guard_setup_sec = $CONFIG['tests']['setuptime'];
     $guard_cleanup_sec = $CONFIG['tests']['cleanuptime'];
     $allow_parallel_tests = $CONFIG['tests']['allowparalleltests'];
-    $isAsap = isset($testconfig->generalConf->scheduleAsap);
+    $isAsap = !isset($testconfig->generalConf->schedule->start);
     $now = new DateTime ();
     $now->setTimeZone(new DateTimeZone("UTC"));
+    $duration = $testconfig->generalConf->schedule->duration;
     // start is time start wish - setup time
     // end is time end wish + cleanup time
     if (!$isAsap) {
-        $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
-        $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
+        $start = new DateTime($testconfig->generalConf->schedule->start);
         $start->setTimeZone(new DateTimeZone("UTC"));
-        $end->setTimeZone(new DateTimeZone("UTC"));
+        $end = clone $start;
         $start->modify('-'.$guard_setup_sec.' seconds');
-        $end->modify('+'.$guard_cleanup_sec.' seconds');
-        if ($start->format("U") < $now->format("U")) {
-            return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
-        }
+        $end->modify('+'.($duration + $guard_cleanup_sec).' seconds');
     }
     else {
         $start = new DateTime(); // now
         $end = clone $start;
         $start->setTimeZone(new DateTimeZone("UTC"));
         $end->setTimeZone(new DateTimeZone("UTC"));
-        $end->modify('+'.$testconfig->generalConf->scheduleAsap->durationSecs.' seconds');
+        $end->modify('+'.$testconfig->generalConf->schedule->duration.' seconds');
         $end->modify('+'.($guard_setup_sec + $guard_cleanup_sec).' seconds');
     }
     $resourcesdict = Array();
@@ -917,7 +863,7 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
         if (!isset($resourcesdict[$r['obskey']][$r['restype']]))
             $resourcesdict[$r['obskey']][$r['restype']] = Array();
         array_push($resourcesdict[$r['obskey']][$r['restype']], $r);
-    }    
+    }
     
     $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, `observer_fk`, `resource_type` FROM `tbl_serv_resource_allocation` a left join tbl_serv_tests b on (b.serv_tests_key = a.test_fk) WHERE (`time_end` >= '".$start->format(DATE_ISO8601)."' and test_status in ('planned','preparing','running','cleaning up','syncing','synced','aborting')".(isset($exclude_test)?" and `test_fk`!=".$exclude_test:"").")"; 
     $res_usedresources = mysqli_query($db, $sql);
@@ -997,16 +943,40 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     return Array('feasible'=>True,'start_time'=>$start, 'end_time'=>$end);
 }
 
-// convert from asap to absolute
-function asap_to_absolute(&$testconfig, $starttime, $endtime) {
+function adjust_schedule_tag(&$testconfig) {
     // modify test description
-    global $CONFIG;    
+    $start    = 0;
+    $duration = 0;
+    if (isset($testconfig->generalConf->schedule)) {
+        if (isset($testconfig->generalConf->schedule->start)) {
+            $start = $testconfig->generalConf->schedule->start;
+            if (intval($start) > time()) {
+                // treat as UNIX timestamp
+                $start_conv = new DateTime("@$start");
+                unset($testconfig->generalConf->schedule->start);
+                $testconfig->generalConf->schedule->addChild('start', $start_conv->format(DATE_W3C));
+            }
+        }
+        return;
+    }
+    if (isset($testconfig->generalConf->scheduleAbsolute)) {
+        $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
+        $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
+        $start->setTimeZone(new DateTimeZone("UTC"));
+        $end->setTimeZone(new DateTimeZone("UTC"));
+        $duration = $end->getTimestamp() - $start->getTimestamp();
+        unset($testconfig->generalConf->scheduleAbsolute);
+    } else if (isset($testconfig->generalConf->scheduleAsap)) {
+        $duration = clone $testconfig->generalConf->scheduleAsap->durationSecs;
+        unset($testconfig->generalConf->scheduleAsap);
+    }
     $email = clone $testconfig->generalConf->emailResults;
-    unset($testconfig->generalConf->scheduleAsap);
     unset($testconfig->generalConf->emailResults);
-    $testconfig->generalConf->addChild('scheduleAbsolute');
-    $testconfig->generalConf->scheduleAbsolute->addChild('start', $starttime->format(DATE_W3C));
-    $testconfig->generalConf->scheduleAbsolute->addChild('end', $endtime->format(DATE_W3C));
+    $testconfig->generalConf->addChild('schedule');
+    if ($start > 0) {
+        $testconfig->generalConf->schedule->addChild('start', $start->format(DATE_W3C));
+    }
+    $testconfig->generalConf->schedule->addChild('duration', $duration);
     if ($email != '') {
         $testconfig->generalConf->addChild('emailResults', $email);
     }
@@ -1071,8 +1041,9 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                     $sc->addChild('remoteIp', $_SERVER['REMOTE_ADDR']);
                 }
             }
-        } //else: array_push($errors, 'remoteIp: FlockLab does not support IPv6 addresses ('.$_SERVER['REMOTE_ADDR'].'). To use the <a href="https://www.flocklab.ethz.ch/wiki/wiki/Public/Man/Tutorials/Tutorial2#notes">Serial socket feature</a>, please provide an IPv4 address.');
-        
+        }
+        adjust_schedule_tag($testconfig);
+
         // extract embedded images
         $used_embeddedImages = Array();
         $used_dbImages = Array();
@@ -1158,24 +1129,15 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         array_push($targetnodes, Array('obsid' => (int)$obsid, 'platform' => $pkey));
                     }
                 }
-                if (isset($testconfig->generalConf->scheduleAsap->durationSecs)) {
-                    $duration = $testconfig->generalConf->scheduleAsap->durationSecs;
-                }
-                else {
-                    $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
-                    $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
-                    $start->setTimeZone(new DateTimeZone("UTC"));
-                    $end->setTimeZone(new DateTimeZone("UTC"));
-                    $duration = $end->format("U") - $start->format("U");
-                }
+                $duration = $testconfig->generalConf->schedule->duration;
                 # 1a. slots
                 $resources = Array();
                 if ($abort===True) {
                     $resources = array_merge($resources, resource_cleanup($targetnodes));
-                    if (! isset($testconfig->generalConf->scheduleAsap)) {
-                        unset($testconfig->generalConf->scheduleAbsolute);
-                        $testconfig->generalConf->addChild('scheduleAsap');
-                        $testconfig->generalConf->scheduleAsap->addChild('durationSecs', -1 * $CONFIG['tests']['setuptime']); // no setup time, only cleanup
+                    if (isset($testconfig->generalConf->schedule->start)) {
+                        unset($testconfig->generalConf->schedule);
+                        $testconfig->generalConf->addChild('schedule');
+                        $testconfig->generalConf->schedule->addChild('duration', -1 * $CONFIG['tests']['setuptime']); // no setup time, only cleanup
                     }
                 }
                 else {
@@ -1222,9 +1184,9 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                     if (!$r['feasible'])
                         array_push($errors, "Time slot is already used, pick another slot.");
                     else {
-                        if (isset($testconfig->generalConf->scheduleAsap)) {
+                        if (!isset($testconfig->generalConf->schedule->start)) {
                             // convert from ASAP to absoulte
-                            asap_to_absolute($testconfig, $r['start_time'], $r['end_time']);
+                            $testconfig->generalConf->schedule->addChild('start', $r['start_time']->format(DATE_W3C));
                         }
                         // strip all embedded images from xml config
                         // add embedded images to db
@@ -1250,6 +1212,8 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                             unset($testconfig->embeddedImageConf[0]);
                         }
                         $xml_config = $testconfig->asXML();
+                        // add newline
+                        $xml_config = str_replace("><", ">\n    <", $xml_config);
                         $xml_config = preg_replace('#</testConf>#s', $comment.'</testConf>', $xml_config);
                         foreach ($embeddedImages as $im) {
                             // replace embedded image id with db id
@@ -1258,10 +1222,10 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         // replace list of observer IDs
                         $xml_config = preg_replace('#<obsIds>[^<]*ALL[^<]*</obsIds>#si', '<obsIds>'.implode(" ", array_column($targetnodes, "obsid")).'</obsIds>', $xml_config);
                         // add test to db
-                        $start = new DateTime($testconfig->generalConf->scheduleAbsolute->start);
+                        $start = new DateTime($testconfig->generalConf->schedule->start);
                         $start->setTimeZone(new DateTimeZone("UTC"));
-                        $end = new DateTime($testconfig->generalConf->scheduleAbsolute->end);
-                        $end->setTimeZone(new DateTimeZone("UTC"));
+                        $end = clone $start;
+                        $end->modify('+'.$testconfig->generalConf->schedule->duration.' seconds');
                         if (isset($existing_test_id)) { // update test
                             // remove mappings and resource allocations
                             remove_test_mappings($existing_test_id);
