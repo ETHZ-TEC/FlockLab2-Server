@@ -583,6 +583,12 @@ def main(argv):
                 if obs in debugObsIds:
                     usesDebug = True
                     break
+            # check offset
+            ofs = gpiomonconf.find('d:offset', namespaces=ns)
+            if ofs != None and (int(ofs.text) >= testDuration):
+                if not quiet:
+                    print("Line %d: Offset is larger than test duration." % (ofs.sourceline))
+                errcnt = errcnt + 1
             pins = gpiomonconf.find('d:pins', namespaces=ns)
             if ("dpp2lora" in platform.lower()) and ("INT2" in pins.text):
                 if not quiet:
