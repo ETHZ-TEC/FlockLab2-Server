@@ -15,9 +15,9 @@
         <description>
             A template application which mainly shows the usage of the FlockLab XML configuration file. The target image implements a simple test application for the DPP CC430. All targets print 'hello world' once per second and toggle some LEDs.
         </description>
-        <scheduleAsap>
-            <durationSecs>60</durationSecs>
-        </scheduleAsap>
+        <schedule>
+            <duration>60</duration>
+        </schedule>
         <emailResults>no</emailResults>
     </generalConf>
 
