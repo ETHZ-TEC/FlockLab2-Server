@@ -198,6 +198,12 @@
           <xs:enumeration value="38400"/>
           <xs:enumeration value="57600"/>
           <xs:enumeration value="115200"/>
+          <xs:enumeration value="230400"/>
+          <xs:enumeration value="460800"/>
+          <xs:enumeration value="921600"/>
+          <xs:enumeration value="1000000"/>
+          <xs:enumeration value="2000000"/>
+          <xs:enumeration value="3000000"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
