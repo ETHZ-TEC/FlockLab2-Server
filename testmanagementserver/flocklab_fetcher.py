@@ -349,6 +349,37 @@ def worker_logs(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None
 
 ##############################################################################
 #
+# worker_datatrace
+#
+##############################################################################
+def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None, arg=None):
+    try:
+        _errors = []
+        cur_p = multiprocessing.current_process()
+        (itemtype, obsid, fdir, f, workerstate) = queueitem
+        obsdbfile_path = "%s/%s" % (fdir, f)
+        loggername = "(%s.%d) " % (cur_p.name, obsid)
+
+        with open(resultfile_path, "a") as outfile:
+            infile = open(obsdbfile_path, "r")
+            for line in infile:
+                (timestamp, msg) = line.strip().split(',', 1)
+                outfile.write("%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, msg))
+            infile.close()
+        os.remove(obsdbfile_path)
+    except:
+        msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        _errors.append((msg, errno.ECOMM, obsid))
+        logqueue.put_nowait((loggername, logging.ERROR, msg))
+    finally:
+        processeditem = list(queueitem)
+        processeditem[0] = ITEM_PROCESSED
+        return (_errors, tuple(processeditem))
+### END worker_datatrace()
+
+
+##############################################################################
+#
 # worker_callback: Callback function which reports errors from worker processes
 #        back to the main process
 #
@@ -854,7 +885,7 @@ def main(argv):
     
     # Find out which services are used to allocate working threads later on ---
     # Get the XML config from the database and check which services are used in the test.
-    servicesUsed_dict = {'gpiotracing': 'gpioTracingConf', 'powerprofiling': 'powerProfilingConf', 'serial': 'serialConf'}
+    servicesUsed_dict = {'gpiotracing': 'gpioTracingConf', 'powerprofiling': 'powerProfilingConf', 'serial': 'serialConf', 'datatrace': 'dataTraceConf'}
     cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
     ret = cur.fetchone()
     if not ret:
@@ -886,6 +917,9 @@ def main(argv):
             msg = "XML parsing failed: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             errors.append(msg)
             logger.error(msg)
+    # Append log services (always used)
+    servicesUsed_dict['errorlog'] = True
+    servicesUsed_dict['timesynclog'] = True
     
     cur.close()
     cn.close()
@@ -913,7 +947,9 @@ def main(argv):
             os.makedirs(testresultsdir)
             logger.debug("Created %s" % testresultsdir)
         manager = multiprocessing.Manager()
-        for service in ('errorlog', 'gpiotracing', 'powerprofiling', 'serial', 'timesynclog'):
+        for service in ('errorlog', 'gpiotracing', 'powerprofiling', 'serial', 'timesynclog', 'datatrace'):
+            if servicesUsed_dict[service] == False:
+                continue    # only create files for used services
             path = "%s/%s.csv" % (testresultsdir, service)
             lock = manager.Lock()
             testresultsfile_dict[service] = (path, lock)
@@ -928,6 +964,8 @@ def main(argv):
                 header = 'timestamp,observer_id,node_id,current_mA,voltage_V\n'
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
+            elif service == 'datatrace':
+                header = 'timestamp,observer_id,node_id,variable,value,access,pc\n'
             lock.acquire()
             f = open(path, 'w')
             f.write(header)
@@ -963,6 +1001,10 @@ def main(argv):
         else:
             cpus_powerprofiling = 0
             #cpus_free = cpus_free + flocklab.config.getint('fetcher', 'cpus_powerprofiling')
+        if servicesUsed_dict['datatrace'] == True:
+            cpus_datatrace = 1
+        else:
+            cpus_datatrace = 0
         # If there are free CPUs left, give them to GPIO tracing and power profiling evenly as these services need the most CPU power:
         if cpus_free > 0:
             if (cpus_powerprofiling > 0) and (cpus_gpiomonitoring > 0):
@@ -981,7 +1023,7 @@ def main(argv):
                     cpus_serial = cpus_serial + cpus_free
         cpus_total = cpus_logs + cpus_serial + cpus_gpiomonitoring + cpus_powerprofiling
         
-        service_pools_dict = { 'logs': cpus_logs, 'serial': cpus_serial, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling }
+        service_pools_dict = { 'logs': cpus_logs, 'serial': cpus_serial, 'gpiotracing': cpus_gpiomonitoring, 'powerprofiling': cpus_powerprofiling, 'datatrace': cpus_datatrace }
         if (cpus_total > multiprocessing.cpu_count()):
             logger.warning("Number of requested CPUs for all aggregating processes (%d) is higher than number of available CPUs (%d) on system." % (cpus_total, multiprocessing.cpu_count()))
         
@@ -1048,6 +1090,10 @@ def main(argv):
             elif (re.search("^serial_[0-9]{14}\.db$", f) != None):
                 pool        = service_pools_dict['serial']
                 worker_args = [nextitem, nodeid, testresultsfile_dict['serial'][0], testresultsfile_dict['serial'][1], commitsize, parse_serial, convert_serial, logqueue]
+            elif (re.search("^datatrace_[0-9]{14}\.csv$", f) != None):
+                pool        = service_pools_dict['datatrace']
+                worker_args = [nextitem, nodeid, testresultsfile_dict['datatrace'][0], logqueue, None]
+                worker_f    = worker_logs
             elif (re.search("^error_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['logs']
                 worker_args = [nextitem, nodeid, testresultsfile_dict['errorlog'][0], logqueue, None]

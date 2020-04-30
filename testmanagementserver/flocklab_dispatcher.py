@@ -266,9 +266,18 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             logger.debug("Got start time wish for test from database: %s" % starttime)
             logger.debug("Got end time wish for test from database: %s" % stoptime)
             
+            # Check whether datatrace debug feature is used
+            datatrace_used = False
+            cur.execute("SELECT serv_tests_key FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s) AND (`testconfig_xml` LIKE '%%<dataTraceConf>%%')" % testid)
+            ret = cur.fetchone()
+            if ret:
+                datatrace_used = True
+                logger.debug("Use of data trace detected.")
+            
             # Image processing ---
             # Get all images from the database:
             imagedict_key = {}
+            symtable = {}
             sql_image =     """ SELECT `t`.`binary`, `m`.`observer_fk`, `m`.`node_id`, LOWER(`a`.`architecture`), `t`.`serv_targetimages_key`, LOWER(`p`.`name`) AS `platname`, `a`.`core` AS `core`
                                 FROM `tbl_serv_targetimages` AS `t` 
                                 LEFT JOIN `tbl_serv_map_test_observer_targetimages` AS `m` 
@@ -307,6 +316,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     logger.debug("Got target image ID %s for observer ID %s with node ID %s from database and wrote it to temp file %s (hash %s)" % (str(tgimage_key), str(obs_id), str(node_id), imagepath, hashlib.sha1(binary).hexdigest()))
                     
                     logger.debug("Found %s target architecture on platform %s for observer ID %s (node ID to be used: %s)." % (arch, platname, str(obs_id), str(node_id)))
+                    
+                    # get symbols table if necessary
+                    if datatrace_used and not obs_id in symtable:    # allow only one entry per observer
+                        symtable[obs_id] = flocklab.extract_variables_from_symtable(flocklab.get_symtable_from_binary(imagepath))
                     
                     # binary patching
                     if (node_id != None):
@@ -369,7 +382,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
                 ns = {'d': flocklab.config.get('xml', 'namespace')}
                 logger.debug("Got XML from database.")
-                # Create XML files ---
+                # Create XML files for observers ---
                 # Create an empty XML config file for every observer used and organize them in a dictionary:
                 xmldict_key = {}
                 for obs_key, obs_id, obs_ether in obsdict_key.values():
@@ -448,19 +461,35 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     logger.debug("No <serialConf> found, not using serial service.")
                 
                 # debugConf ---
-                srconfs = tree.xpath('//d:debugConf', namespaces=ns)
-                if srconfs:
-                    for srconf in srconfs:
-                        obsids = srconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
+                dbgconfs = tree.xpath('//d:debugConf', namespaces=ns)
+                if dbgconfs:
+                    for dbgconf in dbgconfs:
+                        obsids = dbgconf.xpath('d:obsIds', namespaces=ns)[0].text.strip().split()
                         xmlblock = "<obsDebugConf>\n"
-                        remoteIp = srconf.xpath('d:remoteIp', namespaces=ns)
+                        remoteIp = dbgconf.xpath('d:remoteIp', namespaces=ns)
                         if remoteIp:
                             remoteIp = remoteIp[0].text.strip()
                             xmlblock += "\t<remoteIp>%s</remoteIp>\n" % (remoteIp)
-                        gdbPort = srconf.xpath('d:gdbPort', namespaces=ns)
+                        gdbPort = dbgconf.xpath('d:gdbPort', namespaces=ns)
                         if gdbPort:
                             gdbPort = gdbPort[0].text.strip()
                             xmlblock += "\t<gdbPort>%s</gdbPort>\n" % (gdbPort)
+                        dwtconfs = dbgconf.xpath('d:dataTraceConf', namespaces=ns)
+                        for dwtconf in dwtconfs:
+                            var  = dwtconf.xpath('d:variable', namespaces=ns)[0].text.strip()
+                            # convert variable name to address
+                            obskey = int(float(obsids[0]))
+                            if obskey in symtable:
+                                if var in symtable[obskey]:
+                                    logger.debug("Variable %s replaced with address 0x%x." % (var, symtable[obskey][var][0]))
+                                    var = "0x%x" % symtable[obskey][var][0]
+                                else:
+                                    logger.warning("Variable %s not found in symbol table." % var)
+                                    continue
+                            else: 
+                                logger.debug("Key %u not found in symbol table." % (obskey))
+                            mode = dwtconf.xpath('d:mode', namespaces=ns)[0].text.strip()
+                            xmlblock += "\t<dataTraceConf>\n\t\t<variable>%s</variable>\n\t\t<mode>%s</mode>\n\t</dataTraceConf>\n" % (var, mode)
                         xmlblock += "</obsDebugConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)

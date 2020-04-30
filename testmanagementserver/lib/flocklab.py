@@ -1131,11 +1131,11 @@ def parse_int(s):
 def binary_has_symbol(symbol=None, binaryfile=None):
     if symbol is None or binaryfile is None or not os.path.isfile(binaryfile):
         return FAILED
-    p = subprocess.Popen(['objdump', '-t', imagepath], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    p = subprocess.Popen(['objdump', '-t', binaryfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     (out, err) = p.communicate()
     if p.returncode == 0:
         if symbol in out:
-            logger.debug("Found symbol %s in binary file '%s'." % (symbol, imagepath))
+            logger.debug("Found symbol %s in binary file '%s'." % (symbol, binaryfile))
             return True
         return False
     return FAILED
@@ -1257,3 +1257,45 @@ def is_hex_file(filename=None, data=None):
         pass   # not a valid hex file
     return False
 ### END is_hex_file()
+
+
+##############################################################################
+#
+# get_symtable_from_binary()   retrieves the symbol table from a target image (elf file)
+#
+##############################################################################
+def get_symtable_from_binary(binaryfile=None):
+    if binaryfile == None:
+        return ""
+    # either use readelf -s or objdump -t
+    p = subprocess.Popen(['readelf', '-s', binaryfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    (out, err) = p.communicate()
+    if p.returncode == 0:
+        return out
+    return ""
+### END get_symtable_from_binary()
+
+
+##############################################################################
+#
+# extract_variables_from_symtable()   extracts all global variables from a symbol table and returns them as a dictionary
+#
+##############################################################################
+def extract_variables_from_symtable(symtable=""):
+    if not symtable:
+        return symtable
+    symbols = {}
+    for line in symtable.split('\n'):
+        if not "OBJECT" in line:
+            continue
+        parts = line.split()
+        if len(parts) >= 8:      # at least 8 parts required
+            try:
+                symname = parts[-1]
+                symbols[symname] = [ int(parts[1], 16), int(parts[-2]) ]
+                print("found symbol: %s, 0x%x, %d" % (symname, symbols[symname][0], symbols[symname][1]))
+            except ValueError:
+                pass
+    return symbols
+### END extract_variables_from_symtable()
+
