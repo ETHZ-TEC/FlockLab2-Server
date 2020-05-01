@@ -258,9 +258,9 @@ dppusers_per_year = \"".str_replace('"', '\'', serialize($dppusers_per_year))."\
 dpp2_tests = ".(string)$dpp2testcnt."
 dpp2_per_year = \"".str_replace('"', '\'', serialize($dpp2tests_per_year))."\"
 dpp2users_per_year = \"".str_replace('"', '\'', serialize($dpp2users_per_year))."\"
-nrf_tests = ".(string)$dpp2testcnt."
-nrf_per_year = \"".str_replace('"', '\'', serialize($dpp2tests_per_year))."\"
-nrfusers_per_year = \"".str_replace('"', '\'', serialize($dpp2users_per_year))."\"
+nrf_tests = ".(string)$nrftestcnt."
+nrf_per_year = \"".str_replace('"', '\'', serialize($nrftests_per_year))."\"
+nrfusers_per_year = \"".str_replace('"', '\'', serialize($nrfusers_per_year))."\"
 
 [services]
 serial_tests = ".(string)$serialcnt."
