@@ -1093,7 +1093,7 @@ def main(argv):
             elif (re.search("^datatrace_[0-9]{14}\.csv$", f) != None):
                 pool        = service_pools_dict['datatrace']
                 worker_args = [nextitem, nodeid, testresultsfile_dict['datatrace'][0], logqueue, None]
-                worker_f    = worker_logs
+                worker_f    = worker_datatrace
             elif (re.search("^error_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['logs']
                 worker_args = [nextitem, nodeid, testresultsfile_dict['errorlog'][0], logqueue, None]
