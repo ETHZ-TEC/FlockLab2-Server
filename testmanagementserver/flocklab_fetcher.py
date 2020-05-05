@@ -358,7 +358,14 @@ def worker_serial(queueitem=None, nodeid=None, resultfile_path=None, logqueue=No
 
         with open(resultfile_path, "a") as outfile:
             infile = open(inputfilename, "r")
-            for line in infile:
+            # read line by line and check for decode errors
+            while True:
+                try:
+                    line = infile.readline()
+                except UnicodeDecodeError:
+                    continue
+                if not line:
+                    break
                 try:
                     (timestamp, msg) = line.strip().split(',', 1)
                 except:
