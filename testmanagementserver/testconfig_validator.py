@@ -562,6 +562,10 @@ def main(argv):
             if not quiet:
                 print("Element debugConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
+        if tree.xpath('//d:debugConf/d:dataTraceConf', namespaces=ns) and platform.lower() not in ('nrf5', 'dpp2lora', 'dpp2lorahg'):
+            if not quiet:
+                print("Element dataTraceConf: data tracing is not supported on the platform %s." % platform)
+            errcnt = errcnt + 1
         
         # gpioTracingConf additional validation ---------------------------------------
         #    * observer ids need to have a targetConf associated and must be unique

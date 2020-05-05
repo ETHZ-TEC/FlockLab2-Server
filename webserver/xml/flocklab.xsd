@@ -216,9 +216,17 @@
 <xs:complexType name="debugConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:choice minOccurs="0" maxOccurs="2">
+    <xs:choice>
       <xs:element name="gdbPort" type="portType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="remoteIp" type="ipType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="dataTraceConf" minOccurs="0" maxOccurs="4">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="variable" type="xs:string"/>
+            <xs:element name="mode" type="dataTraceModeType"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
     </xs:choice>
   </xs:sequence>
 </xs:complexType>
@@ -433,6 +441,12 @@
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="1025"/>
     <xs:maxInclusive value="65535"/>
+  </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="dataTraceModeType">
+  <xs:restriction base="xs:string">
+    <xs:pattern value="R|W|RW|PC"/>
   </xs:restriction>
 </xs:simpleType>
 
