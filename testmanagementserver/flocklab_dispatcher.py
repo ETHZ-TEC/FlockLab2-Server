@@ -571,7 +571,18 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         pin  = pinconf.xpath('d:pin', namespaces=ns)[0].text.strip()
                         level = pinconf.xpath('d:level', namespaces=ns)[0].text.strip()
                         ofs = pinconf.xpath('d:offset', namespaces=ns)[0].text.strip()
-                        xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>%s</level>\n\t\t<offset>%s</offset>\n\t</pinConf>\n" % (pin, level, ofs)
+                        count = pinconf.xpath('d:count', namespaces=ns)
+                        if count:
+                            count = int(count[0].text.strip())
+                        else:
+                            count = 1
+                        period = pinconf.xpath('d:period', namespaces=ns)
+                        if period:
+                            period = float(period[0].text.strip())
+                            # periodic toggling
+                            xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>toggle</level>\n\t\t<offset>%s</offset>\n\t\t<period>%f</period>\n\t\t<count>%d</count>\n\t</pinConf>\n" % (pin, ofs, period, count)
+                        else:
+                            xmlblock += "\t<pinConf>\n\t\t<pin>%s</pin>\n\t\t<level>%s</level>\n\t\t<offset>%s</offset>\n\t</pinConf>\n" % (pin, level, ofs)
                     for obsid in obsids:
                         obsid = int(obsid)
                         obskey = obsdict_id[obsid][0]
