@@ -618,10 +618,12 @@ def main(argv):
         for gpiomonconf in gpiomonconfs:
             usesDebug = False
             # check if one of the used observers also uses the debug service
-            for obs in ids:
-                if obs in debugObsIds:
-                    usesDebug = True
-                    break
+            gpiomonconfids = gpiomonconf.find('d:obsIds', namespaces=ns)
+            if gpiomonconfids != None:
+                for obs in gpiomonconfids.text.split():
+                    if obs in debugObsIds:
+                        usesDebug = True
+                        break
             # check offset
             ofs = gpiomonconf.find('d:offset', namespaces=ns)
             if ofs != None and (int(ofs.text) >= testDuration):

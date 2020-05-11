@@ -517,13 +517,13 @@ def get_test_owner(cursor=None, testid=0):
     if ((type(cursor) != MySQLdb.cursors.Cursor) or (type(testid) != int) or (testid <= 0)):
         return FAILED
     try:
-        sql = "SELECT `a`.serv_users_key, `a`.lastname, `a`.firstname, `a`.username, `a`.email, `a`.disable_infomails \
+        sql = "SELECT `a`.serv_users_key, `a`.lastname, `a`.firstname, `a`.username, `a`.email, `a`.disable_infomails, `a`.role \
                FROM tbl_serv_users AS `a` \
                LEFT JOIN tbl_serv_tests AS `b` \
                ON `a`.serv_users_key = `b`.owner_fk WHERE `b`.serv_tests_key=%d;"
         cursor.execute(sql % testid)
         rs = cursor.fetchone()
-        return (rs[0], rs[1], rs[2], rs[3], rs[4], rs[5])
+        return (rs[0], rs[1], rs[2], rs[3], rs[4], rs[5], rs[6])
     except:
         logger = get_logger()
         logger.error("%s: %s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1])))
