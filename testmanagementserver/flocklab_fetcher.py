@@ -1,8 +1,41 @@
 #! /usr/bin/env python3
 
-import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil, lxml.etree
+"""
+Copyright (c) 2010 - 2020, ETH Zurich, Computer Engineering Group
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of the copyright holder nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+"""
+
+import os, sys, getopt, traceback, MySQLdb, signal, random, time, errno, multiprocessing, subprocess, re, logging, __main__, threading, struct, types, queue, math, shutil, lxml.etree, tempfile
 import lib.daemon as daemon
 import lib.flocklab as flocklab
+import lib.dwt_parse as dwt
 from rocketlogger.data import RocketLoggerData
 import pandas as pd
 import numpy as np
@@ -363,7 +396,7 @@ def worker_serial(queueitem=None, nodeid=None, resultfile_path=None, logqueue=No
                 try:
                     line = infile.readline()
                 except UnicodeDecodeError:
-                    continue
+                    continue      # ignore invalid lines
                 if not line:
                     break
                 try:
@@ -398,13 +431,25 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         obsdbfile_path = "%s/%s" % (fdir, f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
 
+        # parse the file
+        (fd, tmpfile1) = tempfile.mkstemp()
+        (fd, tmpfile2) = tempfile.mkstemp()
+        #parser_output = os.fdopen(fd, 'w')
+        dwt.parse_dwt_output(obsdbfile_path, tmpfile1)
+        # apply linear regression to correct the timestamps
+        dwt.correct_ts_with_regression(tmpfile1, tmpfile2)
+
         with open(resultfile_path, "a") as outfile:
-            infile = open(obsdbfile_path, "r")
+            infile = open(tmpfile2, "r")
             for line in infile:
-                (timestamp, msg) = line.strip().split(',', 1)
-                outfile.write("%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, msg))
+                #(timestamp, msg) = line.strip().split(',', 1)
+                #outfile.write("%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, msg))
+                outfile.write(line)
             infile.close()
+        # delete files
         os.remove(obsdbfile_path)
+        os.remove(tmpfile1)
+        os.remove(tmpfile2)
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, errno.ECOMM, obsid))
@@ -518,7 +563,7 @@ class FetchObsThread(threading.Thread):
                 rs = p.returncode
                 if (rs == flocklab.SUCCESS):
                     services = {}
-                    for servicename in [ "gpio_monitor", "powerprofiling", "serial", "error", "timesync" ]:
+                    for servicename in [ "gpio_monitor", "powerprofiling", "serial", "error", "timesync", "datatrace" ]:
                         services[servicename] = ServiceInfo(servicename)
                     # Read filenames
                     for dbfile in out.split():
@@ -1003,7 +1048,7 @@ def main(argv):
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
             elif service == 'datatrace':
-                header = 'timestamp,observer_id,node_id,variable,value,access,pc\n'
+                header = ""  # TODO 'timestamp,observer_id,node_id,variable,value,access,pc\n'
             lock.acquire()
             f = open(path, 'w')
             f.write(header)

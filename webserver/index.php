@@ -1,13 +1,35 @@
-<?php 
-    /*
-     * __author__      = "Christoph Walser <walser@tik.ee.ethz.ch>"
-     * __copyright__   = "Copyright 2010, ETH Zurich, Switzerland, Christoph Walser"
-     * __license__     = "GPL"
-     * __version__     = "$Revision: 2888 $"
-     * __date__        = "$Date: 2014-08-22 10:01:11 +0200 (Fri, 22 Aug 2014) $"
-     * __id__          = "$Id: index.php.normal 2888 2014-08-22 08:01:11Z rlim $"
-     * __source__      = "$URL: svn://svn.ee.ethz.ch/flocklab/trunk/server/webserver/user/index.php.normal $" 
-     */
+<?php
+/**
+ * Copyright (c) 2010 - 2020, ETH Zurich, Computer Engineering Group
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of the copyright holder nor the names of its
+ *   contributors may be used to endorse or promote products derived from
+ *   this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
 ?>
 <?php require_once('include/layout.php');require_once('include/presets.php'); ?>
 <script type="text/javascript" src="scripts/jquery.cookie.js"></script>
@@ -117,7 +139,7 @@
     }
     
     $(document).ready(function() {
-        var table_rows = Math.max(Math.floor(($(window).height() - 300) / 25),10);
+        var table_rows = Math.max(Math.floor(($(window).height() - 300) / 40),10);
         $("#pager_num_rows").attr('value', table_rows);        
         $("#test_overview")
             .tablesorter({widgets: ["zebra"] })
@@ -147,7 +169,6 @@
     });
 </script>
 <?php
-//echo '<br />Notice: Due to maintenance work in our building, some of the observers will be sporadically unavailable from ... to ... .<br /><br />';
 echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname']. '</h1>';
                 /* Get all test of the current user from the database and display them in the table. */
                 $db = db_connect();
