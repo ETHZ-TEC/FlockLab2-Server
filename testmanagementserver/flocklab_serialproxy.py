@@ -170,7 +170,10 @@ def update_configuration_from_db():
             srconfs = tree.xpath('//d:serialConf', namespaces=ns)
             for srconf in srconfs:
                 obsids = srconf.xpath('d:obsIds', namespaces=ns)[0].text.split()
-                remoteIp = srconf.xpath('d:remoteIp', namespaces=ns)[0].text
+                remoteIp = srconf.xpath('d:remoteIp', namespaces=ns)
+                if not remoteIp:
+                    continue        # skip
+                remoteIp = remoteIp[0].text
                 # Create a pair of FIFO pipes for every observer and start ncat:
                 for obsid in obsids:
                     if int(obsid) in mapping:
