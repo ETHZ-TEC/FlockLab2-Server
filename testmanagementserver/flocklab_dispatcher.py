@@ -935,11 +935,15 @@ def prepare_testresults(testid, cur):
     
     # Generate plot ---
     if flocklab.config.getint('viz', 'generate_plots'):
+        owner = flocklab.get_test_owner(cur, testid)
         if not os.path.isdir(flocklab.config.get('viz', 'dir')):
             os.mkdir(flocklab.config.get('viz', 'dir'))
         logger.debug("Generating plots...")
         try:
-            fltools.visualizeFlocklabTrace(testresultsdir, outputDir=flocklab.config.get('viz', 'dir'), interactive=False)
+            showRSTandPPS = False
+            if owner != flocklab.FAILED and owner[6] == "admin":
+                showRSTandPPS = True
+            fltools.visualizeFlocklabTrace(testresultsdir, outputDir=flocklab.config.get('viz', 'dir'), interactive=False, showPps=showRSTandPPS, showRst=showRSTandPPS)
             logger.debug("Plots generated.")
         except Exception:
             logger.error("Failed to generate results plot for test %d. %s: %s" % (testid, str(sys.exc_info()[0]), str(sys.exc_info()[1])))
