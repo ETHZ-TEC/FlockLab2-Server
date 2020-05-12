@@ -430,14 +430,14 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         obsdbfile_path = "%s/%s" % (fdir, f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
-
         # parse the file
-        (fd, tmpfile1) = tempfile.mkstemp()
+        parsed_filename = "%s/datatrace_uncorrected.csv" % (os.path.dirname(resultfile_path))
+        #(fd, tmpfile1) = tempfile.mkstemp()
         (fd, tmpfile2) = tempfile.mkstemp()
         #parser_output = os.fdopen(fd, 'w')
-        dwt.parse_dwt_output(obsdbfile_path, tmpfile1)
+        dwt.parse_dwt_output(obsdbfile_path, parsed_filename)  # tmpfile1)
         # apply linear regression to correct the timestamps
-        dwt.correct_ts_with_regression(tmpfile1, tmpfile2)
+        dwt.correct_ts_with_regression(parsed_filename, tmpfile2) # (tmpfile1
 
         with open(resultfile_path, "a") as outfile:
             infile = open(tmpfile2, "r")
@@ -448,7 +448,7 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
             infile.close()
         # delete files
         os.remove(obsdbfile_path)
-        os.remove(tmpfile1)
+        #os.remove(tmpfile1)
         os.remove(tmpfile2)
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
@@ -495,9 +495,9 @@ class LogQueueThread(threading.Thread):
     """ 
     def __init__(self, logqueue, logger, stopEvent):
         threading.Thread.__init__(self) 
-        self._logger        = logger
-        self._stopEvent        = stopEvent
-        self._logqueue        = logqueue
+        self._logger    = logger
+        self._stopEvent = stopEvent
+        self._logqueue  = logqueue
 
     def run(self):
         self._logger.info("LogQueueThread started")
@@ -749,9 +749,10 @@ def stop_fetcher():
                 time.sleep(3)
                 # check if there is a remaining fetcher process
                 pid = flocklab.get_fetcher_pid(testid)
-                if pid > 0 and pid != os.getpid():
+                while pid > 0 and pid != os.getpid():
                     logger.warning("Found a remaining fetcher thread with PID %d, killing it now..." % (pid))
                     os.kill(pid, signal.SIGKILL)
+                    pid = flocklab.get_fetcher_pid(testid)
                 raise ValueError
         else:
             raise ValueError

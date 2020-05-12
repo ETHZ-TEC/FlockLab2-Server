@@ -66,7 +66,7 @@
                 $events[] = array(
                     'id'          => $row['serv_tests_key'],
                     'title'       => 'Test ' . $row['serv_tests_key'] . ': ' . $row['title'],
-                    'description' => $mini?'':'Test-ID: ' . $row['serv_tests_key'] . '<br/>Duration: '.date("H:i", strtotime($row['time_start_act'])).' - '.date("H:i", strtotime($row['time_end_act'])).'<br/>Title: ' . $row['title'] . '<br/> Description: ' . $row['description'].'<br />Status: '.$row['test_status'],
+                    'description' => $mini?'':'Test-ID: ' . $row['serv_tests_key'] . '<br/>Duration: '.date("H:i", strtotime($row['time_start_act'])).' - '.date("H:i", strtotime($row['time_end_act'])).' (UTC)<br/>Title: ' . $row['title'] . '<br/> Description: ' . $row['description'].'<br />Status: '.$row['test_status'],
                     'start'       => $row['time_start_act'],
                     'end'         => $row['time_end_act'],
                     'allDay'      => false,
@@ -88,7 +88,7 @@
                 $events[] = array(
                     'id'          => $row['serv_tests_key'],
                     'title'       => 'Test ' . $row['serv_tests_key'] . ': ' . $row['title'],
-                    'description' => $mini?'':'Test-ID: ' . $row['serv_tests_key'] . '<br/>Duration: '.date("H:i", strtotime($row['time_start_wish'])).' - '.date("H:i", strtotime($row['time_end_wish'])).'<br/>Title: ' . $row['title'] . '<br/> Description: ' . $row['description'].'<br />Status: '.$row['test_status'],
+                    'description' => $mini?'':'Test-ID: ' . $row['serv_tests_key'] . '<br/>Duration: '.date("H:i", strtotime($row['time_start_wish'])).' - '.date("H:i", strtotime($row['time_end_wish'])).' (UTC)<br/>Title: ' . $row['title'] . '<br/> Description: ' . $row['description'].'<br />Status: '.$row['test_status'],
                     'start'       => $row['time_start_wish'],
                     'end'         => $row['time_end_wish'],
                     'allDay'      => false,
@@ -110,7 +110,7 @@
             $event = array(
                     'id'          => $row['serv_tests_key'],
                     'title'       => $row['username'] . ' (' . $row['firstname'] . ' ' . $row['lastname'] . ')',
-                    'description' => $mini?'':'ID: ' . $row['serv_tests_key'] . '<br/>Duration: '.date("H:i", strtotime($row['time_start_wish'])).' - '.date("H:i", strtotime($row['time_end_wish'])).'<br/>Title: ' . $row['title'] . '<br/> Description: ' . $row['description'] . '<br/> User: ' . $row['username'] . ' (' . $row['firstname'] . ' ' . $row['lastname'] . ')' . '<br/>Status: ' . $row['test_status'],
+                    'description' => $mini?'':'ID: ' . $row['serv_tests_key'] . '<br/>Duration: '.date("H:i", strtotime($row['time_start_wish'])).' - '.date("H:i", strtotime($row['time_end_wish'])).' (UTC)<br/>Title: ' . $row['title'] . '<br/> Description: ' . $row['description'] . '<br/> User: ' . $row['username'] . ' (' . $row['firstname'] . ' ' . $row['lastname'] . ')' . '<br/>Status: ' . $row['test_status'],
                     'allDay'      => false,
             );
             if (isset($row['time_start_act']))
