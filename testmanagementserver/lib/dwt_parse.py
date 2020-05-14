@@ -46,13 +46,18 @@ read_thread_ended = False
 
 logging_on = False
 
-
 sys.setswitchinterval(5e-3)  # switch threads every 5 ms. This prevents that read thread writes too much into queue
 
 # create the pandas data frame to store the parsed values in
 df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
 df_append = pd.DataFrame(index=["comp0", "comp1", "comp2", "comp3"],
                          columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
+
+# create a series used in the case we only have a timestamp and no packets (local ts overflow)
+nan = np.nan
+new_row = pd.Series([nan, nan, nan, nan, nan])
+index_ = ['global_ts', 'data', 'PC', 'operation', 'local_ts']
+new_row.index = index_
 
 # solution w/o global vars would be to define the df and new_row as static variables in parser and then somehow pass
 # the current df upwards to the parse_fun every time there could be a program stop.
@@ -349,21 +354,28 @@ def timestamp_parse(swo_queue, global_ts_queue):
         df_append.at['comp0', 'global_ts'] = global_ts
         series0 = df_append.loc['comp0']
         df = df.append(series0, ignore_index=True)
-    if not empty['comp1']:
+    elif not empty['comp1']:
         df_append.at['comp1', 'local_ts'] = local_ts_delta
         df_append.at['comp1', 'global_ts'] = global_ts
         series1 = df_append.loc['comp1']
         df = df.append(series1, ignore_index=True)
-    if not empty['comp2']:
+    elif not empty['comp2']:
         df_append.at['comp2', 'local_ts'] = local_ts_delta
         df_append.at['comp2', 'global_ts'] = global_ts
         series2 = df_append.loc['comp2']
         df = df.append(series2, ignore_index=True)
-    if not empty['comp3']:
+    elif not empty['comp3']:
         df_append.at['comp3', 'local_ts'] = local_ts_delta
         df_append.at['comp3', 'global_ts'] = global_ts
         series3 = df_append.loc['comp3']
         df = df.append(series3, ignore_index=True)
+    # overflow was received, so no comparator data, only global and local ts
+    elif empty['comp0'] and empty['comp1'] and empty['comp2'] and empty['comp3']:
+        new_row.at["local_ts"] = local_ts_delta
+        new_row.at['global_ts'] = global_ts
+
+        df = df.append(new_row, ignore_index=True)
+
 
     # reset the df_append to nan values
     nan = np.nan
@@ -381,8 +393,8 @@ def correct_ts_with_regression(input_file='swo_read_log.csv', output_file='swo_r
     df = pd.read_csv(input_file)
 
     # extract the global and local timestamps and put into a numpy array
-    x = df['local_ts'].to_numpy()
-    y = df['global_ts'].to_numpy()
+    x = df['local_ts'].to_numpy(dtype=float)
+    y = df['global_ts'].to_numpy(dtype=float)
 
     # add up the local timestamps and calculate the global timestamp relative to the first global timestamp
     sum_local_ts = 0
