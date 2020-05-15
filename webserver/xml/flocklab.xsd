@@ -191,8 +191,6 @@
     <xs:element name="baudrate" minOccurs="0">
       <xs:simpleType>
         <xs:restriction base="xs:integer">
-          <xs:enumeration value="2400"/>
-          <xs:enumeration value="4800"/>
           <xs:enumeration value="9600"/>
           <xs:enumeration value="19200"/>
           <xs:enumeration value="38400"/>
@@ -202,8 +200,13 @@
           <xs:enumeration value="460800"/>
           <xs:enumeration value="921600"/>
           <xs:enumeration value="1000000"/>
+          <xs:enumeration value="1152000"/>
+          <xs:enumeration value="1500000"/>
           <xs:enumeration value="2000000"/>
+          <xs:enumeration value="2500000"/>
           <xs:enumeration value="3000000"/>
+          <xs:enumeration value="3500000"/>
+          <xs:enumeration value="4000000"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
