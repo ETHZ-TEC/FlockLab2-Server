@@ -208,7 +208,7 @@ def parser(swo_byte, swo_queue, global_ts_queue):
     # sync packet, problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
     # Just read all zeros until get an 0x80, then we are in sync.
     if swo_byte == 0:  # only happens at beginning so no check for stop_threads
-        while swo_byte == 0:
+        while swo_byte == 0 and swo_queue:
             swo_byte = swo_queue.pop()
         # according to documentation it should be 0x80 but I observe the stream to start with 0x08 in certain cases
         if swo_byte == 0x08:
@@ -273,33 +273,33 @@ def pars_hard(header_swo_byte, swo_queue):
             df_append.at['comp0', 'comparator'] = 0
             df_append.at['comp0', 'data'] = value
             if header_swo_byte & 0x04:
-                df_append.at['comp0', 'operation'] = 1  # "1" stands for write
+                df_append.at['comp0', 'operation'] = 'w'
             else:
-                df_append.at['comp0', 'operation'] = 0  # "0" stands for read
+                df_append.at['comp0', 'operation'] = 'r'
 
         elif comparator_id == 1:
             df_append.at['comp1', 'comparator'] = 1
             df_append.at['comp1', 'data'] = value
             if header_swo_byte & 0x04:
-                df_append.at['comp1', 'operation'] = 1  # "1" stands for write
+                df_append.at['comp1', 'operation'] = 'w'
             else:
-                df_append.at['comp1', 'operation'] = 0  # "0" stands for read
+                df_append.at['comp1', 'operation'] = 'r'
 
         elif comparator_id == 2:
             df_append.at['comp2', 'comparator'] = 2
             df_append.at['comp2', 'data'] = value
             if header_swo_byte & 0x04:
-                df_append.at['comp2', 'operation'] = 1  # "1" stands for write
+                df_append.at['comp2', 'operation'] = 'w'
             else:
-                df_append.at['comp2', 'operation'] = 0  # "0" stands for read
+                df_append.at['comp2', 'operation'] = 'r'
 
         else:
             df_append.at['comp3', 'comparator'] = 3
             df_append.at['comp3', 'data'] = value
             if header_swo_byte & 0x04:
-                df_append.at['comp3', 'operation'] = 1  # "1" stands for write
+                df_append.at['comp3', 'operation'] = 'w'
             else:
-                df_append.at['comp3', 'operation'] = 0  # "0" stands for read
+                df_append.at['comp3', 'operation'] = 'r'
 
     # A PC or address packet
     elif not header_swo_byte & 0x80:
