@@ -186,6 +186,10 @@ input {
     color: #666666;
 }
 
+input:focus, textarea:focus {
+    outline: 1px solid #28549f;
+}
+
 input[type=submit], input[type=button], input[type=reset] {
     height: 24px;
     padding-left: 7px;

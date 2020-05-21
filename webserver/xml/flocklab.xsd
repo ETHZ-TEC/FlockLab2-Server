@@ -226,7 +226,7 @@
         <xs:complexType>
           <xs:sequence>
             <xs:element name="variable" type="xs:string"/>
-            <xs:element name="mode" type="dataTraceModeType"/>
+            <xs:element name="mode" type="dataTraceModeListType"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
@@ -460,6 +460,10 @@
   <xs:restriction base="xs:string">
     <xs:pattern value="R|W|RW|PC"/>
   </xs:restriction>
+</xs:simpleType>
+
+<xs:simpleType name="dataTraceModeListType">
+  <xs:list itemType="dataTraceModeType"/>
 </xs:simpleType>
 
 </xs:schema>
