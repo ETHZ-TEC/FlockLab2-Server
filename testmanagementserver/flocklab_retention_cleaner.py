@@ -110,7 +110,7 @@ def main(argv):
     
     # Check for work ---
     expiration_leadtime = flocklab.config.get('retentioncleaner', 'expiration_leadtime')
-    logger.debug("Expiration lead time is %s days"%expiration_leadtime)
+    logger.debug("Expiration lead time is %s days" % expiration_leadtime)
     try:
         # Get all users that have ran tests:
         sql =    """ SELECT DISTINCT `owner_fk` 
@@ -133,7 +133,7 @@ def main(argv):
                 owneremail = rs[1]
                 ownerusername = rs[2]
                 is_active = rs[3]
-                logger.debug("Checking tests of user %s (users retention time is %d days)."%(ownerusername, retention_time_user))
+                logger.debug("Checking tests of user %s (users retention time is %d days)." % (ownerusername, retention_time_user))
                 # Check for each user (taking into account her individual retention time [-1 means saving data forever]) if there are tests to be cleaned soon and inform the user about these tests. 
                 if retention_time_user != -1:
                     sql =    """    SELECT `serv_tests_key`, `title`, DATE(`time_end_act`), `test_status`
@@ -153,20 +153,20 @@ Test ID\tEnd of test\tTest state\tTest Title\n\
 Yours faithfully,\nthe FlockLab server"""
                         testlist = ""
                         testids = ", ".join([str(i[0]) for i in rs])
-                        logger.debug("Found tests whose retention time expires soon: %s"%testids)
+                        logger.debug("Found tests whose retention time expires soon: %s" % testids)
                         for testid, title, enddate, teststatus in rs:
-                            testlist = testlist + "%s\t%s\t%s\t%s\n"%(testid, enddate, teststatus, title)
-                        msg = msg_expiring%(retention_time_user, expiration_leadtime, testlist)
+                            testlist = testlist + "%s\t%s\t%s\t%s\n" % (testid, enddate, teststatus, title)
+                        msg = msg_expiring % (retention_time_user, expiration_leadtime, testlist)
                         if is_active == 1:
-                            ret = flocklab.send_mail(subject="[FlockLab %s] %s"%(name, "Retention time expiring soon") , message=msg, recipients=owneremail)
+                            ret = flocklab.send_mail(subject="[FlockLab RetentionCleaner] Retention time expiring soon", message=msg, recipients=owneremail)
                         else:
                             ret = 0
                         if ret != 0:
-                            msg = "Could not send Email to %s. Function returned %d"%(owneremail, ret)
+                            msg = "Could not send Email to %s. Function returned %d" % (owneremail, ret)
                             logger.error(msg)
                             emails = flocklab.get_admin_emails(cur)
                             msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
-                            flocklab.send_mail(subject="[FlockLab %s]" % name, message=msg, recipients=emails)
+                            flocklab.send_mail(subject="[FlockLab RetentionCleaner]", message=msg, recipients=emails)
                             continue
                         else:
                             # Mark the tests in the database:
@@ -197,20 +197,20 @@ Test ID\tEnd of test\tTest title\n\
 Yours faithfully,\nthe FlockLab server"""
                     testlist = ""
                     testids = ", ".join([str(i[0]) for i in rs])
-                    logger.debug("Found tests whose retention time expired: %s"%testids)
+                    logger.debug("Found tests whose retention time expired: %s" % testids)
                     for testid, title, enddate in rs:
-                        testlist = testlist + "%s\t%s\t%s\n"%(testid, enddate, title)
+                        testlist = testlist + "%s\t%s\t%s\n" % (testid, enddate, title)
                     msg = msg_deleted%(retention_time_user, testlist)
                     if is_active == 1:
-                        ret = flocklab.send_mail(subject="[FlockLab %s] %s"%(name, "Retention time expired") , message=msg, recipients=owneremail)
+                        ret = flocklab.send_mail(subject="[FlockLab RetentionCleaner] Retention time expired", message=msg, recipients=owneremail)
                     else:
                         ret = 0
                     if ret != 0:
-                        msg = "Could not send Email to %s. Function returned %d"%(owneremail, ret)
+                        msg = "Could not send Email to %s. Function returned %d" % (owneremail, ret)
                         logger.error(msg)
                         emails = flocklab.get_admin_emails(cur)
                         msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
-                        flocklab.send_mail(subject="[FlockLab %s]"%name, message=msg, recipients=emails)
+                        flocklab.send_mail(subject="[FlockLab RetentionCleaner]", message=msg, recipients=emails)
                         continue
                     else:
                         # Mark the tests in the database:
