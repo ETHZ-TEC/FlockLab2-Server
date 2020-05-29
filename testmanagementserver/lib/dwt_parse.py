@@ -64,13 +64,15 @@ new_row.index = index_
 # parse_fun will then directly create the csv file.
 
 
-def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv'):
+def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv', threads=False):
     """
     Starts the read and parse thread that will read from the given input_file and parse the content
     It will save the parsed contents in the file specified as second argument
 
     Parameters:
         input_file (str): name of the file to parse
+        output_file (str): name of the file to parse
+        threads (bool): if set to true program will run using 2 threads, else first read then parse
     Returns:
         int: True if the program was halted by Key interrupt
 
@@ -85,27 +87,33 @@ def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv'):
         sys.stdout.write('configure and read demo\n')
         sys.stdout.write('Press Ctrl-C to Exit\n')
 
-    # Create threads
-    read_thread = threading.Thread(target=read_fun, args=(swo_queue, global_ts_queue, input_file))
-    read_thread.setDaemon(True)
-    parse_thread = threading.Thread(target=parse_fun, args=(swo_queue, global_ts_queue))
-    parse_thread.setDaemon(True)
+    if threads:
+        # Create threads
+        read_thread = threading.Thread(target=read_fun, args=(swo_queue, global_ts_queue, input_file))
+        read_thread.setDaemon(True)
+        parse_thread = threading.Thread(target=parse_fun, args=(swo_queue, global_ts_queue))
+        parse_thread.setDaemon(True)
 
-    # Starts threads
-    read_thread.start()
-    parse_thread.start()
+        # Starts threads
+        read_thread.start()
+        parse_thread.start()
 
-    while True:
-        time.sleep(1)
-        if both_threads_done:
-            break
+        while True:
+            time.sleep(1)
+            if both_threads_done:
+                break
+
+    else:
+        read_fun(swo_queue, global_ts_queue, input_file)
+        parse_fun(swo_queue, global_ts_queue)
 
     # df = df_queue.get()
     # convert the pandas data frame to a csv file
     df.to_csv(output_file, index=False, header=True)
 
-    read_thread.join()  # wait for the threads to end
-    parse_thread.join()
+    if threads:
+        read_thread.join()  # wait for the threads to end
+        parse_thread.join()
 
     return 0  # exit the program execution
 
@@ -302,23 +310,20 @@ def pars_hard(header_swo_byte, swo_queue):
                 df_append.at['comp3', 'operation'] = 'r'
 
     # A PC or address packet
-    elif not header_swo_byte & 0x80:
+    else:
         if comparator_id == 0:
             df_append.at['comp0', 'comparator'] = 0
-            df_append.at['comp0', 'PC'] = value
+            df_append.at['comp0', 'PC'] = hex(value)
         elif comparator_id == 1:
             df_append.at['comp1', 'comparator'] = 1
-            df_append.at['comp1', 'PC'] = value
+            df_append.at['comp1', 'PC'] = hex(value)
         elif comparator_id == 2:
             df_append.at['comp2', 'comparator'] = 2
-            df_append.at['comp2', 'PC'] = value
+            df_append.at['comp2', 'PC'] = hex(value)
         else:
             df_append.at['comp3', 'comparator'] = 3
-            df_append.at['comp3', 'PC'] = value
+            df_append.at['comp3', 'PC'] = hex(value)
 
-    else:
-        if logging_on:
-            print("unknown HW packet type")
 
 
 def timestamp_parse(swo_queue, global_ts_queue):
@@ -331,7 +336,7 @@ def timestamp_parse(swo_queue, global_ts_queue):
     i = 0
     local_ts_delta = 0
 
-    while True:
+    while i < 4:
         if read_thread_ended and not swo_queue:  # to not get blocked on queue.get() first check if should stop
             return
         buf[i] = swo_queue.pop()

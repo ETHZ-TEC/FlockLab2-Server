@@ -449,23 +449,24 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
                     continue
                 if flocklab.parse_int(var) < len(varnames):
                     var = varnames[flocklab.parse_int(var)]
-                if pc:
-                    pc = "0x%08x" % flocklab.parse_int(pc)
                 # output format: timestamp,observer_id,node_id,variable,value,access,pc
                 outfile.write("%s,%s,%s,%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, var, val, access, pc))
             infile.close()
+        # debug
+        #shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
+        #shutil.copyfile(tmpfile1, "%s_uncorrected.csv" % resultfile_path)
+    except:
+        msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        # for some reason, the logging below does not work properly -> print msg into the log directly
+        #logger = flocklab.get_logger()
+        #logger.error(msg)
+        _errors.append((msg, errno.ECOMM, obsid))
+        logqueue.put_nowait((loggername, logging.ERROR, msg))
+    finally:
         # delete files
         os.remove(input_filename)
         os.remove(tmpfile1)
         os.remove(tmpfile2)
-    except:
-        msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        # for some reason, the logging below does not work properly -> print msg into the log directly
-        logger = flocklab.get_logger()
-        logger.error(msg)
-        _errors.append((msg, errno.ECOMM, obsid))
-        logqueue.put_nowait((loggername, logging.ERROR, msg))
-    finally:
         processeditem = list(queueitem)
         processeditem[0] = ITEM_PROCESSED
         return (_errors, tuple(processeditem))
@@ -800,36 +801,44 @@ class WorkManager():
         return tuple(stateitem)
         
     def add(self, item):
-        service = self.pattern.sub("",item[3])
-        obsid = item[1]
-        if service not in self.worklist:
-            self.worklist[service] = {}
-        if obsid not in self.worklist[service]:
-            self.worklist[service][obsid] = [None, []] # workerstate / worklist
-        # if list is empty, we're good to process, otherwise just append it and return None
-        if len(self.worklist[service][obsid][1]) == 0:
-            self.worklist[service][obsid][1].append(item)
-            self.workcount = self.workcount + 1
-            return self._next_item_with_state(service, obsid)
-        else:
-            self.worklist[service][obsid][1].append(item)
-            self.workcount = self.workcount + 1
-            return None
+        try:
+            service = self.pattern.sub("",item[3])
+            obsid = item[1]
+            if service not in self.worklist:
+                self.worklist[service] = {}
+            if obsid not in self.worklist[service]:
+                self.worklist[service][obsid] = [None, []] # workerstate / worklist
+            # if list is empty, we're good to process, otherwise just append it and return None
+            if len(self.worklist[service][obsid][1]) == 0:
+                self.worklist[service][obsid][1].append(item)
+                self.workcount = self.workcount + 1
+                return self._next_item_with_state(service, obsid)
+            else:
+                self.worklist[service][obsid][1].append(item)
+                self.workcount = self.workcount + 1
+                return None
+        except:
+            logger = flocklab.get_logger()
+            logger.error("Error in WorkManager.add(): %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
         
     def done(self, item):
-        service = self.pattern.sub("",item[3])
-        obsid = item[1]
-        if item[1:-1] == self.worklist[service][obsid][1][0][1:-1]:
-            self.worklist[service][obsid][0] = item[4] # save state
-            self.worklist[service][obsid][1].pop(0)
-            self.workcount = self.workcount - 1
-        else:
-            logger.error("work done for item that was not enqueued: %s" % str(item))
-        # if there is more work to do, return next item
-        if len(self.worklist[service][obsid][1]) > 0:
-            return self._next_item_with_state(service, obsid)
-        else:
-            return None
+        try:
+            service = self.pattern.sub("",item[3])
+            obsid = item[1]
+            if item[1:-1] == self.worklist[service][obsid][1][0][1:-1]:
+                self.worklist[service][obsid][0] = item[4] # save state
+                self.worklist[service][obsid][1].pop(0)
+                self.workcount = self.workcount - 1
+            else:
+                logger.error("work done for item that was not enqueued: %s" % str(item))
+            # if there is more work to do, return next item
+            if len(self.worklist[service][obsid][1]) > 0:
+                return self._next_item_with_state(service, obsid)
+            else:
+                return None
+        except:
+            logger = flocklab.get_logger()
+            logger.error("Error in WorkManager.done(): %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
     
     def finished(self):
         return self.workcount == 0
@@ -1205,6 +1214,7 @@ def main(argv):
                 continue
             # Schedule worker function from the service's pool. The result will be reported to the callback function.
             pool.apply_async(func=worker_f, args=tuple(worker_args), callback=callback_f)
+
         # Stop signal for main loop has been set ---
         # Stop worker pool:
         for service, pool in service_pools_dict.items():
