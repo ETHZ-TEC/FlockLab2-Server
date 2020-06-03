@@ -233,7 +233,7 @@ def worker_dbfiles(queueitem=None, nodeid=None, resultfile_path=None, resultfile
                 break # dbfile has been closed in parser (most likely because EOF was reached)
             except DbFileReadError as err:
                 msg = "%s: Packet size (%i) did not match payload size (%i) @ %d." %(input_filename, err.expectedSize, err.actualSize, err.fpos)
-                _errors.append((msg, errno.EIO, obsid))
+                _errors.append((msg, obsid))
                 logqueue.put_nowait((loggername, logging.ERROR, msg))
         if (len(conv_values) > 0):
             # There is still data left. Do a last commit
@@ -248,7 +248,7 @@ def worker_dbfiles(queueitem=None, nodeid=None, resultfile_path=None, resultfile
         os.unlink(input_filename)
     except:
         msg = "Error in worker process: %s: %s\n%s" %(str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        _errors.append((msg, errno.ECOMM, obsid))
+        _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
         processeditem = list(queueitem)
@@ -285,7 +285,7 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, logque
         os.remove(inputfilename)
     except:
         msg = "Error in gpiotracing worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        _errors.append((msg, errno.ECOMM, obsid))
+        _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
         processeditem = list(queueitem)
@@ -318,7 +318,7 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, logqueue
             except FileExistsError:
                 # TODO: properly handle case where file already exists (several rld files per observer)
                 msg = "File '%s' already exists, dropping test results." % (resfilename)
-                _errors.append((msg, errno.EEXIST, obsid))
+                _errors.append((msg, obsid))
                 logqueue.put_nowait((loggername, logging.ERROR, msg))
         else:
             # CSV file format
@@ -336,7 +336,7 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, logqueue
             os.remove(inputfilename)
     except:
         msg = "Error in powerprof worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        _errors.append((msg, errno.ECOMM, obsid))
+        _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
         processeditem = list(queueitem)
@@ -367,7 +367,7 @@ def worker_logs(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None
         os.remove(inputfilename)
     except:
         msg = "Error in logs worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        _errors.append((msg, errno.ECOMM, obsid))
+        _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
         processeditem = list(queueitem)
@@ -409,7 +409,7 @@ def worker_serial(queueitem=None, nodeid=None, resultfile_path=None, logqueue=No
         os.remove(inputfilename)
     except:
         msg = "Error in serial worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        _errors.append((msg, errno.ECOMM, obsid))
+        _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
         processeditem = list(queueitem)
@@ -439,28 +439,29 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         (fd2, tmpfile2) = tempfile.mkstemp()
         dwt.parse_dwt_output(input_filename, tmpfile1)
         # apply linear regression to correct the timestamps
-        dwt.correct_ts_with_regression(tmpfile1, tmpfile2)
-        with open(resultfile_path, "a") as outfile:
-            infile = open(tmpfile2, "r")
-            for line in infile:
-                # input format: global_ts, comparator, data, PC, operation, local_ts
-                (timestamp, var, val, pc, access, localts) = line.strip().split(',')
-                if access == 'operation' or access == '' or var == '':
-                    continue
-                if flocklab.parse_int(var) < len(varnames):
-                    var = varnames[flocklab.parse_int(var)]
-                # output format: timestamp,observer_id,node_id,variable,value,access,pc
-                outfile.write("%s,%s,%s,%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, var, val, access, pc))
-            infile.close()
+        try:
+            dwt.correct_ts_with_regression(tmpfile1, tmpfile2)
+        except ValueError:
+            logqueue.put_nowait((loggername, logging.WARNING, "Empty data trace results file."))
+        else:
+            with open(resultfile_path, "a") as outfile:
+                infile = open(tmpfile2, "r")
+                for line in infile:
+                    # input format: global_ts, comparator, data, PC, operation, local_ts
+                    (timestamp, var, val, pc, access, localts) = line.strip().split(',')
+                    if access == 'operation' or access == '' or var == '':
+                        continue
+                    if flocklab.parse_int(var) < len(varnames):
+                        var = varnames[flocklab.parse_int(var)]
+                    # output format: timestamp,observer_id,node_id,variable,value,access,pc
+                    outfile.write("%s,%s,%s,%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, var, val, access, pc))
+                infile.close()
         # debug
         #shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
         #shutil.copyfile(tmpfile1, "%s_uncorrected.csv" % resultfile_path)
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
-        # for some reason, the logging below does not work properly -> print msg into the log directly
-        #logger = flocklab.get_logger()
-        #logger.error(msg)
-        _errors.append((msg, errno.ECOMM, obsid))
+        _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
         # delete files
@@ -483,11 +484,17 @@ def worker_callback(result):
     global errors
     global FetchObsThread_queue
     
+    # the result contains two elements:
+    # 1st: a list of errors
     if len(result[0]) > 0:
-        for (err, eno, obsid) in result:
-            msg = "Error %d when processing results for Observer ID %s: %s" % (eno, obsid, err)
-            errors.append(msg)
+        try:
+            for (err, obsid) in result[0]:
+                msg = "Error %d when processing results for Observer ID %s: %s" % (obsid, err)
+                errors.append(msg)
+        except:
+            errors.append("Failed to convert the error list in worker_callback.")
     
+    # 2nd: a list of the processed elements
     try:
         FetchObsThread_queue.put(item=result[1], block=True, timeout=10)
     except queue.Full:
@@ -636,7 +643,7 @@ class FetchObsThread(threading.Thread):
                     else:
                         self._logger.debug(self._loggerprefix + "No files to download from observer.")
 
-                    if removelast == False: # this is the last execution of the while loop
+                    if False and removelast == False: # this is the last execution of the while loop
                         cmd = ['ssh' ,'%s'%(self._obsethernet), "rm -rf %s" % self._obstestresfolder]
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                         out, err = p.communicate(None)
@@ -818,7 +825,6 @@ class WorkManager():
                 self.workcount = self.workcount + 1
                 return None
         except:
-            logger = flocklab.get_logger()
             logger.error("Error in WorkManager.add(): %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
         
     def done(self, item):
@@ -837,7 +843,6 @@ class WorkManager():
             else:
                 return None
         except:
-            logger = flocklab.get_logger()
             logger.error("Error in WorkManager.done(): %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
     
     def finished(self):
@@ -1179,7 +1184,6 @@ def main(argv):
             (itemtype, obsid, fdir, f, workerstate) = nextitem
             #logger.debug(loggerprefix + "Next item is %s/%s (Obs%s)." % (fdir, f, str(obsid)))
             nodeid = obsdict_byid[obsid][1]
-            callback_f = worker_callback
             # Match the filename against the patterns and schedule an appropriate worker function:
             if (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
                 pool        = service_pools_dict['gpiotracing']
@@ -1213,7 +1217,7 @@ def main(argv):
                 logger.warning(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
                 continue
             # Schedule worker function from the service's pool. The result will be reported to the callback function.
-            pool.apply_async(func=worker_f, args=tuple(worker_args), callback=callback_f)
+            pool.apply_async(func=worker_f, args=tuple(worker_args), callback=worker_callback)
 
         # Stop signal for main loop has been set ---
         # Stop worker pool:

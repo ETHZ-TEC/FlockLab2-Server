@@ -119,7 +119,7 @@ class StopTestThread(threading.Thread):
                     logger.error(msg)
                 else:
                     errors.append(("Test stop script on observer ID %s failed with error code %d." % (str(self._obsdict_key[self._obskey][1]), rs), rs, self._obsdict_key[self._obskey][1]))
-                    logger.error("Test stop script on observer ID %s failed with error code %d:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out).strip()))
+                    logger.error("Test stop script on observer ID %s failed with error code %d:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(err).strip()))
                     logger.error("Tried to execute: %s" % (" ".join(cmd)))
         except:
             logger.debug("Exception: %s, %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
@@ -221,6 +221,7 @@ class StartTestThread(threading.Thread):
                     while p.returncode == None:
                         self._abortEvent.wait(1.0)
                         p.poll()
+                    out = ""
                     if self._abortEvent.is_set():
                         p.kill()
                         logger.debug("Abort is set, start test process for observer %s killed." % (self._obsdict_key[self._obskey][1]))
@@ -229,7 +230,7 @@ class StartTestThread(threading.Thread):
                     rs = p.wait()
                     if rs != flocklab.SUCCESS:
                         errors.append(("Test start script on observer ID %s failed with error code %d." % (self._obsdict_key[self._obskey][1], rs), rs, self._obsdict_key[self._obskey][1]))
-                        logger.error("Test start script on observer ID %s failed with error code %d and message:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(out)))
+                        logger.error("Test start script on observer ID %s failed with error code %d:\n%s" % (str(self._obsdict_key[self._obskey][1]), rs, str(err)))
                     else:
                         logger.debug("Test start script on observer ID %s succeeded (took %us)." % (self._obsdict_key[self._obskey][1], int(time.time() - starttime)))
                     # Remove image file and xml on server:
@@ -727,7 +728,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
 
         # check if we're still in time ---
         if len(errors) == 0:
-            now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
+            now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime(time.time() - 10))     # allow 10s tolerance
             cur.execute("SELECT `serv_tests_key` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d AND `time_start_wish` <= '%s'" % (testid, now))
             if cur.fetchone() is not None:
                 msg = "Setup for test ID %d took too much time." % (testid)
@@ -766,14 +767,14 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
     warnings = []
     
     try:
-        logger.info("Stopping test %d..."%testid)
+        logger.info("Stopping test %d..." % testid)
         
         # Update DB status --- 
         if abort:
             status = 'aborting'
         else:
             status = 'cleaning up'
-        logger.debug("Setting test status in DB to %s..." %status)
+        logger.debug("Setting test status in DB to %s..." % status)
         if flocklab.set_test_status(cur, cn, testid, status) != flocklab.SUCCESS:
             msg = "Failed to set test status in DB."
             errors.append(msg)
@@ -781,10 +782,10 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         
         # Stop serial proxy ---
         # Get the XML config from the database and check if the serial service was used in the test:
-        cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
+        cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" % testid)
         ret = cur.fetchone()
         if not ret:
-            msg = "No XML found in database for testid %d." %testid
+            msg = "No XML found in database for testid %d." % testid
             errors.append(msg)
             logger.error(msg)
         else:
