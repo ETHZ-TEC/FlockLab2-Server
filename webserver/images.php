@@ -34,8 +34,28 @@
 <?php require_once('include/layout.php');require_once('include/presets.php'); ?>
 <script type="text/javascript" src="scripts/jquery.cookie.js"></script>
 <script type="text/javascript">
+
+    var editingTitle = 0;
+    var editingDesc  = 0;
+    
+    function editTitle(testid) {
+        if (editingTitle == 0) {
+            editingTitle = testid;
+            val = $("#title" + testid).text();
+            $("#title" + testid).html("<input type='text' style='overflow:visible' id='newtitle" + testid + "' value='" + val + "' />");
+        }
+    }
+    
+    function editDesc(testid) {
+        if (editingDesc == 0) {
+            editingDesc = testid;
+            val = $("#desc" + testid).text();
+            $("#desc" + testid).html("<input type='text' id='newdesc" + testid + "' value='" + val + "' />");
+        }
+    }
+    
     $(document).ready(function() {
-        var table_rows = Math.max(Math.floor(($(window).height() - 300) / 25),10);
+        var table_rows = Math.max(Math.floor(($(window).height() - 300) / 40),10);
         $("#pager_num_rows").attr('value', table_rows);
         $("#test_overview")
             .tablesorter({widgets: ['zebra']})
@@ -59,6 +79,27 @@
         $("#test_overview").bind("applyWidgets",function() { 
             $.cookie('flocklab.imgsort', {s:$("#test_overview").data('tablesorter').sortList, p:$("#test_overview").data('tablesorter').page});
         });
+    });
+    
+    $(document).mousedown(function(evt) {
+        if(editingTitle > 0 && evt.target.id != "newtitle" + editingTitle) {
+            newtitle = $("#newtitle" + editingTitle).val();
+            if (confirm("save changes?")) {
+                $.post("api.php", "s=imgname&id=" + editingTitle + "&val=" + newtitle, function() { location.reload(); });
+            } else {
+                $("#title" + editingTitle).text(newtitle);
+            }
+            editingTitle = 0;
+        }
+        if(editingDesc > 0 && evt.target.id != "newdesc" + editingDesc) {
+            newdesc = $("#newdesc" + editingDesc).val();
+            if (confirm("save changes?")) {
+                $.post("api.php", "s=imgdesc&id=" + editingDesc + "&val=" + newdesc, function() { location.reload(); });
+            } else {
+                $("#desc" + editingDesc).text(newdesc);
+            }
+            editingDesc = 0;
+        }
     });
 </script>
 <h1>Manage Images for <?php echo $_SESSION['firstname'] . " " . $_SESSION['lastname'];?></h1>
@@ -136,12 +177,12 @@
         }
         echo "<td>" . $row['serv_targetimages_key'] . "</td>";
         // Name. If longer than $max_len characters, display as tooltip:
-        echo "<td class='qtip_show' title='" . $row['name'] . "'>" . $row['name'] . "</td>";
+        echo "<td class='qtip_show' title='" . $row['name'] . "' id='title".$row['serv_targetimages_key']."' ondblclick='editTitle(".$row['serv_targetimages_key'].")'>" . $row['name'] . "</td>";
         // Description. If longer than $max_len characters, display as tooltip:
         if (strlen($row['description']) <= $max_len) 
-            echo "<td>" . $row['description'] . "</td>";
+            echo "<td id='desc".$row['serv_targetimages_key']."' ondblclick='editDesc(".$row['serv_targetimages_key'].")'>" . $row['description'] . "</td>";
         else
-            echo "<td class='qtip_show' title='" . $row['description'] . "'>" . substr($row['description'], 0, $max_len) . "...</td>";
+            echo "<td class='qtip_show' title='" . $row['description'] . "' id='desc".$row['serv_targetimages_key']."' ondblclick='editDesc(".$row['serv_targetimages_key'].")'>" . substr($row['description'], 0, $max_len) . "...</td>";
         // Platform. If longer than $max_len characters, display as tooltip:
         $corenum = in_array($row['platform_name'], $multicore)?': '.$row['core_desc']:'';
         echo "<td class='qtip_show' title='" . $row['platform_name'] .$corenum. "'>" . $row['platform_name'] .$corenum. "</td>";
@@ -170,6 +211,8 @@
     </tbody>
 </table>
 <br />
+<br />
+<i>Note: you can edit the test title and description with a double click.</i>
 <?php
   }
 ?>

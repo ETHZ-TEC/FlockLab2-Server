@@ -200,6 +200,8 @@
             newtitle = $("#newtitle" + editingTitle).val();
             if (confirm("save changes?")) {
                 $.post("api.php", "s=title&id=" + editingTitle + "&val=" + newtitle, function() { location.reload(); });
+            } else {
+                $("#title" + editingTitle).text(newtitle);
             }
             editingTitle = 0;
         }
@@ -207,6 +209,8 @@
             newdesc = $("#newdesc" + editingDesc).val();
             if (confirm("save changes?")) {
                 $.post("api.php", "s=desc&id=" + editingDesc + "&val=" + newdesc, function() { location.reload(); });
+            } else {
+                $("#desc" + editingDesc).text(newdesc);
             }
             editingDesc = 0;
         }
