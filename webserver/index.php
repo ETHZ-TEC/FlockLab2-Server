@@ -37,7 +37,7 @@
     function getResult(testid, timeout) {
         // hide ui
         if ($(".dlpane").length == 0) {
-            $("body").first().prepend('<div class="dlpane" style="position:absolute;margin:0;z-index:10000;width:100%;height:100%;background-color:#000;opacity:0.4;filter:alpha(opacity=40);"><\/div>'+                
+            $("body").first().prepend('<div class="dlpane" style="position:absolute;margin:0;z-index:10000;width:100%;height:100%;background-color:#000;opacity:0.4;filter:alpha(opacity=40);"><\/div>'+
             '<div class="dlpane" style="position:absolute;font-family: Verdana, Arial, Helvetica, sans-serif;width:100%;z-index:10001;background-color:gray"><div class="info" style="width:100%"><div style="float:left;"><img height="50" width="50" alt="" src="pics/icons/wait.gif"><\/div>'+
             '<p>Please wait while test results are being fetched (Id '+testid+'). Depending on the amount of data this could take several minutes.. <\/p><\/div><\/div>'
             );
@@ -70,12 +70,14 @@
                 // unhide ui
                 $(".dlpane").remove();
                 alert("An error occurred: "+data.output);
-                break;                        
+                break;
                 }
             },
             dataType: "json"
         });
     }
+    
+    var trackTestTimer;
     
     function trackTest(testid, status) {
         // make ajax query
@@ -88,11 +90,11 @@
                     document.location.href="index.php";
                 }
                 else {
-                    setTimeout("trackTest("+testid+",\""+status+"\")", 5000);
+                    trackTestTimer = setTimeout("trackTest("+testid+",\""+status+"\")", 5000);
                 }
             },
             fail: function() {
-                setTimeout("trackTest("+testid+",\""+status+"\")", 30000);
+                trackTestTimer = setTimeout("trackTest("+testid+",\""+status+"\")", 30000);
             },
             dataType: "json"
         });
@@ -100,9 +102,11 @@
     
     var addedTests=Array();
     
+    var refreshPageTimer;
+    
     function trackNewTests() {
         // make ajax query
-        var now = new Date();        
+        var now = new Date();
         now=Math.round(now.getTime() / 1000 - 3600 + now.getTimezoneOffset()*60);
         var x = now;
         $.ajax({
@@ -117,10 +121,10 @@
                         document.location.href="index.php";
                     }
                 });
-                setTimeout("trackNewTests()", 5000);
+                refreshPageTimer = setTimeout("trackNewTests()", 5000);
             },
             fail: function() {
-                setTimeout("trackNewTests()", 30000);
+                refreshPageTimer = setTimeout("trackNewTests()", 30000);
             },
             dataType: "json"
         });
@@ -138,9 +142,32 @@
         $(el).unbind("click");
     }
     
+    var editingTitle = 0;
+    var editingDesc  = 0;
+    
+    function editTitle(testid) {
+        if (editingTitle == 0) {
+            editingTitle = testid;
+            clearTimeout(trackTestTimer);
+            clearTimeout(refreshPageTimer);
+            val = $("#title" + testid).text();
+            $("#title" + testid).html("<input type='text' style='overflow:visible' id='newtitle" + testid + "' value='" + val + "' />");
+        }
+    }
+    
+    function editDesc(testid) {
+        if (editingDesc == 0) {
+            editingDesc = testid;
+            clearTimeout(trackTestTimer);
+            clearTimeout(refreshPageTimer);
+            val = $("#desc" + testid).text();
+            $("#desc" + testid).html("<input type='text' id='newdesc" + testid + "' value='" + val + "' />");
+        }
+    }
+    
     $(document).ready(function() {
         var table_rows = Math.max(Math.floor(($(window).height() - 300) / 40),10);
-        $("#pager_num_rows").attr('value', table_rows);        
+        $("#pager_num_rows").attr('value', table_rows);
         $("#test_overview")
             .tablesorter({widgets: ["zebra"] })
             .tablesorterPager({container: $("#pager"), positionFixed: false});
@@ -160,12 +187,29 @@
         }
         $("#test_overview").data('tablesorter').page = test_tbl_state.p;
         $("#test_overview").trigger("sorton",[test_tbl_state.s]);
-        $("#test_overview").bind("applyWidgets",function() { 
+        $("#test_overview").bind("applyWidgets",function() {
             $.cookie('flocklab.testsort', {s:$("#test_overview").data('tablesorter').sortList, p:$("#test_overview").data('tablesorter').page});
         });
         // time change for not yet running tests
         $("i.starttime").bind('click', function() {reschedule(this)});
         trackNewTests();
+    });
+    
+    $(document).mousedown(function(evt) {
+        if(editingTitle > 0 && evt.target.id != "newtitle" + editingTitle) {
+            newtitle = $("#newtitle" + editingTitle).val();
+            if (confirm("save changes?")) {
+                $.post("api.php", "s=title&id=" + editingTitle + "&val=" + newtitle, function() { location.reload(); });
+            }
+            editingTitle = 0;
+        }
+        if(editingDesc > 0 && evt.target.id != "newdesc" + editingDesc) {
+            newdesc = $("#newdesc" + editingDesc).val();
+            if (confirm("save changes?")) {
+                $.post("api.php", "s=desc&id=" + editingDesc + "&val=" + newdesc, function() { location.reload(); });
+            }
+            editingDesc = 0;
+        }
     });
 </script>
 <?php
@@ -187,6 +231,21 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                 // If there are tests for this user, display them (with alternating row coloring):
                 else {
                     ?>
+            <table>
+              <tr>
+                <td width="200px" class="transparentbg"><a style="color:#666666;text-decoration:none;" href="newtest.php"><span class="texticon">+</span> add new test</a></td>
+                <td width="500px" style="text-align:center" class="transparentbg"><span id="pager" class="pager" style="text-align:right">
+                      <span class="texticonsm first link bold" alt="first" title="first"><<</span>
+                      <span class="texticonsm prev link bold" alt="prev" title="prev"><</span>
+                      <span class="pagedisplay"></span>
+                      <span class="texticonsm next link bold" alt="next" title="next">></span>
+                      <span class="texticonsm last link bold" alt="last" title="last">>></span>
+                      <input class="pagesize" style="visibility: hidden; width: 0px" id="pager_num_rows" value="15">
+                    </span>
+                </td>
+                <td width="200px" class="transparentbg"></td>
+              </tr>
+            </table>
             <table id="test_overview" class="tablesorter" style="display:none">
                 <thead>
                     <tr>
@@ -267,12 +326,12 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         }
                         echo "<td>" . $row['serv_tests_key'] . "</td>";
                         // Title. If longer than $max_len characters, display as tooltip:
-                        echo "<td class='qtip_show' title='" . htmlentities($row['title']) . "'>" . htmlentities($row['title']) . "</td>";
+                        echo "<td class='qtip_show' title='" . htmlentities($row['title']) . "' id='title".$row['serv_tests_key']."' ondblclick='editTitle(".$row['serv_tests_key'].")'>" . htmlentities($row['title']) . "</td>";
                         // Description. If longer than $max_len characters, display as tooltip:
                         if (strlen($row['description']) <= $max_len) 
-                            echo "<td>" . htmlentities($row['description']) . "</td>";
+                            echo "<td id='desc".$row['serv_tests_key']."' ondblclick='editDesc(".$row['serv_tests_key'].")'>" . htmlentities($row['description']) . "</td>";
                         else
-                            echo "<td class='qtip_show' title='" . htmlentities($row['description']) . "'>" . htmlentities(substr($row['description'],0,$max_len)) . "...</td>";
+                            echo "<td class='qtip_show' title='" . htmlentities($row['description']) . "' id='desc".$row['serv_tests_key']."' ondblclick='editDesc(".$row['serv_tests_key'].")'>" . htmlentities(substr($row['description'],0,$max_len)) . "...</td>";
                         // Image ID
                         echo "<td class='qtip_show' title='image IDs used in this test'>" . $row['image_ids'] . "</td>";
                         // Status
@@ -345,14 +404,8 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                 </tbody>
             </table>
             <br />
-            <span id="pager" class="pager">
-                <span class="texticonsm first link" alt="first" title="first"><<</span>
-                <span class="texticonsm prev link" alt="prev" title="prev"><</span>
-                <span class="pagedisplay"></span>
-                <span class="texticonsm next link" alt="next" title="next">></span>
-                <span class="texticonsm last link" alt="last" title="last">>></span>
-                <input class="pagesize" style="visibility: hidden;" id="pager_num_rows" value="15">
-            </span> <br >
+            <br />
+            <i>Note: you can edit the test title and description with a double click.</i>
             <?php 
             echo "<script type=\"text/javascript\">
             $(document).ready(function() {
@@ -367,7 +420,6 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
             <form name="tstabrt" method="post" action="test_abort.php"><input type="hidden" name="testid" value=""></form>
             <form name="resdwn" method="post" id="downloadform" action="result_download_archive.php"><input type="hidden" name="testid" value=""><input type="hidden" name="query" value=""></form>
             <form name="tstcdnl" method="post" action="testconfig_download.php"><input type="hidden" name="testid" value=""></form>
-            <p><a style="color:#666666;text-decoration:none;" href="newtest.php"><span class="texticon">+</span> add new test</a></p>
 <?php
 do_layout('Manage Tests','Manage Tests');
 ?>

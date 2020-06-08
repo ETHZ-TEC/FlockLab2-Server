@@ -126,6 +126,27 @@
     else {
       echo json_encode(array('status' => 'error', 'output' => 'unknown query'));
     }
+
+  } else if (isset($_POST['s'])) {
+
+    if ($_POST['s'] == 'title' && isset($_POST['id']) && isset($_POST['val'])) {
+      // set the test title
+      $db = db_connect();
+      $sql = "UPDATE tbl_serv_tests SET title='". mysqli_real_escape_string($db, $_POST['val']) ."' WHERE serv_tests_key=". intval($_POST['id']) ." AND owner_fk=". $_SESSION['serv_users_key'] ." LIMIT 1";
+      $rs = mysqli_query($db, $sql);
+      mysqli_close($db);
+
+    } else if ($_POST['s'] == 'desc' && isset($_POST['id']) && isset($_POST['val'])) {
+      // set the test description
+      $db = db_connect();
+      $sql = "UPDATE tbl_serv_tests SET description='". mysqli_real_escape_string($db, $_POST['val']) ."' WHERE serv_tests_key=". intval($_POST['id']) ." AND owner_fk=". $_SESSION['serv_users_key'] ." LIMIT 1";
+      $rs = mysqli_query($db, $sql);
+      mysqli_close($db);
+
+    } else {
+      echo json_encode(array('status' => 'error', 'output' => 'invalid API usage'));
+    }
+
   } else {
     echo json_encode(array('status' => 'error', 'output' => 'invalid API usage'));
   }

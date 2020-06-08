@@ -502,3 +502,12 @@ div.content table.recaptchatable {
 form td:hover {
     background-color: #FFFFFF;
 }
+
+.transparentbg:hover {
+    background-color: transparent;
+}
+
+.invisible {
+    visibility: hidden;
+    /* display: none; */
+}

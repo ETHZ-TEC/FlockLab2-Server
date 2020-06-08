@@ -96,6 +96,21 @@
     // If there are tests for this user, display them (with alternating row coloring):
     else {
 ?>
+<table>
+  <tr>
+    <td width="200px" class="transparentbg"><a style="color:#666666;text-decoration:none;" href="newimage.php"><span class="texticon">+</span> add new test image</a></td>
+    <td width="500px" style="text-align:center" class="transparentbg"><span id="pager" class="pager" style="text-align:right">
+          <span class="texticonsm first link bold" alt="first" title="first"><<</span>
+          <span class="texticonsm prev link bold" alt="prev" title="prev"><</span>
+          <span class="pagedisplay"></span>
+          <span class="texticonsm next link bold" alt="next" title="next">></span>
+          <span class="texticonsm last link bold" alt="last" title="last">>></span>
+          <input class="pagesize" style="visibility: hidden; width: 0px" id="pager_num_rows" value="15">
+        </span>
+    </td>
+    <td width="200px" class="transparentbg"></td>
+  </tr>
+</table>
 <table id="test_overview" class="tablesorter" style="display:none">
     <thead>
         <tr>
@@ -155,21 +170,12 @@
     </tbody>
 </table>
 <br />
-<span id="pager" class="pager">
-    <span class="texticonsm first link" alt="first" title="first"><<</span>
-    <span class="texticonsm prev link" alt="prev" title="prev"><</span>
-    <span class="pagedisplay"></span>
-    <span class="texticonsm next link" alt="next" title="next">></span>
-    <span class="texticonsm last link" alt="last" title="last">>></span>
-    <input class="pagesize" style="visibility: hidden;" id="pager_num_rows" value="15">
-</span> <br>
 <?php
   }
 ?>
 <!-- Forms for processing actions -->
 <form name="tstimgdel" method="post" action="image_delete.php"><input type="hidden" name="imageid" value=""></form>
 <form name="tstimgdownload" method="post" action="image_download.php"><input type="hidden" name="imageid" value=""></form>
-<p><a style="color:#666666;text-decoration:none;" href="newimage.php"><span class="texticon">+</span> add new test image</a></p>
 <!-- END content -->
 <?php
   do_layout('Manage Images','Manage Images');

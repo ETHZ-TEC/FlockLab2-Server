@@ -123,7 +123,7 @@
     </tbody>
   </table>
   <br />
-  <span id="pager" class="pager">
+  <span id="pager" class="pager invisible">
       <span class="texticonsm first link" alt="first" title="first"><<</span>
       <span class="texticonsm prev link" alt="prev" title="prev"><</span>
       <span class="pagedisplay"></span>
