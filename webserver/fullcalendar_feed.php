@@ -52,7 +52,7 @@
                    DATE_ADD(`a`.time_end_wish, INTERVAL ".$guard_cleanup_sec." SECOND) as time_end_offset
             FROM `tbl_serv_tests` AS `a`
             LEFT JOIN `tbl_serv_users` AS `b` ON `a`.owner_fk = `b`.serv_users_key
-            WHERE (`a`.test_status NOT IN ('not schedulable', 'todelete', 'deleted') OR (`a`.test_status_preserved IS NOT NULL AND `a`.test_status_preserved IN ('finished','failed'))) 
+            WHERE (`a`.test_status NOT IN ('not schedulable') OR (`a`.test_status_preserved IS NOT NULL AND `a`.test_status_preserved IN ('finished','failed'))) 
               AND ( (`a`.time_start_wish BETWEEN '" . $mysqlstart . "' AND '" . $mysqlend . "') OR (`a`.time_end_wish BETWEEN '" . $mysqlstart . "' AND '" . $mysqlend . "') )
             ORDER BY `a`.time_start_wish";
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get calendar data from database because: ' . mysqli_error($db));
