@@ -338,7 +338,7 @@
 <!-- Type definition for actuation enabled GPIOs -->
 <xs:simpleType name="pinActType">
   <xs:restriction base="xs:string">
-    <xs:pattern value="SIG1|SIG2"/>
+    <xs:pattern value="SIG1|SIG2|nRST"/>
   </xs:restriction>
 </xs:simpleType>
 
