@@ -151,7 +151,7 @@
             clearTimeout(trackTestTimer);
             clearTimeout(refreshPageTimer);
             val = $("#title" + testid).text();
-            $("#title" + testid).html("<input type='text' style='overflow:visible' id='newtitle" + testid + "' value='" + val + "' />");
+            $("#title" + testid).html("<input type='text' size=9 id='newtitle" + testid + "' value='" + val + "' />");
         }
     }
     
@@ -161,7 +161,7 @@
             clearTimeout(trackTestTimer);
             clearTimeout(refreshPageTimer);
             val = $("#desc" + testid).text();
-            $("#desc" + testid).html("<input type='text' id='newdesc" + testid + "' value='" + val + "' />");
+            $("#desc" + testid).html("<input type='text' size=15 id='newdesc" + testid + "' value='" + val + "' />");
         }
     }
     
