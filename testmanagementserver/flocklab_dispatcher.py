@@ -510,17 +510,22 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         dwtconfs = dbgconf.xpath('d:dataTraceConf', namespaces=ns)
                         for dwtconf in dwtconfs:
                             var  = dwtconf.xpath('d:variable', namespaces=ns)[0].text.strip()
-                            # convert variable name to address
-                            obskey = int(float(obsids[0]))
-                            if obskey in symtable:
-                                if var in symtable[obskey]:
-                                    logger.debug("Variable %s replaced by address 0x%x." % (var, symtable[obskey][var][0]))
-                                    varaddr = "0x%x" % symtable[obskey][var][0]
-                                else:
-                                    logger.warning("Variable %s not found in symbol table." % var)
-                                    continue
+                            # check if variable field already contains an address
+                            if var.startswith("0x"):
+                                varaddr = var
                             else:
-                                logger.debug("Key %u not found in symbol table." % (obskey))
+                                # convert variable name to address
+                                obskey = int(float(obsids[0]))
+                                if obskey in symtable:
+                                    if var in symtable[obskey]:
+                                        logger.debug("Variable %s replaced by address 0x%x." % (var, symtable[obskey][var][0]))
+                                        varaddr = "0x%x" % symtable[obskey][var][0]
+                                    else:
+                                        logger.warning("Variable %s not found in symbol table." % var)
+                                        continue
+                                else:
+                                    logger.warning("Key %u not found in symbol table." % (obskey))
+                                    continue
                             mode = dwtconf.xpath('d:mode', namespaces=ns)[0].text.strip()
                             xmlblock += "\t<dataTraceConf>\n\t\t<variable>%s</variable>\n\t\t<varName>%s</varName>\n\t\t<mode>%s</mode>\n\t</dataTraceConf>\n" % (varaddr, var, mode)
                         xmlblock += "</obsDebugConf>\n\n"
