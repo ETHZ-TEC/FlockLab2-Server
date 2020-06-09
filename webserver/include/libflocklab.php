@@ -1054,15 +1054,15 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
             // If no IP address is given for serial service, use the one from which the test was uploaded:
             foreach ($testconfig->serialConf as $sc) {
                 if (isset($sc->remoteIp) && trim($sc->remoteIp) == "") {
-                    $sc->addChild('remoteIp', $_SERVER['REMOTE_ADDR']);
+                    $sc->remoteIp = $_SERVER['REMOTE_ADDR'];
                 }
             }
             // If no IP address is given for debug service, use the one from which the test was uploaded:
-            foreach ($testconfig->debugConf as $sc) {
+            /*foreach ($testconfig->debugConf as $sc) {
                 if (isset($sc->remoteIp) && trim($sc->remoteIp) == "") {
                     $sc->addChild('remoteIp', $_SERVER['REMOTE_ADDR']);
                 }
-            }
+            }*/
         }
         adjust_schedule_tag($testconfig);
 
