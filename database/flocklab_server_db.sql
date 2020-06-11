@@ -134,7 +134,7 @@ CREATE TABLE `tbl_serv_observer` (
   `slot_3_tg_adapt_list_fk` int(10) unsigned DEFAULT NULL,
   `slot_4_tg_adapt_list_fk` int(10) unsigned DEFAULT NULL,
   `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `sync_method` enum('cc430gps','cc430glossy','gps') COLLATE utf8_bin NOT NULL DEFAULT 'cc430glossy',
+  `sync_method` enum('gps','ptp','ntp') COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`serv_observer_key`),
   KEY `fk_slot_2` (`slot_2_tg_adapt_list_fk`),
   KEY `fk_slot_3` (`slot_3_tg_adapt_list_fk`),
