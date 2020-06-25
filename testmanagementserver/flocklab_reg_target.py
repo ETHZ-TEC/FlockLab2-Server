@@ -116,14 +116,14 @@ def main(argv):
         if platform in platforms:
             if adapterid is None:
                 # get highest currently stored ID
-                cur.execute("SELECT adapterid FROM flocklab.tbl_serv_tg_adapt_list WHERE tg_adapt_types_fk=%d ORDER BY adapterid LIMIT 1" % (platforms[platform]))
+                cur.execute("SELECT adapterid FROM flocklab.tbl_serv_tg_adapt_list WHERE tg_adapt_types_fk=%d ORDER BY adapterid DESC LIMIT 1" % (platforms[platform]))
                 rs = cur.fetchone()
                 if rs:
                     adapterid = int(rs[0]) + 1
                 else:
                     adapterid = 1
             cur.execute("INSERT INTO flocklab.tbl_serv_tg_adapt_list (`tg_adapt_types_fk`, `serialid`, `adapterid`) VALUES (%d, '%s', %d)" % (platforms[platform], serialid, adapterid))
-            print("Serial ID %s registered of %s target adapter %d." % (serialid, platform, adapterid))
+            print("Serial ID %s registered for %s target adapter %d." % (serialid, platform, adapterid))
         else:
             print("'%s' is not a valid platform option. Available options: %s" % (platform, ", ".join(platforms.keys())))
            
