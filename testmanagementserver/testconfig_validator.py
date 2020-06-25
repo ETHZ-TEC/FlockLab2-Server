@@ -598,6 +598,15 @@ def main(argv):
             if not quiet:
                 print("Element dataTraceConf: data tracing is not supported on the platform %s." % platform)
             errcnt = errcnt + 1
+        obsWithSWO = []
+        obsWithSWD = []
+        debugconf = tree.xpath('//d:debugConf', namespaces=ns)
+        for debugconf in debugconf:
+            dbgobs = debugconf.find('d:obsIds', namespaces=ns).text.split()
+            if debugconf.find('d:gdbPort', namespaces=ns) != None:
+                obsWithSWD.extend(dbgobs)
+            if debugconf.find('d:dataTraceConf', namespaces=ns) != None:
+                obsWithSWO.extend(dbgobs)
         
         # gpioTracingConf additional validation ---------------------------------------
         #    * observer ids need to have a targetConf associated and must be unique
@@ -616,13 +625,17 @@ def main(argv):
         # Check (pin, edge) combinations:
         gpiomonconfs = tree.xpath('//d:gpioTracingConf', namespaces=ns)
         for gpiomonconf in gpiomonconfs:
-            usesDebug = False
+            usesSWD = False
+            usesDataTrace = False
             # check if one of the used observers also uses the debug service
             gpiomonconfids = gpiomonconf.find('d:obsIds', namespaces=ns)
             if gpiomonconfids != None:
                 for obs in gpiomonconfids.text.split():
-                    if obs in debugObsIds:
-                        usesDebug = True
+                    if obs in obsWithSWO:
+                        usesDataTrace = True
+                        break
+                    if obs in obsWithSWD:
+                        usesSWD = True
                         break
             # check offset
             ofs = gpiomonconf.find('d:offset', namespaces=ns)
@@ -631,16 +644,15 @@ def main(argv):
                     print("Line %d: Offset is larger than test duration." % (ofs.sourceline))
                 errcnt = errcnt + 1
             pins = gpiomonconf.find('d:pins', namespaces=ns)
-            if ("dpp2lora" in platform.lower()) and ("INT2" in pins.text):
+            if usesSWD and ("INT2" in pins.text or "LED3" in pins.text):
                 if not quiet:
-                    print("Line %d: Pin INT2 cannot be used with target platform DPP2LoRa." % (pins.sourceline))
+                    print("Line %d: Pins INT2 and LED3 cannot be traced on target platform DPP2LoRa when the debug service is used." % (pins.sourceline))
                 errcnt = errcnt + 1
                 break
-            if usesDebug and ("LED1" in pins.text or "LED3" in pins.text):
+            if usesDataTrace and ("LED2" in pins.text):
                 if not quiet:
-                    print("Line %d: Pins LED1 and LED3 cannot be traced on target platform DPP2LoRa in conjunction with the debug service." % (pins.sourceline))
+                    print("Line %d: Pins LED2 cannot be traced on target platform DPP2LoRa when the data trace service is used." % (pins.sourceline))
                 errcnt = errcnt + 1
-                break
         
         # gpioActuationConf additional validation ---------------------------
         #    * observer ids need to have a targetConf associated and must be unique
