@@ -35,7 +35,7 @@
 <script type="text/javascript" src="scripts/jquery.cookie.js"></script>
 <script type="text/javascript">
     $(document).ready(function() {
-        var table_rows = Math.max(Math.floor(($(window).height() - 300) / 25),10);
+        var table_rows = 30; //Math.floor(($(window).height() - 300) / 25);
         $("#pager_num_rows").attr('value', table_rows);
         $("#statustable")
             .tablesorter({widgets: ['zebra']})
@@ -44,6 +44,7 @@
             content: {text: false},
             style  : 'flocklab',
         });
+        $("#statustable").show();
         $.cookie.json = true;
         var obs_tbl_state;
         try { obs_tbl_state = $.cookie('flocklab.obssort'); }
@@ -51,7 +52,7 @@
             obs_tbl_state = null;
         }
         if (obs_tbl_state == null) {
-           obs_tbl_state = {s: [0,0], p: 0};
+            obs_tbl_state = {s: [[0,0]], p: 0};
         }
         $("#statustable").data('tablesorter').page = obs_tbl_state.p;
         $("#statustable").trigger("sorton",[obs_tbl_state.s]);
@@ -135,5 +136,5 @@
 </div>
 
 <?php
-  do_layout('Node List (Targets)','Node List (Targets)', '<link rel="stylesheet" href="css/ui-lightness/jquery-ui-1.8.20.custom.css">');
+  do_layout('Node List (Targets)','Node List (Targets)');
 ?>
