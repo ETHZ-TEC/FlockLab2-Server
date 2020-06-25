@@ -82,11 +82,6 @@ def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv', 
     global_ts_queue = collections.deque()
     # df_queue = queue.Queue()
 
-    # Output the information about the program.
-    if logging_on:
-        sys.stdout.write('configure and read demo\n')
-        sys.stdout.write('Press Ctrl-C to Exit\n')
-
     if threads:
         # Create threads
         read_thread = threading.Thread(target=read_fun, args=(swo_queue, global_ts_queue, input_file))
@@ -136,7 +131,6 @@ def read_fun(swo_queue, global_ts_queue, input_file):
     with open(input_file) as open_file_object:
         for line in open_file_object:
             if data_is_next:  # Test if this is a line with data
-                data_is_next = False
                 numbers = []  # initialise again, else has the numbers from previous line also
 
                 for word in line.split():  # extract the numbers in the line into a python list
@@ -169,6 +163,9 @@ def read_fun(swo_queue, global_ts_queue, input_file):
                     swo_queue.appendleft(byte)  # put all the data into the queue that the parsing thread will read from
                 # now indicate that this is the end of a line
                 # swo_queue.appendleft(LINE_ENDS)
+                if numbers:
+                    data_is_next = False
+
             else:  # If not it is a line with a global timestamp
                 data_is_next = True
                 global_ts_count += 1
@@ -186,7 +183,7 @@ def read_fun(swo_queue, global_ts_queue, input_file):
     open_file_object.close()
     read_thread_ended = True
     if logging_on:
-        print("read thread ended")
+        print("read thread ended (timestamp queue size: %d, swo queue size: %d)" % (len(global_ts_queue), len(swo_queue)))
 
 
 def parse_fun(swo_queue, global_ts_queue):
@@ -244,7 +241,7 @@ def parser(swo_byte, swo_queue, global_ts_queue):
             pars_hard(swo_byte, swo_queue)
         else:
             if logging_on:
-                print("this is a SWIT packet (SW source)")
+                print("unrecognized SWO byte: %d" % swo_byte)
 
 
 def pars_hard(header_swo_byte, swo_queue):

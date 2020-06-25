@@ -277,7 +277,7 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, logque
             for line in infile:
                 try:
                     (timestamp, ticks, pin, level) = line.strip().split(',', 3)
-                    outfile.write("%s,%s,%s,%s,%s,%s\n" % (timestamp, ticks, obsid, nodeid, pin, level))
+                    outfile.write("%s,%s,%d,%s,%s,%s\n" % (timestamp, ticks, obsid, nodeid, pin, level))
                 except ValueError:
                     logqueue.put_nowait((loggername, logging.ERROR, "Could not parse line '%s' in gpiotracing worker process." % line))
                     break
@@ -362,7 +362,7 @@ def worker_logs(queueitem=None, nodeid=None, resultfile_path=None, logqueue=None
             infile = open(inputfilename, "r")
             for line in infile:
                 (timestamp, msg) = line.strip().split(',', 1)
-                outfile.write("%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, msg))
+                outfile.write("%s,%d,%s,%s\n" % (timestamp, obsid, nodeid, msg))
             infile.close()
         os.remove(inputfilename)
     except:
@@ -403,7 +403,7 @@ def worker_serial(queueitem=None, nodeid=None, resultfile_path=None, logqueue=No
                     (timestamp, msg) = line.strip().split(',', 1)
                 except:
                     continue
-                result = "%s,%s,%s,r,%s\n" % (timestamp, obsid, nodeid, msg.rstrip())
+                result = "%s,%d,%s,r,%s\n" % (timestamp, obsid, nodeid, msg.rstrip())
                 outfile.write(result)
             infile.close()
         os.remove(inputfilename)
@@ -454,16 +454,16 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
                     if flocklab.parse_int(var) < len(varnames):
                         var = varnames[flocklab.parse_int(var)]
                     # output format: timestamp,observer_id,node_id,variable,value,access,pc
-                    outfile.write("%s,%s,%s,%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, var, val, access, pc))
+                    outfile.write("%s,%d,%s,%s,%s,%s,%s\n" % (timestamp, obsid, nodeid, var, val, access, pc))
                 infile.close()
-        # debug
-        #shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
-        #shutil.copyfile(tmpfile1, "%s_uncorrected.csv" % resultfile_path)
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     finally:
+        # debug
+        #shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
+        #shutil.copyfile(tmpfile1, "%s_uncorrected.csv" % resultfile_path)
         # delete files
         os.remove(input_filename)
         os.remove(tmpfile1)
@@ -489,10 +489,10 @@ def worker_callback(result):
     if len(result[0]) > 0:
         try:
             for (err, obsid) in result[0]:
-                msg = "Error %d when processing results for Observer ID %s: %s" % (obsid, err)
+                msg = "An error occurred when processing the results for Observer %d: %s" % (obsid, str(err))
                 errors.append(msg)
         except:
-            errors.append("Failed to convert the error list in worker_callback.")
+            errors.append("Failed to convert the error list in worker_callback (%s)." % str(result[0]))
     
     # 2nd: a list of the processed elements
     try:
