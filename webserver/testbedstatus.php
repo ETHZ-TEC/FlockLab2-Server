@@ -96,7 +96,10 @@
 <br />
 <div style="position:relative;margin-left:60px;padding:0;width:776px;height:420px;background-color:#fff">
     <div id="graph-bg" style="width:776px;height:420px;z-index:1;position:absolute;background:url(pics/flocklab_floormap.png);opacity:0.6;filter:alpha(opacity=60);"></div>
-    <div id="graph" style="width:776px;height:419px;z-index:2;position:absolute"></div>
+    <div id="graph" style="width:776px;height:420px;z-index:2;position:absolute"></div>
+    <div id="graph-bg" style="width:776px;height:269px;top:500px;z-index:1;position:absolute;background:url(pics/flocklab_remote_locations_scaled.png);opacity:0.6;filter:alpha(opacity=60);"></div>
+    <div style="width:300px;height:30px;left:200px;top:50px;z-index:2;position:absolute">Indoor Nodes (ETZ G Floor)</div>
+    <div style="width:300px;height:30px;left:200px;top:460px;z-index:2;position:absolute">Outdoor Nodes (City of Zurich)</div>
 </div>
 
 <?php

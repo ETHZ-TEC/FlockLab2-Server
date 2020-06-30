@@ -9,5 +9,6 @@ sensornodes=[
 { node_id:  5, x:155, y:305 },
 { node_id: 12, x:195, y:190 },
 { node_id: 10, x:560, y:130 },
-{ node_id:  3, x:120, y:400 }
+{ node_id:  3, x:120, y:400 },
+{ node_id: 25, x:580, y:560 }
 ];
