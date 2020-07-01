@@ -503,6 +503,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         if remoteIp:
                             remoteIp = remoteIp[0].text.strip()
                             xmlblock += "\t<remoteIp>%s</remoteIp>\n" % (remoteIp)
+                        cpuSpeed = dbgconf.xpath('d:cpuSpeed', namespaces=ns)
+                        if cpuSpeed:
+                            cpuSpeed = cpuSpeed[0].text.strip()
+                            xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % (cpuSpeed)
                         gdbPort = dbgconf.xpath('d:gdbPort', namespaces=ns)
                         if gdbPort:
                             gdbPort = gdbPort[0].text.strip()
