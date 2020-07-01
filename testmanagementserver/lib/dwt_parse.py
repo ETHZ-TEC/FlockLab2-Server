@@ -78,6 +78,8 @@ def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv', 
 
     """
     global df
+    # make sure the dataframe is empty
+    df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
     swo_queue = collections.deque()
     global_ts_queue = collections.deque()
     # df_queue = queue.Queue()
