@@ -184,7 +184,7 @@
     <xs:element name="port"  minOccurs="0">
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <xs:pattern value="usb|serial"/>
+          <xs:pattern value="usb|serial|swo"/>
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
@@ -210,6 +210,7 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
+    <xs:element name="cpuSpeed" type="cpuSpeedType" minOccurs="0" maxOccurs="1"/>
     <xs:element name="remoteIp" type="ipType" minOccurs="0"/>
   </xs:all>
 </xs:complexType>

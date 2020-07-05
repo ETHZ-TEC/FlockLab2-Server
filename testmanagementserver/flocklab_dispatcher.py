@@ -476,15 +476,15 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         port = srconf.xpath('d:port', namespaces=ns)
                         if port:
                             port = port[0].text.strip()
-                            xmlblock += "\t<port>%s</port>\n" %port
+                            xmlblock += "\t<port>%s</port>\n" % port
                         baudrate = srconf.xpath('d:baudrate', namespaces=ns)
                         if baudrate:
                             baudrate = baudrate[0].text.strip()
-                            xmlblock += "\t<baudrate>%s</baudrate>\n" %baudrate
-                        mode = srconf.xpath('d:mode', namespaces=ns)
-                        if mode:
-                            mode = mode[0].text.strip()
-                            xmlblock += "\t<mode>%s</mode>\n" %mode
+                            xmlblock += "\t<baudrate>%s</baudrate>\n" % baudrate
+                        cpuspeed = srconf.xpath('d:cpuSpeed', namespaces=ns)
+                        if cpuspeed:
+                            cpuspeed = cpuspeed[0].text.strip()
+                            xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuspeed
                         xmlblock += "</obsSerialConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)

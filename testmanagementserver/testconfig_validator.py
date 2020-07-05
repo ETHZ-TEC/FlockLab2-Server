@@ -583,6 +583,12 @@ def main(argv):
             if not quiet:
                 print("Element serialConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
             errcnt = errcnt + 1
+        serialconfs = tree.xpath('//d:serialConf', namespaces=ns)
+        obsWithSWOSerial = []
+        for serialconf in serialconfs:
+            port = serialconf.find('d:port', namespaces=ns)
+            if port != None and "swo" in port.text:
+                obsWithSWOSerial.extend(serialconf.find('d:obsIds', namespaces=ns).text.split())
         
         # debugConf additional validation
         (debugObsIds, duplicates, allInList) = check_obsids(tree, '//d:debugConf/d:obsIds', ns, obsidlist)
@@ -600,13 +606,22 @@ def main(argv):
             errcnt = errcnt + 1
         obsWithSWO = []
         obsWithSWD = []
-        debugconf = tree.xpath('//d:debugConf', namespaces=ns)
-        for debugconf in debugconf:
+        debugconfs = tree.xpath('//d:debugConf', namespaces=ns)
+        for debugconf in debugconfs:
             dbgobs = debugconf.find('d:obsIds', namespaces=ns).text.split()
             if debugconf.find('d:gdbPort', namespaces=ns) != None:
                 obsWithSWD.extend(dbgobs)
             if debugconf.find('d:dataTraceConf', namespaces=ns) != None:
                 obsWithSWO.extend(dbgobs)
+        
+        # check if data trace and SWO serial is used simultaneously on an observer
+        for obs in obsWithSWOSerial:
+            if obs in obsWithSWO:
+                if not quiet:
+                    print("Element serialConf and debugConf: SWO serial and data trace cannot be used at the same time.")
+                errcnt = errcnt + 1
+            else:
+                obsWithSWO.append(obs)    # add to SWO list for further checks below
         
         # gpioTracingConf additional validation ---------------------------------------
         #    * observer ids need to have a targetConf associated and must be unique
@@ -646,12 +661,12 @@ def main(argv):
             pins = gpiomonconf.find('d:pins', namespaces=ns)
             if usesSWD and ("INT2" in pins.text or "LED3" in pins.text):
                 if not quiet:
-                    print("Line %d: Pins INT2 and LED3 cannot be traced on target platform DPP2LoRa when the debug service is used." % (pins.sourceline))
+                    print("Line %d: Pins INT2 and LED3 cannot be traced on target platform DPP2LoRa if the debug service is used." % (pins.sourceline))
                 errcnt = errcnt + 1
                 break
             if usesDataTrace and ("LED2" in pins.text):
                 if not quiet:
-                    print("Line %d: Pins LED2 cannot be traced on target platform DPP2LoRa when the data trace service is used." % (pins.sourceline))
+                    print("Line %d: Pins LED2 cannot be traced on target platform DPP2LoRa if the SWO pin is used." % (pins.sourceline))
                 errcnt = errcnt + 1
         
         # gpioActuationConf additional validation ---------------------------
