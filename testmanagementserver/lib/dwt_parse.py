@@ -272,57 +272,21 @@ def pars_hard(header_swo_byte, swo_queue):
         buf[i] = swo_queue.pop()
     value = (buf[3] << 24) + (buf[2] << 16) + (buf[1] << 8) + (buf[0] << 0)
 
-    comparator_id = (header_swo_byte & 0x30) >> 4  # id is in bit 4 and 5
+    comparator_id = (header_swo_byte >> 4) & 0b11 # id is in bit 4 and 5
+    comparator_label = 'comp{}'.format(comparator_id)
 
-    # A data read or write
-    if header_swo_byte & 0x80:
-        if comparator_id == 0:
-            df_append.at['comp0', 'comparator'] = 0
-            df_append.at['comp0', 'data'] = value
-            if header_swo_byte & 0x04:
-                df_append.at['comp0', 'operation'] = 'w'
-            else:
-                df_append.at['comp0', 'operation'] = 'r'
-
-        elif comparator_id == 1:
-            df_append.at['comp1', 'comparator'] = 1
-            df_append.at['comp1', 'data'] = value
-            if header_swo_byte & 0x04:
-                df_append.at['comp1', 'operation'] = 'w'
-            else:
-                df_append.at['comp1', 'operation'] = 'r'
-
-        elif comparator_id == 2:
-            df_append.at['comp2', 'comparator'] = 2
-            df_append.at['comp2', 'data'] = value
-            if header_swo_byte & 0x04:
-                df_append.at['comp2', 'operation'] = 'w'
-            else:
-                df_append.at['comp2', 'operation'] = 'r'
-
-        else:
-            df_append.at['comp3', 'comparator'] = 3
-            df_append.at['comp3', 'data'] = value
-            if header_swo_byte & 0x04:
-                df_append.at['comp3', 'operation'] = 'w'
-            else:
-                df_append.at['comp3', 'operation'] = 'r'
-
-    # A PC or address packet
+    # data value packet
+    if header_swo_byte >> 6 == 0b10:
+        df_append.at[comparator_label, 'comparator'] = comparator_id
+        df_append.at[comparator_label, 'data'] = value
+        df_append.at[comparator_label, 'operation'] = 'w' if (header_swo_byte & 0b1000) else 'r'
+    # PC value or address packet
+    elif header_swo_byte >> 6 == 0b01:
+        df_append.at[comparator_label, 'comparator'] = comparator_id
+        df_append.at[comparator_label, 'PC'] = hex(value)
+    # unknown packet
     else:
-        if comparator_id == 0:
-            df_append.at['comp0', 'comparator'] = 0
-            df_append.at['comp0', 'PC'] = hex(value)
-        elif comparator_id == 1:
-            df_append.at['comp1', 'comparator'] = 1
-            df_append.at['comp1', 'PC'] = hex(value)
-        elif comparator_id == 2:
-            df_append.at['comp2', 'comparator'] = 2
-            df_append.at['comp2', 'PC'] = hex(value)
-        else:
-            df_append.at['comp3', 'comparator'] = 3
-            df_append.at['comp3', 'PC'] = hex(value)
-
+        raise Exception('ERROR: Unknown data trace packet type observed!')
 
 
 def timestamp_parse(swo_queue, global_ts_queue):
