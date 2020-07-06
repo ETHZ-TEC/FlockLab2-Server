@@ -589,6 +589,12 @@ def main(argv):
             port = serialconf.find('d:port', namespaces=ns)
             if port != None and "swo" in port.text:
                 obsWithSWOSerial.extend(serialconf.find('d:obsIds', namespaces=ns).text.split())
+                # also check if the CPU speed has been declared
+                if serialconf.find('d:cpuSpeed', namespaces=ns) == None:
+                    if not quiet:
+                        print("Element serialConf: Target CPU speed must be specified for SWO serial logging.")
+                    errcnt = errcnt + 1
+                    break
         
         # debugConf additional validation
         (debugObsIds, duplicates, allInList) = check_obsids(tree, '//d:debugConf/d:obsIds', ns, obsidlist)
