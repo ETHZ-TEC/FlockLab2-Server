@@ -33,20 +33,11 @@ POSSIBILITY OF SUCH DAMAGE.
 Author: Lukas Daschinger
 """
 
-import queue
 import sys
 import time
-import threading
 import numpy as np
 import pandas as pd
 import collections
-
-both_threads_done = False
-read_thread_ended = False
-
-logging_on = False
-
-sys.setswitchinterval(5e-3)  # switch threads every 5 ms. This prevents that read thread writes too much into queue
 
 # create the pandas data frame to store the parsed values in
 df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
@@ -64,15 +55,14 @@ new_row.index = index_
 # parse_fun will then directly create the csv file.
 
 
-def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv', threads=False):
+def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv'):
     """
-    Starts the read and parse thread that will read from the given input_file and parse the content
+    Executes the read and parse functions which will read from the given input_file and parse the content
     It will save the parsed contents in the file specified as second argument
 
     Parameters:
         input_file (str): name of the file to parse
         output_file (str): name of the file to parse
-        threads (bool): if set to true program will run using 2 threads, else first read then parse
     Returns:
         int: True if the program was halted by Key interrupt
 
@@ -82,46 +72,22 @@ def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv', 
     df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
     swo_queue = collections.deque()
     global_ts_queue = collections.deque()
-    # df_queue = queue.Queue()
 
-    if threads:
-        # Create threads
-        read_thread = threading.Thread(target=read_fun, args=(swo_queue, global_ts_queue, input_file))
-        read_thread.setDaemon(True)
-        parse_thread = threading.Thread(target=parse_fun, args=(swo_queue, global_ts_queue))
-        parse_thread.setDaemon(True)
+    read_fun(swo_queue, global_ts_queue, input_file)
+    parse_fun(swo_queue, global_ts_queue)
 
-        # Starts threads
-        read_thread.start()
-        parse_thread.start()
-
-        while True:
-            time.sleep(1)
-            if both_threads_done:
-                break
-
-    else:
-        read_fun(swo_queue, global_ts_queue, input_file)
-        parse_fun(swo_queue, global_ts_queue)
-
-    # df = df_queue.get()
     # convert the pandas data frame to a csv file
     df.to_csv(output_file, index=False, header=True)
-
-    if threads:
-        read_thread.join()  # wait for the threads to end
-        parse_thread.join()
 
     return 0  # exit the program execution
 
 
 def read_fun(swo_queue, global_ts_queue, input_file):
     """
-    Reads from the input file and then puts values into the queue. This runs as a thread.
+    Reads from the input file and then puts values into the queue.
     It also handles special cases by putting a varying number of global timestamps into the queue
     """
 
-    global read_thread_ended
     # global new_row
     data_is_next = True  # we start with data
     local_ts_count = 0
@@ -162,7 +128,7 @@ def read_fun(swo_queue, global_ts_queue, input_file):
                                 current_packet_size = int(word) & 0x03
 
                 for byte in numbers:  # data line
-                    swo_queue.appendleft(byte)  # put all the data into the queue that the parsing thread will read from
+                    swo_queue.appendleft(byte)  # put all the data into the queue that the parsing function will read from
                 # now indicate that this is the end of a line
                 # swo_queue.appendleft(LINE_ENDS)
                 if numbers:
@@ -183,29 +149,18 @@ def read_fun(swo_queue, global_ts_queue, input_file):
 
     # finished reading all lines
     open_file_object.close()
-    read_thread_ended = True
-    if logging_on:
-        print("read thread ended (timestamp queue size: %d, swo queue size: %d)" % (len(global_ts_queue), len(swo_queue)))
+
+    # # debug
+    # print("read function ended (timestamp queue size: %d, swo queue size: %d)" % (len(global_ts_queue), len(swo_queue)))
 
 
 def parse_fun(swo_queue, global_ts_queue):
     """
-    Calls the parse function on packets from the queue in a loop until the program is stopped or queue is empty
+    Calls the parse function on packets from the queue in a loop until queue is empty
     """
-    global both_threads_done
-    while True:  # if stop_threads this fun will jump to end and stop by join()
-        # if not swo_queue.empty():
-        if swo_queue:
+    while swo_queue:
             swo_byte = swo_queue.pop()
             parser(swo_byte, swo_queue, global_ts_queue)
-        else:
-            if not read_thread_ended:  # just an empty queue but will be filled again
-                time.sleep(0.01)
-                continue
-            else:  # in this case the queue is emtpy and the read thread has finished so close the program
-                both_threads_done = True  # tell the loop in main to stop
-                # df_queue.put(df)  # must use a queue to pass the value back to main
-                return
 
 
 def parser(swo_byte, swo_queue, global_ts_queue):
@@ -214,39 +169,37 @@ def parser(swo_byte, swo_queue, global_ts_queue):
     """
     # sync packet, problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
     # Just read all zeros until get an 0x80, then we are in sync.
-    if swo_byte == 0:  # only happens at beginning so no check for stop_threads
+    if swo_byte == 0:
         while swo_byte == 0 and swo_queue:
             swo_byte = swo_queue.pop()
         # according to documentation it should be 0x80 but I observe the stream to start with 0x08 in certain cases
         if swo_byte == 0x08:
-            if logging_on:
-                print("now in sync")
+            # now in sync
             swo_byte = swo_queue.pop()  # then get next byte
 
     lower_bytes = swo_byte & 0x0f
     if lower_bytes == 0x00 and not swo_byte & 0x80:  # 1-byte local timestamp has a zero in front (C = 0)
-        if logging_on:
-            print("one byte local TS")
+        # one byte local TS
+        pass # do not comment, returning if detected is required!
     elif lower_bytes == 0x00:
         timestamp_parse(swo_queue, global_ts_queue)
     elif lower_bytes == 0x04:
-        if logging_on:
-            print("reserved")
+        # reserved
+        pass # do not comment, returning if detected is required!
     elif lower_bytes == 0x08:
-        if logging_on:
-            print("ITM ext")
+        # ITM ext
+        pass # do not comment, returning if detected is required!
     elif lower_bytes == 0x0c:
-        if logging_on:
-            print("DWT ext")
+        # DWT ext
+        pass # do not comment, returning if detected is required!
     else:
         if swo_byte & 0x04:
-            pars_hard(swo_byte, swo_queue)
+            parse_hard(swo_byte, swo_queue)
         else:
-            if logging_on:
-                print("unrecognized SWO byte: %d" % swo_byte)
+            raise Exception("ERROR: unrecognized SWO byte: {}".format(swo_byte))
 
 
-def pars_hard(header_swo_byte, swo_queue):
+def parse_hard(header_swo_byte, swo_queue):
     """
     Parses a DWT hardware packet
     """
@@ -260,20 +213,22 @@ def pars_hard(header_swo_byte, swo_queue):
     elif size_bytes == 1:
         size = 1
     else:
-        if logging_on:
-            print("invalid size")
-        return
+        raise Exception("invalid packet size in swo header byte")
 
     buf = [0, 0, 0, 0]
     for i in range(0, size):
         # for the case that we stopped exec but this would be hanging on get(), we must first test if not stopped
-        if read_thread_ended and not swo_queue:
+        if not swo_queue:
             return
         buf[i] = swo_queue.pop()
     value = (buf[3] << 24) + (buf[2] << 16) + (buf[1] << 8) + (buf[0] << 0)
 
     comparator_id = (header_swo_byte >> 4) & 0b11 # id is in bit 4 and 5
     comparator_label = 'comp{}'.format(comparator_id)
+
+    # debug
+    # with open('/home/flocklab/tmp/log2.txt', 'a') as f_debug:
+    #     f_debug.write('{}\n'.format(comparator_id))
 
     # data value packet
     if header_swo_byte >> 6 == 0b10:
@@ -300,7 +255,7 @@ def timestamp_parse(swo_queue, global_ts_queue):
     local_ts_delta = 0
 
     while i < 4:
-        if read_thread_ended and not swo_queue:  # to not get blocked on queue.get() first check if should stop
+        if not swo_queue:  # to not get blocked on queue.get() first check if should stop
             return
         buf[i] = swo_queue.pop()
         local_ts_delta |= (buf[i] & 0x7f) << i * 7  # remove the first bit and shift by 0,7,14,21 depending on value
@@ -344,11 +299,9 @@ def timestamp_parse(swo_queue, global_ts_queue):
 
         df = df.append(new_row, ignore_index=True)
 
-
     # reset the df_append to nan values
-    nan = np.nan
     for col in df_append.columns:
-        df_append[col].values[:] = nan
+        df_append[col].values[:] = np.nan
 
 
 
@@ -382,9 +335,7 @@ def correct_ts_with_regression(input_file='swo_read_log.csv', output_file='swo_r
     # convert the pandas data frame to a csv file
     df.to_csv(output_file, index=False, header=True)
 
-    if logging_on:
-        print("\n")
-        print("The file log_table_corrected.csv now contains the corrected global timestamps together with the DWT packets")
+    # The file log_table_corrected.csv now contains the corrected global timestamps together with the DWT packets
 
 
 def estimate_coef(x, y):
