@@ -40,46 +40,36 @@ import pandas as pd
 import collections
 
 # create the pandas data frame to store the parsed values in
-df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
+# df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
 df_append = pd.DataFrame(index=["comp0", "comp1", "comp2", "comp3"],
                          columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
-
-# create a series used in the case we only have a timestamp and no packets (local ts overflow)
-nan = np.nan
-new_row = pd.Series([nan, nan, nan, nan, nan])
-index_ = ['global_ts', 'data', 'PC', 'operation', 'local_ts']
-new_row.index = index_
 
 # solution w/o global vars would be to define the df and new_row as static variables in parser and then somehow pass
 # the current df upwards to the parse_fun every time there could be a program stop.
 # parse_fun will then directly create the csv file.
 
 
-def parse_dwt_output(input_file='swo_read_log', output_file='swo_read_log.csv'):
+def parse_dwt_output(input_file):
     """
     Executes the read and parse functions which will read from the given input_file and parse the content
     It will save the parsed contents in the file specified as second argument
 
     Parameters:
         input_file (str): name of the file to parse
-        output_file (str): name of the file to parse
     Returns:
-        int: True if the program was halted by Key interrupt
+        df: dataframe containing the parsed data
 
     """
-    global df
-    # make sure the dataframe is empty
-    df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
     swo_queue = collections.deque()
     global_ts_queue = collections.deque()
 
+    # read raw file into queues
     read_fun(swo_queue, global_ts_queue, input_file)
-    parse_fun(swo_queue, global_ts_queue)
 
-    # convert the pandas data frame to a csv file
-    df.to_csv(output_file, index=False, header=True)
+    # parse data in queues and generate dataframe
+    df = parse_fun(swo_queue, global_ts_queue)
 
-    return 0  # exit the program execution
+    return df
 
 
 def read_fun(swo_queue, global_ts_queue, input_file):
@@ -88,7 +78,6 @@ def read_fun(swo_queue, global_ts_queue, input_file):
     It also handles special cases by putting a varying number of global timestamps into the queue
     """
 
-    # global new_row
     data_is_next = True  # we start with data
     local_ts_count = 0
     global_ts_count = 0
@@ -156,47 +145,46 @@ def read_fun(swo_queue, global_ts_queue, input_file):
 
 def parse_fun(swo_queue, global_ts_queue):
     """
-    Calls the parse function on packets from the queue in a loop until queue is empty
-    """
-    while swo_queue:
-            swo_byte = swo_queue.pop()
-            parser(swo_byte, swo_queue, global_ts_queue)
-
-
-def parser(swo_byte, swo_queue, global_ts_queue):
-    """
     Parses packets from the queue
     """
-    # sync packet, problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
-    # Just read all zeros until get an 0x80, then we are in sync.
-    if swo_byte == 0:
-        while swo_byte == 0 and swo_queue:
-            swo_byte = swo_queue.pop()
-        # according to documentation it should be 0x80 but I observe the stream to start with 0x08 in certain cases
-        if swo_byte == 0x08:
-            # now in sync
-            swo_byte = swo_queue.pop()  # then get next byte
+    df_out = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
 
-    lower_bytes = swo_byte & 0x0f
-    if lower_bytes == 0x00 and not swo_byte & 0x80:  # 1-byte local timestamp has a zero in front (C = 0)
-        # one byte local TS
-        pass # do not comment, returning if detected is required!
-    elif lower_bytes == 0x00:
-        timestamp_parse(swo_queue, global_ts_queue)
-    elif lower_bytes == 0x04:
-        # reserved
-        pass # do not comment, returning if detected is required!
-    elif lower_bytes == 0x08:
-        # ITM ext
-        pass # do not comment, returning if detected is required!
-    elif lower_bytes == 0x0c:
-        # DWT ext
-        pass # do not comment, returning if detected is required!
-    else:
-        if swo_byte & 0x04:
-            parse_hard(swo_byte, swo_queue)
+    while swo_queue:
+        swo_byte = swo_queue.pop()
+
+        # sync packet, problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
+        # Just read all zeros until get an 0x80, then we are in sync.
+        if swo_byte == 0:
+            while swo_byte == 0 and swo_queue:
+                swo_byte = swo_queue.pop()
+            # according to documentation it should be 0x80 but I observe the stream to start with 0x08 in certain cases
+            if swo_byte == 0x08:
+                # now in sync
+                swo_byte = swo_queue.pop()  # then get next byte
+
+        lower_bytes = swo_byte & 0x0f
+        if lower_bytes == 0x00 and not swo_byte & 0x80:  # 1-byte local timestamp has a zero in front (C = 0)
+            # one byte local TS
+            pass # do not comment, returning if detected is required!
+        elif lower_bytes == 0x00:
+            new_row = parse_timestamp(swo_queue, global_ts_queue)
+            df_out = df_out.append(new_row, ignore_index=True)
+        elif lower_bytes == 0x04:
+            # reserved
+            pass # do not comment, returning if detected is required!
+        elif lower_bytes == 0x08:
+            # ITM ext
+            pass # do not comment, returning if detected is required!
+        elif lower_bytes == 0x0c:
+            # DWT ext
+            pass # do not comment, returning if detected is required!
         else:
-            raise Exception("ERROR: unrecognized SWO byte: {}".format(swo_byte))
+            if swo_byte & 0x04:
+                parse_hard(swo_byte, swo_queue)
+            else:
+                raise Exception("ERROR: unrecognized SWO byte: {}".format(swo_byte))
+
+    return df_out
 
 
 def parse_hard(header_swo_byte, swo_queue):
@@ -244,12 +232,11 @@ def parse_hard(header_swo_byte, swo_queue):
         raise Exception('ERROR: Unknown data trace packet type observed!')
 
 
-def timestamp_parse(swo_queue, global_ts_queue):
+def parse_timestamp(swo_queue, global_ts_queue):
     """
     Parses timestamp packets and writes a line into output file after every timestamp
     """
     global df_append
-    global df
     buf = [0, 0, 0, 0]
     i = 0
     local_ts_delta = 0
@@ -275,47 +262,51 @@ def timestamp_parse(swo_queue, global_ts_queue):
     if not empty['comp0']:
         df_append.at['comp0', 'local_ts'] = local_ts_delta
         df_append.at['comp0', 'global_ts'] = global_ts
-        series0 = df_append.loc['comp0']
-        df = df.append(series0, ignore_index=True)
+        new_row = df_append.loc['comp0'].copy()
     elif not empty['comp1']:
         df_append.at['comp1', 'local_ts'] = local_ts_delta
         df_append.at['comp1', 'global_ts'] = global_ts
-        series1 = df_append.loc['comp1']
-        df = df.append(series1, ignore_index=True)
+        new_row = df_append.loc['comp1'].copy()
     elif not empty['comp2']:
         df_append.at['comp2', 'local_ts'] = local_ts_delta
         df_append.at['comp2', 'global_ts'] = global_ts
-        series2 = df_append.loc['comp2']
-        df = df.append(series2, ignore_index=True)
+        new_row = df_append.loc['comp2'].copy()
     elif not empty['comp3']:
         df_append.at['comp3', 'local_ts'] = local_ts_delta
         df_append.at['comp3', 'global_ts'] = global_ts
-        series3 = df_append.loc['comp3']
-        df = df.append(series3, ignore_index=True)
+        new_row = df_append.loc['comp3'].copy()
     # overflow was received, so no comparator data, only global and local ts
     elif empty['comp0'] and empty['comp1'] and empty['comp2'] and empty['comp3']:
+        # create a series used in the case we only have a timestamp and no packets (local ts overflow)
+        new_row = pd.Series([np.nan, np.nan, np.nan, np.nan, np.nan])
+        new_row.index = ['global_ts', 'data', 'PC', 'operation', 'local_ts']
+
         new_row.at["local_ts"] = local_ts_delta
         new_row.at['global_ts'] = global_ts
-
-        df = df.append(new_row, ignore_index=True)
 
     # reset the df_append to nan values
     for col in df_append.columns:
         df_append[col].values[:] = np.nan
 
+    return new_row
 
 
-def correct_ts_with_regression(input_file='swo_read_log.csv', output_file='swo_read_log_corrected.csv'):
+
+def correct_ts_with_regression(df_in):
     """
     Calculates a regression based on the values in log_table.csv
     Then projects the global timestamps onto the regression and writes the corrected values in log_table_corrected.csv
+
+    Params:
+        df_in: dataframe containing parsed data
+    Returns:
+        df_out: dataframe containing time corrected data
     """
-    # read data in the file into a pandas data frame
-    df = pd.read_csv(input_file)
+    df_out = df_in.copy()
 
     # extract the global and local timestamps and put into a numpy array
-    x = df['local_ts'].to_numpy(dtype=float)
-    y = df['global_ts'].to_numpy(dtype=float)
+    x = df_out['local_ts'].to_numpy(dtype=float)
+    y = df_out['global_ts'].to_numpy(dtype=float)
 
     # add up the local timestamps and calculate the global timestamp relative to the first global timestamp
     sum_local_ts = 0
@@ -331,11 +322,12 @@ def correct_ts_with_regression(input_file='swo_read_log.csv', output_file='swo_r
         global_ts[...] = b[0] + b[1] * local_ts
 
     # write the array back into the pandas df to replace the global timestamps
-    df['global_ts'] = y
-    # convert the pandas data frame to a csv file
-    df.to_csv(output_file, index=False, header=True)
+    df_out['global_ts'] = y
 
     # The file log_table_corrected.csv now contains the corrected global timestamps together with the DWT packets
+
+    return df_out
+
 
 
 def estimate_coef(x, y):

@@ -435,27 +435,24 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         varnames = ""
         with open(input_filename, "r") as f:
             varnames = f.readline().strip().split()
-        (fd1, tmpfile1) = tempfile.mkstemp()
-        (fd2, tmpfile2) = tempfile.mkstemp()
-        dwt.parse_dwt_output(input_filename, tmpfile1)
+        # parse raw datatrace log
+        df_parsed = dwt.parse_dwt_output(input_filename)
         # apply linear regression to correct the timestamps
         try:
-            dwt.correct_ts_with_regression(tmpfile1, tmpfile2)
+            df_corrected = dwt.correct_ts_with_regression(df_parsed)
         except ValueError:
             logqueue.put_nowait((loggername, logging.WARNING, "Empty data trace results file."))
         else:
+            df = df_corrected
+            # remove lines with timestamp values
+            df.dropna(inplace=True)
+            # add observer and node ID
+            df['obsid'] = obsid
+            df['nodeid'] = nodeid
+            # convert comparator ID to variable name
+            df['varname'] = df.comparator.apply(lambda x: (varnames[x] if x < len(varnames) else str(x)))
+            # append datatrace elements from obsever to datatrace log file
             with open(resultfile_path, "a") as outfile:
-                df = pd.read_csv(tmpfile2)
-                # debug
-                df.to_csv('/home/flocklab/tmp/tmp_df.txt')
-                # nan values cannot be converted to int -> drop corresponding lines
-                df.dropna(inplace=True)
-                # since there were nan values, comparator column was stored as nan but we need int; round is necessary otherwise 0.999999 is converted to 0 which is wrong
-                df.comparator = df.comparator.round().astype(int)
-                df.data = df.data.round().astype(int)
-                df['obsid'] = obsid
-                df['nodeid'] = nodeid
-                df['varname'] = df.comparator.apply(lambda x: (varnames[x] if x < len(varnames) else str(x)))
                 df.to_csv(
                   outfile,
                   columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC'],
