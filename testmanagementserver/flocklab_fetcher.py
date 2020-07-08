@@ -444,8 +444,13 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
             logqueue.put_nowait((loggername, logging.WARNING, "Empty data trace results file."))
         else:
             df = df_corrected
-            # remove lines with timestamp values
-            df.dropna(inplace=True)
+            # remove timestamp rows (which contain nan values) -> drop corresponding lines, note: PC column can contain nan!
+            df.dropna(subset=['comparator', 'operation'], inplace=True)
+            # convert columns to int if required; if there were nan values, comparator column was stored as nan but we need int; round is necessary otherwise 0.999999 is converted to 0 which is wrong
+            if 'float' in str(df_corrected.comparator.dtypes):
+                df_corrected.comparator = df_corrected.comparator.round().astype(int)
+            if 'float' in str(df_corrected.data.dtypes):
+                df_corrected.data = df_corrected.data.round().astype(int)
             # add observer and node ID
             df['obsid'] = obsid
             df['nodeid'] = nodeid
@@ -469,8 +474,6 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         # shutil.copyfile(tmpfile1, "%s_uncorrected.csv" % resultfile_path)
         # delete files
         os.remove(input_filename)
-        os.remove(tmpfile1)
-        os.remove(tmpfile2)
         processeditem = list(queueitem)
         processeditem[0] = ITEM_PROCESSED
         return (_errors, tuple(processeditem))

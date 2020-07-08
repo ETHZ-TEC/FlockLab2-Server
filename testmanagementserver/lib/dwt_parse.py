@@ -39,11 +39,6 @@ import numpy as np
 import pandas as pd
 import collections
 
-# create the pandas data frame to store the parsed values in
-# df = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
-df_append = pd.DataFrame(index=["comp0", "comp1", "comp2", "comp3"],
-                         columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
-
 # solution w/o global vars would be to define the df and new_row as static variables in parser and then somehow pass
 # the current df upwards to the parse_fun every time there could be a program stop.
 # parse_fun will then directly create the csv file.
@@ -72,13 +67,24 @@ def parse_dwt_output(input_file):
     return df
 
 
+def map_size(ss):
+    if ss == 1:
+        return 1
+    elif ss == 2:
+        return 2
+    elif ss == 3:
+        return 4
+    else:
+        raise Exception('ERROR: Invalid ss size: ss should not be ==0 or >3')
+
+
 def read_fun(swo_queue, global_ts_queue, input_file):
     """
     Reads from the input file and then puts values into the queue.
     It also handles special cases by putting a varying number of global timestamps into the queue
     """
 
-    data_is_next = True  # we start with data
+    data_is_next = True  # we expect that raw file starts with data (not with global timestamp)
     local_ts_count = 0
     global_ts_count = 0
     currently_hw_packet = False  # we start with zeros so next is header
@@ -86,44 +92,63 @@ def read_fun(swo_queue, global_ts_queue, input_file):
     next_is_header = True  # we start with zeros so next is header
     current_packet_size = 0
     with open(input_file) as open_file_object:
-        for line in open_file_object:
-            if data_is_next:  # Test if this is a line with data
-                numbers = []  # initialise again, else has the numbers from previous line also
+        for i, line in enumerate(open_file_object):
+            if i == 0:
+                continue # ignore first line with varnames
 
-                for word in line.split():  # extract the numbers in the line into a python list
-                    if word.isdigit():
-                        numbers.append(int(word))
+            if data_is_next:
+                # Line with data
 
-                        if currently_hw_packet:
-                            if current_packet_size:  # still bytes left
-                                current_packet_size -= 1
-                            else:  # no more bytes in the hw packet => next is header
-                                currently_hw_packet = False
-                                next_is_header = True
+                numbers = []
+                for word in line.split():
+                    if not word.isdigit():
+                        raise Exception('ERROR: element of line is not digits as expected for a line with data')
 
-                        if currently_ts_packet:
-                            if not (int(word) & 0x80):  # means this is the last byte of ts, next byte is header
-                                currently_ts_packet = False
-                                next_is_header = True
+                    numbers.append(int(word))
 
-                        if next_is_header:
-                            if word == '192' or word == '208' or word == '224' or word == '240':
-                                local_ts_count += 1  # need to find the local ts
-                                currently_ts_packet = True
-                                next_is_header = False
-                            if word == '71' or word == '135' or word == '143':
+                    if currently_hw_packet:
+                        if current_packet_size:  # still bytes left
+                            current_packet_size -= 1
+                        else:  # no more bytes in the hw packet => next is header
+                            currently_hw_packet = False
+                            next_is_header = True
+
+                    if currently_ts_packet:
+                        continuation_bit = int(word) & 0x80
+                        if continuation_bit == 0: # continuation_bit==0 indicates that this is the last byte of the local timstamp packet
+                            currently_ts_packet = False
+                            next_is_header = True
+
+                    # TODO: handle overflow packets
+                    if next_is_header:
+                        # if word == '192' or word == '208' or word == '224' or word == '240':
+                        if int(word) & 0b11001111 == 0b11000000:
+                            # Local timestamp packet
+                            local_ts_count += 1  # need to find the local ts
+                            currently_ts_packet = True
+                            next_is_header = False
+                        # elif word == '71' or word == '135' or word == '143':
+                    elif int(word) >> 2 & 0b1  == 0b1 and int(word) & 0b11 != 0b00:
+                            # Hardware source packet
+                            discriminator_id = int(word) >> 3 & 0b11111
+                            if discriminator_id >= 8 and discriminator_id <= 23:
+                                # Data tracing
                                 currently_hw_packet = True
                                 next_is_header = False
-                                current_packet_size = int(word) & 0x03
+                                current_packet_size = map_size(int(word) & 0b11) - 1
+                            else:
+                                # Other packet (Event counter wrapping, Exception tracing, PC sampling)
+                                next_is_header = False
+                                current_packet_size = map_size(int(word) & 0b11) - 1
+
 
                 for byte in numbers:  # data line
                     swo_queue.appendleft(byte)  # put all the data into the queue that the parsing function will read from
-                # now indicate that this is the end of a line
-                # swo_queue.appendleft(LINE_ENDS)
                 if numbers:
                     data_is_next = False
 
-            else:  # If not it is a line with a global timestamp
+            else:
+                # Line with global timestamp
                 data_is_next = True
                 global_ts_count += 1
                 if global_ts_count > local_ts_count:  # case where had a global ts in middle of packet
@@ -139,7 +164,7 @@ def read_fun(swo_queue, global_ts_queue, input_file):
     # finished reading all lines
     open_file_object.close()
 
-    # # debug
+    # # DEBUG
     # print("read function ended (timestamp queue size: %d, swo queue size: %d)" % (len(global_ts_queue), len(swo_queue)))
 
 
@@ -148,6 +173,8 @@ def parse_fun(swo_queue, global_ts_queue):
     Parses packets from the queue
     """
     df_out = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
+    df_append = pd.DataFrame(index=["comp0", "comp1", "comp2", "comp3"],
+                             columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
 
     while swo_queue:
         swo_byte = swo_queue.pop()
@@ -162,46 +189,35 @@ def parse_fun(swo_queue, global_ts_queue):
                 # now in sync
                 swo_byte = swo_queue.pop()  # then get next byte
 
-        lower_bytes = swo_byte & 0x0f
-        if lower_bytes == 0x00 and not swo_byte & 0x80:  # 1-byte local timestamp has a zero in front (C = 0)
-            # one byte local TS
-            pass # do not comment, returning if detected is required!
-        elif lower_bytes == 0x00:
-            new_row = parse_timestamp(swo_queue, global_ts_queue)
-            df_out = df_out.append(new_row, ignore_index=True)
-        elif lower_bytes == 0x04:
-            # reserved
-            pass # do not comment, returning if detected is required!
-        elif lower_bytes == 0x08:
-            # ITM ext
-            pass # do not comment, returning if detected is required!
-        elif lower_bytes == 0x0c:
-            # DWT ext
-            pass # do not comment, returning if detected is required!
-        else:
-            if swo_byte & 0x04:
-                parse_hard(swo_byte, swo_queue)
+        if swo_byte & 0b11001111 == 0b11000000:
+            # Local timestamp packet
+            new_row_list = parse_timestamp(swo_queue, global_ts_queue, df_append)
+            df_out = df_out.append(new_row_list, ignore_index=True)
+        elif swo_byte >> 2 & 0b1  == 0b1 and swo_byte & 0b11 != 0b00:
+            # Hardware source packet
+            discriminator_id = swo_byte >> 3 & 0b11111
+            if discriminator_id in [0, 1, 2]:
+                # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
+                pass
+            if discriminator_id >= 8 and discriminator_id <= 23:
+                # Data tracing
+                parse_hard(swo_byte, swo_queue, df_append)
             else:
-                raise Exception("ERROR: unrecognized SWO byte: {}".format(swo_byte))
+                # Other undefined packet
+                print("Unknown discriminator ID in hardware source packet header: {}".format(swo_byte))
+                # raise Exception("ERROR: Unknown discriminator ID in hardware source packet header: {}".format(swo_byte)) # packets with undefined discriminator_id appear sporadically -> we cannot throw error here
+        else:
+            print("unrecognized DWT packet header: {}".format(swo_byte))
 
     return df_out
 
 
-def parse_hard(header_swo_byte, swo_queue):
+def parse_hard(header_swo_byte, swo_queue, df_append):
     """
     Parses a DWT hardware packet
     """
-    global df_append
     # the given swo_byte is a header for a PC, an address, data read or data write packet
-    size_bytes = header_swo_byte & 0x03
-    if size_bytes == 3:
-        size = 4
-    elif size_bytes == 2:
-        size = 2
-    elif size_bytes == 1:
-        size = 1
-    else:
-        raise Exception("invalid packet size in swo header byte")
+    size = map_size(header_swo_byte & 0b11)
 
     buf = [0, 0, 0, 0]
     for i in range(0, size):
@@ -214,7 +230,7 @@ def parse_hard(header_swo_byte, swo_queue):
     comparator_id = (header_swo_byte >> 4) & 0b11 # id is in bit 4 and 5
     comparator_label = 'comp{}'.format(comparator_id)
 
-    # debug
+    # DEBUG
     # with open('/home/flocklab/tmp/log2.txt', 'a') as f_debug:
     #     f_debug.write('{}\n'.format(comparator_id))
 
@@ -232,11 +248,10 @@ def parse_hard(header_swo_byte, swo_queue):
         raise Exception('ERROR: Unknown data trace packet type observed!')
 
 
-def parse_timestamp(swo_queue, global_ts_queue):
+def parse_timestamp(swo_queue, global_ts_queue, df_append):
     """
     Parses timestamp packets and writes a line into output file after every timestamp
     """
-    global df_append
     buf = [0, 0, 0, 0]
     i = 0
     local_ts_delta = 0
@@ -256,39 +271,43 @@ def parse_timestamp(swo_queue, global_ts_queue):
     # now we want to complete all the half filled rows in the df_append (contain only data, PC, operation, comparator)
     # there can be several data (in several rows) but we only have 1 local ts and 1 global ts to use for all of them
     empty = df_append[:].isnull().apply(lambda x: all(x), axis=1)
+    # DEBUG
+    # print('number of non-empty rows in df_append: {}'.format(len(empty) - np.sum(empty)))
 
     # we only have one global timestamp for one local timestamp so need to pop and reuse
     global_ts = global_ts_queue.pop()
+    ret = []
     if not empty['comp0']:
         df_append.at['comp0', 'local_ts'] = local_ts_delta
         df_append.at['comp0', 'global_ts'] = global_ts
-        new_row = df_append.loc['comp0'].copy()
-    elif not empty['comp1']:
+        ret += [df_append.loc['comp0'].copy()]
+    if not empty['comp1']:
         df_append.at['comp1', 'local_ts'] = local_ts_delta
         df_append.at['comp1', 'global_ts'] = global_ts
-        new_row = df_append.loc['comp1'].copy()
-    elif not empty['comp2']:
+        ret += [df_append.loc['comp1'].copy()]
+    if not empty['comp2']:
         df_append.at['comp2', 'local_ts'] = local_ts_delta
         df_append.at['comp2', 'global_ts'] = global_ts
-        new_row = df_append.loc['comp2'].copy()
-    elif not empty['comp3']:
+        ret += [df_append.loc['comp2'].copy()]
+    if not empty['comp3']:
         df_append.at['comp3', 'local_ts'] = local_ts_delta
         df_append.at['comp3', 'global_ts'] = global_ts
-        new_row = df_append.loc['comp3'].copy()
-    # overflow was received, so no comparator data, only global and local ts
-    elif empty['comp0'] and empty['comp1'] and empty['comp2'] and empty['comp3']:
+        ret += [df_append.loc['comp3'].copy()]
+    if empty['comp0'] and empty['comp1'] and empty['comp2'] and empty['comp3']:
+        # overflow was received, so no comparator data, only global and local ts
         # create a series used in the case we only have a timestamp and no packets (local ts overflow)
         new_row = pd.Series([np.nan, np.nan, np.nan, np.nan, np.nan])
         new_row.index = ['global_ts', 'data', 'PC', 'operation', 'local_ts']
 
         new_row.at["local_ts"] = local_ts_delta
         new_row.at['global_ts'] = global_ts
+        ret += [new_row]
 
     # reset the df_append to nan values
     for col in df_append.columns:
         df_append[col].values[:] = np.nan
 
-    return new_row
+    return ret
 
 
 
