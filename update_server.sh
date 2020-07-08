@@ -36,8 +36,8 @@
 #
 
 USER="flocklab"
-HOST="whymper"		# default server
-RSYNCPARAMS="-a -z -c -K --exclude=.git --no-perms --no-owner --no-group"
+HOST="whymper"    # default server
+RSYNCPARAMS="-a -z -c -K --exclude=.* --no-perms --no-owner --no-group --ignore-times --delete"
 
 if [ $# -gt 0 ]; then
     HOST=$1
@@ -73,18 +73,16 @@ else
         printf "done.\n"
     fi
 fi
-# tools -> only sync on dev server
-if [ $HOST = "flocklab-dev-server" ]; then
-    RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools/ ${USER}@${HOST}:tools  2>&1)
-    if [ -z "$RES" ]; then
-        echo "Tools are up to date."
+# tools
+RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' tools/ ${USER}@${HOST}:tools  2>&1)
+if [ -z "$RES" ]; then
+    echo "Tools are up to date."
+else
+    printf "Updating tools... "
+    rsync ${RSYNCPARAMS} -e 'ssh -q' tools/ ${USER}@${HOST}:tools
+    if [ $? -ne 0 ]; then
+        printf "Failed to copy files!\n"
     else
-        printf "Updating tools... "
-        rsync ${RSYNCPARAMS} -e 'ssh -q' tools/ ${USER}@${HOST}:tools
-        if [ $? -ne 0 ]; then
-            printf "Failed to copy files!\n"
-        else
-            printf "done.\n"
-        fi
+        printf "done.\n"
     fi
 fi
