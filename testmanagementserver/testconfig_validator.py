@@ -388,13 +388,13 @@ def main(argv):
                         errcnt = errcnt + 1
                     else:
                         # Put data into dictionary for later use:
-                        pf = ret[0]
+                        pf = ret[0].lower()
                         core = int(ret[1])
                         if platform == None:
                             platform = pf
                         elif platform != pf:
                             if not quiet:
-                                print("Line %d: using target images of different platforms is not allowed." % (line))
+                                print("Line %d: using target images of different platforms is not allowed (used platforms: %s, %s)." % (line, platform, pf))
                             errcnt = errcnt + 1
                         if "ALL" in obsids:
                             obsids.remove("ALL")
@@ -421,12 +421,12 @@ def main(argv):
                         errcnt = errcnt + 1
                     else:
                         # Get os and platform and put it into dictionary for later use:
-                        pf = imageconf[0].xpath('d:platform', namespaces=ns)[0].text
+                        pf = imageconf[0].xpath('d:platform', namespaces=ns)[0].text.lower()
                         if platform == None:
                             platform = pf
                         elif platform != pf:
                             if not quiet:
-                                print("Line %d: using target images of different platforms is not allowed." % (line))
+                                print("Line %d: using target images of different platforms is not allowed (used platforms: %s, %s)." % (line, platform, pf))
                             errcnt = errcnt + 1
                         if "ALL" in obsids:
                             obsids.remove("ALL")
