@@ -162,6 +162,7 @@ CREATE TABLE `tbl_serv_platforms` (
   `freq_868` tinyint(1) NOT NULL DEFAULT '0',
   `freq_433` tinyint(1) NOT NULL DEFAULT '0',
   `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `active` TINYINT NULL DEFAULT 1,
   PRIMARY KEY (`serv_platforms_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
