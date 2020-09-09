@@ -285,6 +285,7 @@ function get_available_platforms() {
         FROM `tbl_serv_platforms`
         LEFT JOIN `tbl_serv_architectures`
         ON `tbl_serv_architectures`.`platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`
+        WHERE `active` = 1
         ORDER BY `name`, `core` ASC';
     $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch available platforms because: ' . mysqli_error($db));
     $num = mysqli_num_rows($res);
