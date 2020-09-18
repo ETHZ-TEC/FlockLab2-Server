@@ -46,8 +46,7 @@ import collections
 
 def parse_dwt_output(input_file):
     """
-    Executes the read and parse functions which will read from the given input_file and parse the content
-    It will save the parsed contents in the file specified as second argument
+    Executes the read and parse functions which will read from the given input_file and parse the content.
 
     Parameters:
         input_file (str): name of the file to parse
@@ -76,6 +75,14 @@ def map_size(ss):
         return 4
     else:
         raise Exception('ERROR: Invalid ss size: ss should not be ==0 or >3')
+
+
+def is_float(str):
+    try:
+        float(str)
+        return True
+    except ValueError:
+        return False
 
 
 def read_fun(swo_queue, global_ts_queue, input_file):
@@ -112,12 +119,14 @@ def read_fun(swo_queue, global_ts_queue, input_file):
                         else:  # no more bytes in the hw packet => next is header
                             currently_hw_packet = False
                             next_is_header = True
+                            continue
 
                     if currently_ts_packet:
                         continuation_bit = int(word) & 0x80
                         if continuation_bit == 0: # continuation_bit==0 indicates that this is the last byte of the local timstamp packet
                             currently_ts_packet = False
                             next_is_header = True
+                            continue
 
                     # TODO: handle overflow packets
                     if next_is_header:
@@ -128,7 +137,7 @@ def read_fun(swo_queue, global_ts_queue, input_file):
                             currently_ts_packet = True
                             next_is_header = False
                         # elif word == '71' or word == '135' or word == '143':
-                    elif int(word) >> 2 & 0b1  == 0b1 and int(word) & 0b11 != 0b00:
+                        elif int(word) >> 2 & 0b1  == 0b1 and int(word) & 0b11 != 0b00:
                             # Hardware source packet
                             discriminator_id = int(word) >> 3 & 0b11111
                             if discriminator_id >= 8 and discriminator_id <= 23:
@@ -149,6 +158,11 @@ def read_fun(swo_queue, global_ts_queue, input_file):
 
             else:
                 # Line with global timestamp
+
+                # check if line actually contains a float
+                if not is_float(line):
+                    raise Exception('ERROR: line is not float as expected for a line with global timestamp')
+
                 data_is_next = True
                 global_ts_count += 1
                 if global_ts_count > local_ts_count:  # case where had a global ts in middle of packet
@@ -199,7 +213,7 @@ def parse_fun(swo_queue, global_ts_queue):
             if discriminator_id in [0, 1, 2]:
                 # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
                 pass
-            if discriminator_id >= 8 and discriminator_id <= 23:
+            elif discriminator_id >= 8 and discriminator_id <= 23:
                 # Data tracing
                 parse_hard(swo_byte, swo_queue, df_append)
             else:
