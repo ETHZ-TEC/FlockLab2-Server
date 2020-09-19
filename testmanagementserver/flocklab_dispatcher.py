@@ -530,8 +530,17 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                 else:
                                     logger.warning("Key %u not found in symbol table." % (obskey))
                                     continue
-                            mode = dwtconf.xpath('d:mode', namespaces=ns)[0].text.strip()
-                            xmlblock += "\t<dataTraceConf>\n\t\t<variable>%s</variable>\n\t\t<varName>%s</varName>\n\t\t<mode>%s</mode>\n\t</dataTraceConf>\n" % (varaddr, var, mode)
+                            mode = dwtconf.xpath('d:mode', namespaces=ns)
+                            if mode:
+                                mode = mode[0].text.strip()
+                            else:
+                                mode = 'W'    # use default
+                            size = dwtconf.xpath('d:size', namespaces=ns)
+                            if size:
+                                size = size[0].text.strip()
+                            else:
+                                size = 4
+                            xmlblock += "\t<dataTraceConf>\n\t\t<variable>%s</variable>\n\t\t<varName>%s</varName>\n\t\t<mode>%s</mode>\n\t\t<size>%d</size>\n\t</dataTraceConf>\n" % (varaddr, var, mode, size)
                         xmlblock += "</obsDebugConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)

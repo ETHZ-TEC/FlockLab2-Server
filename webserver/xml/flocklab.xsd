@@ -227,8 +227,17 @@
       <xs:element name="dataTraceConf" minOccurs="0" maxOccurs="4">
         <xs:complexType>
           <xs:sequence>
-            <xs:element name="variable" type="xs:string"/>
-            <xs:element name="mode" type="dataTraceModeListType"/>
+            <xs:element name="variable" type="xs:string" />
+            <xs:element name="mode" type="dataTraceModeListType" minOccurs="0" />
+            <xs:element name="size" minOccurs="0">
+              <xs:simpleType>
+                <xs:restriction base="xs:integer">
+                  <xs:enumeration value="1"/>
+                  <xs:enumeration value="2"/>
+                  <xs:enumeration value="4"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:element>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
