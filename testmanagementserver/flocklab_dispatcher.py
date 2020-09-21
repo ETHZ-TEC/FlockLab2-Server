@@ -537,7 +537,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                 mode = 'W'    # use default
                             size = dwtconf.xpath('d:size', namespaces=ns)
                             if size:
-                                size = size[0].text.strip()
+                                size = flocklab.parse_int(size[0].text.strip())
                             else:
                                 size = 4
                             xmlblock += "\t<dataTraceConf>\n\t\t<variable>%s</variable>\n\t\t<varName>%s</varName>\n\t\t<mode>%s</mode>\n\t\t<size>%d</size>\n\t</dataTraceConf>\n" % (varaddr, var, mode, size)

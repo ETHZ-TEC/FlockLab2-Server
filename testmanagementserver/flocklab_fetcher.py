@@ -191,6 +191,18 @@ def read_from_db_file(dbfile):
 
 ##############################################################################
 #
+# write_to_error_log: Write an error message to the error log file that will be passed to the user
+#
+##############################################################################
+def write_to_error_log(timestamp, obsid, nodeid, message):
+    # TODO make this more efficient and thread-safe
+    with open(testresultsfile_dict['errorlog'][0], "a") as errorlog:
+        errorlog.write("%s,%d,%d,%s\n" % (str(timestamp), obsid, nodeid, message))
+### END write_to_error_log
+
+
+##############################################################################
+#
 # worker_dbfiles: Parses observer DB files.
 #
 ##############################################################################
