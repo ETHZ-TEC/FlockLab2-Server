@@ -4,7 +4,7 @@
      * XML template for FlockLab test configuration. 
      * This template can be downloaded from http://www.flocklab.ethz.ch/user/xml/flocklab_template.xml
      * The corresponding schema can be found at http://www.flocklab.ethz.ch/user/xml/flocklab.xsd
-     * Help is available at https://gitlab.ethz.ch/tec/public/flocklab/flocklab/-/wikis/Man/XmlConfig
+     * Help is available at https://gitlab.ethz.ch/tec/public/flocklab/wiki/-/wikis/Man/XmlConfig
      * Your own XML configuration can be validated (without registering a test) at http://user.flocklab.ethz.ch/xmlvalidate.php
      */
 -->

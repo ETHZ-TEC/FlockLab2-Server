@@ -5,7 +5,7 @@ https://user.flocklab.ethz.ch
 
 We strongly recommend you to walk through the tutorials that explain
 how FlockLab can be used:
-https://gitlab.ethz.ch/tec/public/flocklab/flocklab/-/wikis/Man/Tutorials
+https://gitlab.ethz.ch/tec/public/flocklab/wiki/-/wikis/Man/Tutorials
 
 If you have questions, please use the according Google Group:
 https://groups.google.com/forum/#!forum/flocklab-users
