@@ -35,9 +35,6 @@
     </gpioTracingConf>
     -->
 
-    <!-- GPIO Actuation Service configuration -->
-    <!-- NOT YET AVAILABLE! -->
-
     <!-- Power Profiling Service configuration -->
     <powerProfilingConf>
         <obsIds>2 4 5 6</obsIds>

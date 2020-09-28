@@ -42,7 +42,34 @@
     </gpioTracingConf>
 
     <!-- GPIO Actuation Service configuration -->
-    <!-- NOT YET AVAILABLE! -->
+    <!-- on observers 2 and 4 toggle the SIG1 pin after 10s -->
+    <gpioActuationConf>
+        <obsIds>2 4</obsIds>
+        <pinConf>
+            <pin>SIG1</pin>
+            <level>high</level>
+            <offset>10</offset>
+        </pinConf>
+        <pinConf>
+            <pin>SIG1</pin>
+            <level>low</level>
+            <offset>11</offset>
+        </pinConf>
+    </gpioActuationConf>
+    <!-- on observers 6, 7 and 9, toggle the SIG1 pin after 20s -->
+    <gpioActuationConf>
+        <obsIds>6 7 9</obsIds>
+        <pinConf>
+            <pin>SIG1</pin>
+            <level>high</level>
+            <offset>20</offset>
+        </pinConf>
+        <pinConf>
+            <pin>SIG1</pin>
+            <level>low</level>
+            <offset>20.1</offset>
+        </pinConf>
+    </gpioActuationConf>
 
     <!-- Power Profiling Service configuration -->
     <powerProfilingConf>

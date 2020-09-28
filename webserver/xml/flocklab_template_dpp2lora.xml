@@ -31,9 +31,6 @@
         <pins>LED1 INT1</pins>
     </gpioTracingConf>
 
-    <!-- GPIO Actuation Service configuration -->
-    <!-- NOT YET AVAILABLE! -->
-
     <!-- Power Profiling Service configuration -->
     <powerProfilingConf>
         <obsIds>ALL</obsIds>
