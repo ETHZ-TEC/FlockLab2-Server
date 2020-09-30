@@ -34,7 +34,7 @@
 <?php include_once('include/presets.php');?>
 <?php
   if ($_SESSION['logged_in']) {
-      if (isset($_GET['t']) && is_numeric($_GET['t']) && check_testid($_GET['t'], $_SESSION['serv_users_key'])) {
+      if (isset($_GET['t']) && is_numeric($_GET['t']) && (check_testid($_GET['t'], $_SESSION['serv_users_key']) || $_SESSION['is_admin'])) {
           // user is logged in and test belongs to the user
           $plot = $CONFIG['viz']['dir'].'/flocklab_plot_'.$_GET['t'].'.html';
           $fs = filesize($plot);
