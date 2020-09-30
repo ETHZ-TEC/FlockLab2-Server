@@ -39,9 +39,144 @@ import numpy as np
 import pandas as pd
 import collections
 
-# solution w/o global vars would be to define the df and new_row as static variables in parser and then somehow pass
-# the current df upwards to the parse_fun every time there could be a program stop.
-# parse_fun will then directly create the csv file.
+class SwoPkt():
+    def __init__(self, header):
+        self._header = header
+        self._plBytes = []
+
+    def addByte(self, byteVal):
+        raise Exception('ERROR: This function is a prototype and should not directly be called!')
+
+    def isComplete(self):
+        raise Exception('ERROR: This function is a prototype and should not directly be called!')
+
+    def __str__(self):
+        raise Exception('ERROR: This function is a prototype and should not directly be called!')
+
+
+class LocalTimestampPkt(SwoPkt):
+    def __init__(self, header):
+        # TODO: determine from header whether timestamp pkt has payload or not (currently local timestamp packet format 2 (single-byte) is not supported)
+        super().__init__(header)
+        self._complete = False
+        self._format2 = (self._header & 0b10001111 == 0) # format 2 (single-byte packet)
+        self._tc = (header >> 4) & 0b11 if not self._format2 else None
+
+    def addByte(self, byteVal):
+        self._plBytes.append(byteVal)
+
+    def isComplete(self):
+        if self._format2:
+            # format 2 (single-byte packet) case
+            return True
+        else:
+            # format 1 (at least one payload byte)
+            if not self._plBytes:
+                return False
+            continuation_bit = self._plBytes[-1] & 0x80
+            # continuation_bit==0 indicates that this is the last byte of the local timstamp packet
+            return continuation_bit==0
+
+    @property
+    def ts(self):
+        if not self.isComplete():
+            raise Exception('ERROR: Cannot get timestamp from incomplete LocalTimestampPkt')
+
+        if self._format2:
+            ret = (self._header & 0b01110000) >> 4
+        else:
+            ret = 0
+            for i, byte in enumerate(self._plBytes):
+                ret |= (byte & 0x7f) << i * 7  # remove the first bit and shift by 0,7,14,21 depending on value
+        return ret
+
+    @property
+    def tc(self):
+        return self._tc
+
+    def __str__(self):
+        ret = "LocalTimestampPkt {} {:#010b}{}:".format(self._header, self._header, "" if self.isComplete() else " (incomplete)")
+        ret += "\n  bytes: {}".format(self._plBytes)
+        ret += "\n  format: {}".format(2 if self._format2 else 1)
+        if self.isComplete():
+            ret += "\n  ts: {}".format(self.ts)
+            ret += "\n  tc: {}".format(self.tc)
+        return ret
+
+class DatatracePkt(SwoPkt):
+    def __init__(self, header):
+        super().__init__(header)
+        self._payloadSize = map_size(header & 0b11)
+        self._pktType = (header >> 6) & 0b11 # 1: PC value or address; 2: data value; otherweise: reserved
+        self._comparator = (header >> 4) & 0b11 # comparator that generated the data
+        self._addressPkt = None # True if data trace address pkt, False if data trace PC value pkt
+        self._writeAccess = None # True if write access, False if read access
+        if self._pktType == 1:  # PC value or address
+            self._addressPkt = (header >> 3 & 0b1)
+        elif self._pktType == 2: # data value
+            self._writeAccess = (header >> 3 & 0b1)
+        else:
+            raise Exception('ERROR: Reserved data trace packet type encountered!')
+
+    def addByte(self, byteVal):
+        self._plBytes.append(byteVal)
+        # TODO set isComplete var to true if contin==0
+
+    def isComplete(self):
+        return len(self._plBytes) == self._payloadSize
+
+    @property
+    def pktType(self):
+        return self._pktType
+
+    @property
+    def comparator(self):
+        return self._comparator
+
+    @property
+    def addressPkt(self):
+        return self._addressPkt
+
+    @property
+    def writeAccess(self):
+        return self._writeAccess
+
+    @property
+    def value(self):
+        return (self._plBytes[3] << 24) + (self._plBytes[2] << 16) + (self._plBytes[1] << 8) + (self._plBytes[0] << 0)
+
+    def __str__(self):
+        ret = "DatatracePkt {} {:#010b}{}:".format(self._header, self._header, "" if self.isComplete() else " (incomplete)")
+        ret += "\n  bytes: {}".format(self._plBytes)
+        ret += "\n  pktType: {}".format(self.pktType)
+        ret += "\n  comparator: {}".format(self.comparator)
+        ret += "\n  payloadSize: {}".format(self._payloadSize)
+        if self.pktType == 1:
+            # PC value or address;
+            ret += "\n  addressPkt: {}".format(self.addressPkt)
+        elif self.pktType == 2:
+            # data value; otherweise: reserved
+            ret += "\n  writeAccess: {}".format(self.writeAccess)
+        else:
+            raise Exception("ERROR: DataTracePkt with reserved packetType!")
+
+        if self.isComplete():
+            ret += "\n  value: {}".format(self.value)
+
+        return ret
+
+class OverflowPkt(SwoPkt):
+    def __init__(self, header):
+        super().__init__(header)
+
+    def isComplete(self):
+        # overflow packet consists of a single header byte
+        return True
+
+    def __str__(self):
+        return "OverflowPkt"
+
+
 
 
 def parse_dwt_output(input_file):
@@ -54,14 +189,13 @@ def parse_dwt_output(input_file):
         df: dataframe containing the parsed data
 
     """
-    swo_queue = collections.deque()
-    global_ts_queue = collections.deque()
+    read_queue = collections.deque()
 
-    # read raw file into queues
-    read_fun(swo_queue, global_ts_queue, input_file)
+    # read raw file into queue
+    read_fun(read_queue, input_file)
 
     # parse data in queues and generate dataframe
-    df = parse_fun(swo_queue, global_ts_queue)
+    df = parse_fun(read_queue)
 
     return df
 
@@ -85,19 +219,19 @@ def is_float(str):
         return False
 
 
-def read_fun(swo_queue, global_ts_queue, input_file):
+def read_fun(read_queue, input_file):
     """
     Reads from the input file and then puts values into the queue.
     It also handles special cases by putting a varying number of global timestamps into the queue
     """
 
     data_is_next = True  # we expect that raw file starts with data (not with global timestamp)
-    local_ts_count = 0
-    global_ts_count = 0
-    currently_hw_packet = False  # we start with zeros so next is header
-    currently_ts_packet = False  # we start with zeros so next is header
-    next_is_header = True  # we start with zeros so next is header
-    current_packet_size = 0
+    # local_ts_count = 0
+    # global_ts_count = 0
+    # currently_hw_packet = False  # we start with zeros so next is header
+    # currently_ts_packet = False  # we start with zeros so next is header
+    # next_is_header = True  # we start with zeros so next is header
+    # current_packet_size = 0
     with open(input_file) as open_file_object:
         for i, line in enumerate(open_file_object):
             if i == 0:
@@ -112,49 +246,45 @@ def read_fun(swo_queue, global_ts_queue, input_file):
                         raise Exception('ERROR: element of line is not digits as expected for a line with data')
 
                     numbers.append(int(word))
+                read_queue.appendleft(('data', numbers))
+                data_is_next = False
 
-                    if currently_hw_packet:
-                        if current_packet_size:  # still bytes left
-                            current_packet_size -= 1
-                        else:  # no more bytes in the hw packet => next is header
-                            currently_hw_packet = False
-                            next_is_header = True
-                            continue
-
-                    if currently_ts_packet:
-                        continuation_bit = int(word) & 0x80
-                        if continuation_bit == 0: # continuation_bit==0 indicates that this is the last byte of the local timstamp packet
-                            currently_ts_packet = False
-                            next_is_header = True
-                            continue
-
-                    # TODO: handle overflow packets
-                    if next_is_header:
-                        # if word == '192' or word == '208' or word == '224' or word == '240':
-                        if int(word) & 0b11001111 == 0b11000000:
-                            # Local timestamp packet
-                            local_ts_count += 1  # need to find the local ts
-                            currently_ts_packet = True
-                            next_is_header = False
-                        # elif word == '71' or word == '135' or word == '143':
-                        elif int(word) >> 2 & 0b1  == 0b1 and int(word) & 0b11 != 0b00:
-                            # Hardware source packet
-                            discriminator_id = int(word) >> 3 & 0b11111
-                            if discriminator_id >= 8 and discriminator_id <= 23:
-                                # Data tracing
-                                currently_hw_packet = True
-                                next_is_header = False
-                                current_packet_size = map_size(int(word) & 0b11) - 1
-                            else:
-                                # Other packet (Event counter wrapping, Exception tracing, PC sampling)
-                                next_is_header = False
-                                current_packet_size = map_size(int(word) & 0b11) - 1
-
-
-                for byte in numbers:  # data line
-                    swo_queue.appendleft(byte)  # put all the data into the queue that the parsing function will read from
-                if numbers:
-                    data_is_next = False
+                    # if currently_hw_packet:
+                    #     if current_packet_size:  # still bytes left
+                    #         current_packet_size -= 1
+                    #     else:  # no more bytes in the hw packet => next is header
+                    #         currently_hw_packet = False
+                    #         next_is_header = True
+                    #         continue
+                    #
+                    # if currently_ts_packet:
+                    #     continuation_bit = int(word) & 0x80
+                    #     if continuation_bit == 0: # continuation_bit==0 indicates that this is the last byte of the local timstamp packet
+                    #         currently_ts_packet = False
+                    #         next_is_header = True
+                    #         continue
+                    #
+                    # # TODO: handle overflow packets
+                    # if next_is_header:
+                    #     # if word == '192' or word == '208' or word == '224' or word == '240':
+                    #     if int(word) & 0b11001111 == 0b11000000:
+                    #         # Local timestamp packet
+                    #         local_ts_count += 1  # need to find the local ts
+                    #         currently_ts_packet = True
+                    #         next_is_header = False
+                    #     # elif word == '71' or word == '135' or word == '143':
+                    #     elif int(word) >> 2 & 0b1  == 0b1 and int(word) & 0b11 != 0b00:
+                    #         # Hardware source packet
+                    #         discriminator_id = int(word) >> 3 & 0b11111
+                    #         if discriminator_id >= 8 and discriminator_id <= 23:
+                    #             # Data tracing
+                    #             currently_hw_packet = True
+                    #             next_is_header = False
+                    #             current_packet_size = map_size(int(word) & 0b11) - 1
+                    #         else:
+                    #             # Other packet (Event counter wrapping, Exception tracing, PC sampling)
+                    #             next_is_header = False
+                    #             current_packet_size = map_size(int(word) & 0b11) - 1
 
             else:
                 # Line with global timestamp
@@ -163,65 +293,212 @@ def read_fun(swo_queue, global_ts_queue, input_file):
                 if not is_float(line):
                     raise Exception('ERROR: line is not float as expected for a line with global timestamp')
 
+                read_queue.appendleft(('global_ts', float(line)))
                 data_is_next = True
-                global_ts_count += 1
-                if global_ts_count > local_ts_count:  # case where had a global ts in middle of packet
-                    global_ts_count -= 1  # need to put back to normal s.t. not again true in next round
-                elif local_ts_count > global_ts_count:  # case where had several local ts in one packet
-                    for _ in range(local_ts_count - global_ts_count):
-                        global_ts_queue.appendleft(float(line))  # put the global ts several times (for every l ts once)
-                        global_ts_count += 1
-                    global_ts_queue.appendleft(float(line))  # plus the "normal" append to dequeue
-                else:  # normal case, put the global timestamp in queue
-                    global_ts_queue.appendleft(float(line))
 
-    # finished reading all lines
-    open_file_object.close()
+                # data_is_next = True
+                # global_ts_count += 1
+                # if global_ts_count > local_ts_count:  # case where had a global ts in middle of packet
+                #     global_ts_count -= 1  # need to put back to normal s.t. not again true in next round
+                # elif local_ts_count > global_ts_count:  # case where had several local ts in one packet
+                #     for _ in range(local_ts_count - global_ts_count):
+                #         global_ts_queue.appendleft(float(line))  # put the global ts several times (for every l ts once)
+                #         global_ts_count += 1
+                #     global_ts_queue.appendleft(float(line))  # plus the "normal" append to dequeue
+                # else:  # normal case, put the global timestamp in queue
+
+    # # finished reading all lines
+    # open_file_object.close()
 
     # # DEBUG
     # print("read function ended (timestamp queue size: %d, swo queue size: %d)" % (len(global_ts_queue), len(swo_queue)))
 
 
-def parse_fun(swo_queue, global_ts_queue):
+def parse_fun(read_queue):
     """
     Parses packets from the queue
     """
     df_out = pd.DataFrame(columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
-    df_append = pd.DataFrame(index=["comp0", "comp1", "comp2", "comp3"],
-                             columns=['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts'])
 
-    while swo_queue:
-        swo_byte = swo_queue.pop()
+    streamStarted = False
+    nextHeader = False
+    completedDataPkts = []
+    completedLocalTimestampPkts = []
+    completedOverflowPkts = []
+    currentPkt = []
+    ignoreBytes = 0
 
-        # sync packet, problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
-        # Just read all zeros until get an 0x80, then we are in sync.
-        if swo_byte == 0:
-            while swo_byte == 0 and swo_queue:
-                swo_byte = swo_queue.pop()
-            # according to documentation it should be 0x80 but I observe the stream to start with 0x08 in certain cases
-            if swo_byte == 0x08:
-                # now in sync
-                swo_byte = swo_queue.pop()  # then get next byte
+    while read_queue:
+        elem = read_queue.pop()
+        elemType, elemData = elem
+        if elemType == 'data':
+            for swoByte in elemData:
+                # sync to packet in byte stream
+                # problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
+                # Just read all zeros until get an 0x80, then we are in sync.
+                # FIXME implement according to manual
+                if not streamStarted:
+                    if swoByte == 0:
+                        continue
+                    elif swoByte == 0x08:
+                        continue
+                    else:
+                        streamStarted = True
+                        print('>>>>>>>> Stream started!')
+                        nextHeader = True
 
-        if swo_byte & 0b11001111 == 0b11000000:
-            # Local timestamp packet
-            new_row_list = parse_timestamp(swo_queue, global_ts_queue, df_append)
-            df_out = df_out.append(new_row_list, ignore_index=True)
-        elif swo_byte >> 2 & 0b1  == 0b1 and swo_byte & 0b11 != 0b00:
-            # Hardware source packet
-            discriminator_id = swo_byte >> 3 & 0b11111
-            if discriminator_id in [0, 1, 2]:
-                # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
-                pass
-            elif discriminator_id >= 8 and discriminator_id <= 23:
-                # Data tracing
-                parse_hard(swo_byte, swo_queue, df_append)
+                # parse packets with content
+                if nextHeader:
+                    if swoByte & 0b11001111 == 0b11000000:
+                        # Local timestamp packet header
+                        currentPkt.append(LocalTimestampPkt(header=swoByte))
+                        nextHeader = False
+                        # # TODO combine with other isComplete check (this here is necessary since payloadSize could be 0)
+                        # # this should not occur since single-byte local timestamp has different header (see blow)
+                        # if currentPkt[0].isComplete:
+                        #     completedLocalTimestampPkts.append(currentPkt.pop())
+                        #     nextHeader = True
+                        # new_row_list = parse_timestamp(swo_queue, global_ts_queue, df_append)
+                        # df_out = df_out.append(new_row_list, ignore_index=True)
+                    elif swoByte & 0b10001111 == 0b0:
+                        # Local timestamp packet header (single-byte)
+                        currentPkt.append(LocalTimestampPkt(header=swoByte))
+                        print(currentPkt[0])
+                        completedLocalTimestampPkts.append(currentPkt.pop())
+                        nextHeader = True
+                        # print('WARNING: local timestamp packet format 2 (single-byte) occurred! {}'.format(swoByte))
+                    elif swoByte == 0b01110000:
+                        currentPkt.append(OverflowPkt(header=swoByte))
+                        print(currentPkt[0])
+                        completedOverflowPkts.append(currentPkt.pop())
+                        nextHeader = True
+                    elif swoByte >> 2 & 0b1  == 0b1 and swoByte & 0b11 != 0b00:
+                        # Hardware source packet header
+                        discriminator_id = swoByte >> 3 & 0b11111
+                        plSize = map_size(swoByte & 0b11)
+                        if discriminator_id in [0, 1, 2]:
+                            # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
+                            nextHeader = False
+                            ignoreBytes = plSize
+                            # raise Exception("ERROR: Unexpected discriminator ID in hardware source packet header: {}".format(swoByte))
+                        elif discriminator_id >= 8 and discriminator_id <= 23:
+                            # Data tracing
+                            currentPkt.append(DatatracePkt(header=swoByte))
+                            nextHeader = False
+                            # TODO combine with other isComplete check (this here is necessary since payloadSize could be 0)
+                            if currentPkt[0].isComplete():
+                                print(currentPkt[0])
+                                if type(currentPkt[0]) == LocalTimestampPkt:
+                                    completedLocalTimestampPkts.append(currentPkt.pop())
+                                    nextHeader = True
+                                elif type(currentPkt[0]) == DatatracePkt:
+                                    completedDataPkts.append(currentPkt.pop())
+                                    nextHeader = True
+                                else:
+                                    raise Exception['ERROR: Packet completed but type is unknown!']
+                            # parse_hard(swoByte, swo_queue, df_append)
+                        else:
+                            # Other undefined header
+                            # print("Unknown discriminator ID in hardware source packet header: {}".format(swoByte))
+                            raise Exception("ERROR: Unknown discriminator ID in hardware source packet header: {}".format(swoByte)) # packets with undefined discriminator_id appear sporadically -> we cannot throw error here
+                    else:
+                        print("unrecognized DWT packet header: {} {:#010b}".format(swoByte, swoByte))
+                else:
+                    if ignoreBytes:
+                        ignoreBytes -= 1
+                        if ignoreBytes == 0:
+                            nextHeader = True
+                    else:
+                        currentPkt[0].addByte(swoByte)
+                        # TODO combine with other isComplete check (implement swoparser object and implement function for isComplete check)
+                        if currentPkt[0].isComplete():
+                            print(currentPkt[0])
+                            if type(currentPkt[0]) == LocalTimestampPkt:
+                                completedLocalTimestampPkts.append(currentPkt.pop())
+                                nextHeader = True
+                            elif type(currentPkt[0]) == DatatracePkt:
+                                completedDataPkts.append(currentPkt.pop())
+                                nextHeader = True
+                            else:
+                                raise Exception['ERROR: Packet completed but type is unknown!']
+        elif elemType == 'global_ts':
+            if not streamStarted:
+                continue
+
+            if not completedLocalTimestampPkts:
+                print('WARNING: cannot create rows from current data since there is no complete local timestamp pkt')
+                continue # cannot create rows from current data since there is no complete local timestamp pkt
+
+            new_row_list = []
+            if completedDataPkts:
+                for comparatorId in [0, 1, 2, 3]:
+                    # create new row and append t143 0 0 0 0o df_out
+                    # TODO: handle completedOverflowPkts!
+                    new_row = pd.DataFrame([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+                    new_row.index = ['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts']
+                    for dataPkt in completedDataPkts:
+                        if dataPkt.comparator == comparatorId:
+                            if dataPkt.pktType == 1: # data trace pc value pkt
+                                if not dataPkt.addressPkt: # we want PC value
+                                    new_row.at["PC"] = hex(dataPkt.value)
+                            elif dataPkt.pktType == 2: # data trace data value pkt
+                                new_row.at["operation"] = 'w' if dataPkt.writeAccess else 'r'
+                                new_row.at["data"] = dataPkt.value
+                    if not np.isnan(new_row.at["data", 0]):
+                        new_row.at["comparator"] = comparatorId
+                        new_row.at["local_ts"] = completedLocalTimestampPkts[-1].ts
+                        new_row.at['global_ts'] = elemData
+                        new_row_list += [new_row]
             else:
-                # Other undefined packet
-                print("Unknown discriminator ID in hardware source packet header: {}".format(swo_byte))
-                # raise Exception("ERROR: Unknown discriminator ID in hardware source packet header: {}".format(swo_byte)) # packets with undefined discriminator_id appear sporadically -> we cannot throw error here
+                # no completedDataPkts -> we have overflow timestamp -> add it to use it for regression
+                new_row = pd.Series([np.nan, np.nan, np.nan, np.nan, np.nan])
+                new_row.index = ['global_ts', 'data', 'PC', 'operation', 'local_ts']
+                new_row.at["local_ts"] = completedLocalTimestampPkts[-1].ts
+                new_row.at['global_ts'] = elemData
+                new_row_list += [new_row]
+            if completedOverflowPkts:
+                for overflowPkt in completedOverflowPkts:
+                    new_row = pd.Series([np.nan, np.nan, np.nan, np.nan, np.nan, np.nan])
+                    new_row.index = ['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts']
+                    new_row.at['global_ts'] = elemData
+                    new_row_list += [new_row]
+            df_out = df_out.append(new_row_list, ignore_index=True)
         else:
-            print("unrecognized DWT packet header: {}".format(swo_byte))
+            raise Exception('ERROR: Unknown element type!')
+
+
+
+
+
+        # # sync packet, problem: in begin we have don't have 5 zero bytes as specified for a sync pack but there are 9
+        # # Just read all zeros until get an 0x80, then we are in sync.
+        # if swo_byte == 0:
+        #     while swo_byte == 0 and swo_queue:
+        #         swo_byte = swo_queue.pop()
+        #     # according to documentation it should be 0x80 but I observe the stream to start with 0x08 in certain cases
+        #     if swo_byte == 0x08:
+        #         # now in sync
+        #         swo_byte = swo_queue.pop()  # then get next byte
+        #
+        # if swo_byte & 0b11001111 == 0b11000000:
+        #     # Local timestamp packet
+        #     new_row_list = parse_timestamp(swo_queue, global_ts_queue, df_append)
+        #     df_out = df_out.append(new_row_list, ignore_index=True)
+        # elif swo_byte >> 2 & 0b1  == 0b1 and swo_byte & 0b11 != 0b00:
+        #     # Hardware source packet
+        #     discriminator_id = swo_byte >> 3 & 0b11111
+        #     if discriminator_id in [0, 1, 2]:
+        #         # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
+        #         pass
+        #     elif discriminator_id >= 8 and discriminator_id <= 23:
+        #         # Data tracing
+        #         parse_hard(swo_byte, swo_queue, df_append)
+        #     else:
+        #         # Other undefined packet
+        #         print("Unknown discriminator ID in hardware source packet header: {}".format(swo_byte))
+        #         # raise Exception("ERROR: Unknown discriminator ID in hardware source packet header: {}".format(swo_byte)) # packets with undefined discriminator_id appear sporadically -> we cannot throw error here
+        # else:
+        #     print("unrecognized DWT packet header: {}".format(swo_byte))
 
     return df_out
 
