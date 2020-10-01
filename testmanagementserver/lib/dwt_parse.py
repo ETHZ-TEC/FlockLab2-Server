@@ -66,7 +66,7 @@ class SwoParser():
             super().__init__(header)
             self._complete = False
             self._format2 = (self._header & 0b10001111 == 0) # format 2 (single-byte packet)
-            self._tc = (header >> 4) & 0b11 if not self._format2 else None
+            self._tc = (header >> 4) & 0b11 if not self._format2 else 0b00 ## format 2 can only occur if timestamp is synchronous (i.e. tc=0b00)
 
         def addByte(self, byteVal):
             self._plBytes.append(byteVal)
@@ -164,7 +164,7 @@ class SwoParser():
                 # data value; otherweise: reserved
                 ret += "\n  writeAccess: {}".format(self.writeAccess)
             else:
-                raise Exception("ERROR: DataTracePkt with reserved packetType!")
+                raise Exception("ERROR: DatatracePkt with reserved packetType!")
 
             if self.isComplete():
                 ret += "\n  value: {}".format(self.value)
@@ -228,6 +228,7 @@ class SwoParser():
                 if discriminator_id in [0, 1, 2]:
                     # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
                     self._ignoreBytes = plSize
+                    print('WARNING: Hardware source packet with discriminator_id={} ignored!'.format(discriminator_id))
                 elif discriminator_id >= 8 and discriminator_id <= 23:
                     # Data tracing
                     self._currentPkt.append(type(self).DatatracePkt(header=swoByte))
@@ -326,13 +327,22 @@ def read_fun(read_queue, input_file):
 def parse_fun(read_queue):
     """
     Parses packets from the queue
+
+    Relevant passage from ARMv7-M Architecture Reference Manual:
+    "Local timestamping is differential, meaning each timestamp gives the time since the previous local timestamp.
+    When local timestamping is enabled and a DWT or ITM event transfers a packet to the appropriate output FIFO,
+    and the timestamp counter is non-zero, the ITM:
+    * Generates a Local timestamp packet.
+    * Resets the timestamp counter to zero."
     """
     columns = ['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts']
     out_list = []
 
-    completedDataPkts = []
-    completedLocalTimestampPkts = []
+    completedPkts = []
     completedOverflowPkts = []
+
+    # completedDataPkts = []
+    # completedLocalTimestampPkts = []
 
     swoParser = SwoParser()
 
@@ -345,61 +355,113 @@ def parse_fun(read_queue):
                 if ret:
                     print(ret)
                     if type(ret) == SwoParser.LocalTimestampPkt:
-                        completedLocalTimestampPkts.append(ret)
+                        completedPkts.append(ret)
                     elif type(ret) == SwoParser.DatatracePkt:
-                        completedDataPkts.append(ret)
+                        completedPkts.append(ret)
                     elif type(ret) == SwoParser.OverflowPkt:
                         completedOverflowPkts.append(ret)
                     else:
                         raise Exception['ERROR: Packet completed but type is unknown!']
 
         elif elemType == 'global_ts':
+            global_ts = elemData
+
             if not swoParser._streamStarted:
                 continue
 
-            if not completedLocalTimestampPkts:
-                # cannot create rows from current data since there is no complete local timestamp pkt
-                print('WARNING: cannot create rows from current data since there is no complete local timestamp pkt')
-                continue
+            # go through list of completed packts and try to create new rows
+            overflowPkts = []
+            while completedPkts:
+                # find next set of packtes for creating one row
+                idx = None
+                for i, pkt in enumerate(completedPkts):
+                    if type(pkt) == SwoParser.DatatracePkt:
+                        continue
+                    elif type(pkt) == SwoParser.LocalTimestampPkt:
+                        idx = i
+                        break
+                    else:
+                        raise Exception('ERROR: Unrecognized packet type!')
 
-            # use collected packets to create rows with data
-            if completedDataPkts:
-                for comparatorId in [0, 1, 2, 3]:
+                if idx is None:
+                    # no (more) complete set found -> wait for more data
+                    break
+                elif idx == 0:
+                    # single LocalTimestampPkt
+                    assert type(pkt) == SwoParser.LocalTimestampPkt
+                    dataPkt = completedPkts.pop(0)
                     new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
-                    for dataPkt in completedDataPkts:
-                        if dataPkt.comparator == comparatorId:
+                    new_row['local_ts'] = dataPkt.ts
+                    new_row['global_ts'] = global_ts
+                    out_list += [new_row]
+                else:
+                    # Set with datatrace packets found
+                    dataPkts = []
+                    ltsPkts = []
+                    for i in range(idx+1):
+                        pkt = completedPkts.pop(0)
+                        if type(pkt) == SwoParser.DatatracePkt:
+                            dataPkts.append(pkt)
+                        elif type(pkt) == SwoParser.LocalTimestampPkt:
+                            ltsPkts.append(pkt)
+                        else:
+                            raise Exception('ERROR: Unexpected packet type {}'.format(type(pkt)))
+
+                    assert len(dataPkts) >= 1
+                    assert len(ltsPkts) == 1
+                    # FIXME handle LocalTimestamp pkts with tc!=0 properly
+                    # assert ltsPkts[0].tc == 0
+                    # FIXME support case where multiple comparators output data!
+                    comparators = [e.comparator for e in dataPkts]
+                    if len(set(comparators)) > 1:
+                        raise Exception('ERROR: More than one comparator in set for creating a row!')
+                    else:
+                        comparatorId = comparators[0]
+
+                    ltsUsed = False # indicate whether LocalTimestampPkt has been used for logging a row or not (releveant since local timestamp is a delta timestamp and logged value should therefore not always be incremented when LocalTimestampPkt is used multiple times)
+                    while dataPkts:
+                        # decide whether to process one (data only) or two (data and PC) dataPkts
+                        use2Pkts = False
+                        if len(dataPkts) >= 2:
+                            if (dataPkts[0].comparator == dataPkts[1].comparator) and (dataPkts[0].pktType != dataPkts[1].pktType):
+                                use2Pkts = True
+
+                        # create row
+                        new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
+                        for i in range(use2Pkts+1):
+                            dataPkt = dataPkts.pop(0)
                             if dataPkt.pktType == 1: # data trace pc value pkt
                                 if not dataPkt.addressPkt: # we want PC value
                                     new_row['PC'] = hex(dataPkt.value)
                             elif dataPkt.pktType == 2: # data trace data value pkt
                                 new_row['operation'] = 'w' if dataPkt.writeAccess else 'r'
                                 new_row['data'] = dataPkt.value
-                    if not new_row['data'] is None:
-                        new_row['comparator'] = comparatorId
-                        new_row['local_ts'] = completedLocalTimestampPkts[-1].ts
-                        new_row['global_ts'] = elemData
+                        new_row['comparator'] = int(comparatorId)
+                        # only log LocalTimestamp if this is the first row logged for this LocalTimestamp epoch (local timestamps are delta tiestamps!)
+                        if not ltsUsed:
+                            new_row['local_ts'] = ltsPkts[0].ts
+                            ltsUsed = True
+                        else:
+                            new_row['local_ts'] = 0
+                        new_row['global_ts'] = global_ts
                         out_list += [new_row]
-            elif completedLocalTimestampPkts:
-                # no completedDataPkts -> we have overflow timestamp -> add it to use it for regression
-                new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
-                new_row['local_ts'] = completedLocalTimestampPkts[-1].ts
-                new_row['global_ts'] = elemData
-                out_list += [new_row]
-            if completedOverflowPkts:
-                for overflowPkt in completedOverflowPkts:
-                    new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
-                    new_row['global_ts'] = elemData
-                    out_list += [new_row]
 
-            # clear all collected packets
-            completedDataPkts.clear()
-            completedLocalTimestampPkts.clear()
+
+            # output overflow packats
+            for pkt in completedOverflowPkts:
+                new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
+                new_row['global_ts'] = global_ts
+                out_list += [new_row]
             completedOverflowPkts.clear()
+
         else:
             # Unrecognized elemType
             raise Exception('ERROR: Unknown element type!')
 
-    return pd.DataFrame(out_list)
+    ret = pd.DataFrame(out_list)
+    # FIXME: comparator and data should be ints not floats
+    # return ret.astype({'comparator': 'int32', 'data': 'int32'})
+    return ret
 
 
 
