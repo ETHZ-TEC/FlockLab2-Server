@@ -30,15 +30,26 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-Author: Lukas Daschinger
+Author:  Lukas Daschinger
+Adapted: Roman Trub
 """
 
 import sys
 import time
 import numpy as np
 import pandas as pd
+from scipy import stats
 import collections
 
+################################################################################
+# Constants
+################################################################################
+FULL_TIMESTAMP = 1999999 # timestamp in LocalTimestampPkt when overflow happened
+                         # see ARM CoreSight Components Technical Reference Manual
+
+################################################################################
+# SwoParser Class
+################################################################################
 class SwoParser():
     def __init__(self):
         self._streamStarted = False
@@ -46,9 +57,18 @@ class SwoParser():
         self._ignoreBytes = 0
 
     class SwoPkt():
-        def __init__(self, header):
+        def __init__(self, header, globalTs=None):
             self._header = header
             self._plBytes = []
+            self._globalTs = globalTs
+
+        @property
+        def globalTs(self):
+            return self._globalTs
+
+        @globalTs.setter
+        def globalTs(self, globalTs):
+            self._globalTs = globalTs
 
         def addByte(self, byteVal):
             raise Exception('ERROR: This function is a prototype and should not directly be called!')
@@ -59,11 +79,13 @@ class SwoParser():
         def __str__(self):
             raise Exception('ERROR: This function is a prototype and should not directly be called!')
 
+        def __repr__(self):
+            return str(self)
+
 
     class LocalTimestampPkt(SwoPkt):
-        def __init__(self, header):
-            # TODO: determine from header whether timestamp pkt has payload or not (currently local timestamp packet format 2 (single-byte) is not supported)
-            super().__init__(header)
+        def __init__(self, header, globalTs=None):
+            super().__init__(header, globalTs)
             self._complete = False
             self._format2 = (self._header & 0b10001111 == 0) # format 2 (single-byte packet)
             self._tc = (header >> 4) & 0b11 if not self._format2 else 0b00 ## format 2 can only occur if timestamp is synchronous (i.e. tc=0b00)
@@ -103,6 +125,7 @@ class SwoParser():
         def __str__(self):
             ret = "LocalTimestampPkt {} {:#010b}{}:".format(self._header, self._header, "" if self.isComplete() else " (incomplete)")
             ret += "\n  bytes: {}".format(self._plBytes)
+            ret += "\n  globalTs: {}".format(self.globalTs)
             ret += "\n  format: {}".format(2 if self._format2 else 1)
             if self.isComplete():
                 ret += "\n  ts: {}".format(self.ts)
@@ -110,8 +133,8 @@ class SwoParser():
             return ret
 
     class DatatracePkt(SwoPkt):
-        def __init__(self, header):
-            super().__init__(header)
+        def __init__(self, header, globalTs=None):
+            super().__init__(header, globalTs)
             self._payloadSize = map_size(header & 0b11)
             self._pktType = (header >> 6) & 0b11 # 1: PC value or address; 2: data value; otherweise: reserved
             self._comparator = (header >> 4) & 0b11 # comparator that generated the data
@@ -126,7 +149,6 @@ class SwoParser():
 
         def addByte(self, byteVal):
             self._plBytes.append(byteVal)
-            # TODO set isComplete var to true if contin==0
 
         def isComplete(self):
             return len(self._plBytes) == self._payloadSize
@@ -154,7 +176,8 @@ class SwoParser():
         def __str__(self):
             ret = "DatatracePkt {} {:#010b}{}:".format(self._header, self._header, "" if self.isComplete() else " (incomplete)")
             ret += "\n  bytes: {}".format(self._plBytes)
-            ret += "\n  pktType: {}".format(self.pktType)
+            ret += "\n  globalTs: {}".format(self.globalTs)
+            ret += "\n  pktType: {} ({})".format(self.pktType, 'PC value or address' if self.pktType == 1 else 'data value')
             ret += "\n  comparator: {}".format(self.comparator)
             ret += "\n  payloadSize: {}".format(self._payloadSize)
             if self.pktType == 1:
@@ -172,18 +195,20 @@ class SwoParser():
             return ret
 
     class OverflowPkt(SwoPkt):
-        def __init__(self, header):
-            super().__init__(header)
+        def __init__(self, header, globalTs=None):
+            super().__init__(header, globalTs)
 
         def isComplete(self):
             # overflow packet consists of a single header byte
             return True
 
         def __str__(self):
-            return "OverflowPkt"
+            ret = "OverflowPkt"
+            ret += "\n  globalTs: {}".format(self.globalTs)
+            return ret
 
 
-    def addSwoByte(self, swoByte):
+    def addSwoByte(self, swoByte, globalTs=None):
         """
         Args:
             swoByte: single SWO byte (header or payload) which shall be parsed.
@@ -203,7 +228,6 @@ class SwoParser():
                 return None
             else:
                 self._streamStarted = True
-                print('>>>>>>>> Stream started!')
 
         # ignore paylaod bytes of nrecognized packet
         if self._ignoreBytes:
@@ -212,15 +236,18 @@ class SwoParser():
 
         # parse packets with content
         if len(self._currentPkt) == 0:
-            # we do not currently have a begun packet -> start new one
-            if swoByte & 0b11001111 == 0b11000000:
+            # HEADER: we do not currently have a begun packet -> start new one
+            # ignore all zero bytes from sync packets (in the end)
+            if swoByte == 0b0:
+                return None
+            elif swoByte & 0b11001111 == 0b11000000:
                 # Local timestamp packet header
-                self._currentPkt.append(type(self).LocalTimestampPkt(header=swoByte))
+                self._currentPkt.append(type(self).LocalTimestampPkt(header=swoByte, globalTs=globalTs))
             elif swoByte & 0b10001111 == 0b0:
                 # Local timestamp packet header (single-byte)
-                self._currentPkt.append(type(self).LocalTimestampPkt(header=swoByte))
+                self._currentPkt.append(type(self).LocalTimestampPkt(header=swoByte, globalTs=globalTs))
             elif swoByte == 0b01110000:
-                self._currentPkt.append(type(self).OverflowPkt(header=swoByte))
+                self._currentPkt.append(type(self).OverflowPkt(header=swoByte, globalTs=globalTs))
             elif swoByte >> 2 & 0b1  == 0b1 and swoByte & 0b11 != 0b00:
                 # Hardware source packet header
                 discriminator_id = swoByte >> 3 & 0b11111
@@ -231,14 +258,14 @@ class SwoParser():
                     print('WARNING: Hardware source packet with discriminator_id={} ignored!'.format(discriminator_id))
                 elif discriminator_id >= 8 and discriminator_id <= 23:
                     # Data tracing
-                    self._currentPkt.append(type(self).DatatracePkt(header=swoByte))
+                    self._currentPkt.append(type(self).DatatracePkt(header=swoByte, globalTs=globalTs))
                 else:
                     # Other undefined header
                     raise Exception("ERROR: Unrecognized discriminator ID in hardware source packet header: {}".format(swoByte)) # packets with undefined discriminator_id appear sporadically -> we cannot throw error here
             else:
                 print("ERROR: Unrecognized DWT packet header: {} {:#010b}".format(swoByte, swoByte))
         else:
-            # we currently have a begun packet -> add data
+            # PAYLOAD: we currently have a begun packet -> add data
             self._currentPkt[0].addByte(swoByte)
 
         # check whether current packet is complete
@@ -247,29 +274,305 @@ class SwoParser():
         else:
             return None
 
-
-
-def parse_dwt_output(input_file):
+################################################################################
+# METHODS
+################################################################################
+def processDatatraceOutput(input_file):
     """
-    Executes the read and parse functions which will read from the given input_file and parse the content.
+    Executes the read, parse, timestamp adding, and time correction functions to
+    parse a raw datatrace file into a dataframe of results.
 
     Parameters:
-        input_file (str): name of the file to parse
+        input_file (str): path to the raw data trace file
     Returns:
-        df: dataframe containing the parsed data
-
+        df: dataframe containing the processed data
     """
-    read_queue = collections.deque()
+    # read raw file into list
+    dataTsList = readRaw(input_file)
 
-    # read raw file into queue
-    read_fun(read_queue, input_file)
+    # parse data/globalTs stream from list
+    pktList = parseDataTs(dataTsList)
 
-    # parse data in queues and generate dataframe
-    df = parse_fun(read_queue)
+    # split localTs epochs
+    batchList = splitLocalTsEpochs(pktList)
 
-    return df
+    # # DEBUG
+    # for batch in batchList:
+    #     print([type(e).__name__ for e in batch])
+
+    # combine data packets and add localTs
+    dfData, dfLocalTs, dfOverflow = combinePkts(batchList)
+
+    dfDataCorr, dfLocalTsCorr, dfOverflowCorr = timeCorrection(dfData, dfLocalTs, dfOverflow)
+
+    return dfDataCorr, dfLocalTsCorr, dfOverflowCorr
 
 
+def readRaw(input_file):
+    """
+    Reads from raw data trace file and puts each line into a queue.
+    """
+
+    outList = []
+
+    with open(input_file) as f:
+        lines = f.readlines()
+
+    # ignore first line with varnames
+    lines.pop(0)
+
+    for i in range(int(len(lines)/2)):
+        # we expect that raw file starts with data (not with global timestamp)
+        data = lines[i*2].strip()
+        globalTs = lines[i*2+1].strip()
+
+        # check and convert words in data line
+        numbers = []
+        for word in data.split():
+            if not word.isdigit():
+                raise Exception('ERROR: element of line is not digits as expected for a line with data')
+            numbers.append(int(word))
+
+        # check if globalTs line actually contains a float
+        if not is_float(globalTs):
+            raise Exception('ERROR: line is not float as expected for a line with global timestamp')
+
+        # add data and timestamp as tuple
+        outList.append((numbers, globalTs))
+
+    return outList
+
+
+def parseDataTs(inList):
+    """
+    Parses data/globalTs stream from queue.
+    """
+    completedPkts = []
+    swoParser = SwoParser()
+
+    while inList:
+        data, globalTs = inList.pop(0)
+
+        for swoByte in data:
+            ret = swoParser.addSwoByte(swoByte, globalTs)
+            if ret:
+                completedPkts.append(ret)
+
+    # # DEBUG
+    # for i, pkt in enumerate(completedPkts):
+    #     print(i)
+    #     print(pkt)
+
+    return completedPkts
+
+
+def splitLocalTsEpochs(pktList):
+    """
+    Splits localTs epochs
+    """
+    batchList = []
+    startIdx = 0
+    stopIdx = 0
+
+    while startIdx < len(pktList):
+        if type(pktList[startIdx]) == SwoParser.LocalTimestampPkt and pktList[startIdx].ts == FULL_TIMESTAMP:
+            # next packet is local timestamp overflow packet -> put into own batch
+            stopIdx += 1
+        else:
+            # next packet is NOT local timestamp overflow packet
+
+            # search start of following localTs epoch
+            currentLocalTsIdx = None
+            followingLocalTsIdx = None
+            for i in range(startIdx, len(pktList)):
+                if type(pktList[i]) == SwoParser.LocalTimestampPkt:
+                    if not currentLocalTsIdx:
+                        currentLocalTsIdx = i
+                    else:
+                        followingLocalTsIdx = i
+                        break
+            # we expect that there is at least 1 localTs (which is not a overflow pkt)
+            assert currentLocalTsIdx
+            assert pktList[currentLocalTsIdx].ts != FULL_TIMESTAMP
+
+            # based on following localTs, determine stopIdx
+            if not followingLocalTsIdx:
+                # no following localTs found -> rest of list is single epoch
+                stopIdx = len(pktList)
+            else:
+                # following localTsIdx found
+                if pktList[followingLocalTsIdx].ts == FULL_TIMESTAMP:
+                    stopIdx = followingLocalTsIdx
+                else:
+                    ## go back to data packet that caused the localTs pkt
+                    # find data packet preceding the localTs pkt (beware: overflow packet could be in between)
+                    data2Idx = followingLocalTsIdx
+                    while type(pktList[data2Idx]) != SwoParser.DatatracePkt:
+                        data2Idx -= 1
+                        assert data2Idx >= startIdx + 1 # there should be at least 1 pkt in the current epoch
+                    # find data packet preceding the data2 data pkt (beware: overflow packet could be in between)
+                    data1Idx = data2Idx - 1
+                    while True:
+                        if type(pktList[data1Idx]) == SwoParser.DatatracePkt:
+                            break
+                        elif data1Idx <= startIdx + 1:
+                            data1Idx = None
+                            break
+                        else:
+                            data1Idx -= 1
+
+                    if data1Idx is None:
+                        stopIdx = data2Idx
+                    else:
+                        if ((pktList[data1Idx].comparator == pktList[data2Idx].comparator) and
+                            (pktList[data1Idx].pktType != pktList[data2Idx].pktType)):
+                            stopIdx = data1Idx
+                        else:
+                            stopIdx = data2Idx
+
+        # add found epoch
+        batchList.append(pktList[startIdx:stopIdx])
+        startIdx = stopIdx
+
+    return batchList
+
+
+def combinePkts(batchList):
+    """
+    Combines data packets and adds localTs
+    """
+    dataColumns = ['global_ts_uncorrected', 'comparator', 'data', 'PC', 'operation', 'local_ts']
+    localTsColumns = ['global_ts_uncorrected', 'local_ts', 'tc']
+    overflowColumns = ['global_ts_uncorrected', 'local_ts']
+
+    dataOut = []
+    localTsOut = []
+    overflowOut = []
+    localTsCum = 0
+
+    for batch in batchList:
+        # sort packets
+        dataPkts = []
+        localTsPkts = []
+        overflowPkts = []
+        for pkt in batch:
+            if type(pkt) == SwoParser.DatatracePkt:
+                dataPkts.append(pkt)
+            elif type(pkt) == SwoParser.LocalTimestampPkt:
+                localTsPkts.append(pkt)
+            elif type(pkt) == SwoParser.OverflowPkt:
+                overflowPkts.append(pkt)
+            else:
+                raise Exception('ERROR: Unknown packet type {}'.format(type(pkt)))
+
+        assert len(localTsPkts) == 1
+        localTsCum += localTsPkts[0].ts
+
+        # process data pkts
+        while dataPkts:
+            # decide whether to process one (data only) or two (data and PC) dataPkts
+            use2Pkts = False
+            if len(dataPkts) >= 2:
+                if (dataPkts[0].comparator == dataPkts[1].comparator) and (dataPkts[0].pktType != dataPkts[1].pktType):
+                    use2Pkts = True
+
+            # create row
+            newRow = collections.OrderedDict(zip(dataColumns, [None]*len(dataColumns)))
+            minGlobalTs = None
+            for i in range(use2Pkts+1):
+                dataPkt = dataPkts.pop(0)
+                minGlobalTs = dataPkt.globalTs if (minGlobalTs is None) else min(minGlobalTs, dataPkt.globalTs)
+                if dataPkt.pktType == 1: # data trace pc value pkt
+                    if not dataPkt.addressPkt: # we want PC value
+                        newRow['PC'] = hex(dataPkt.value)
+                elif dataPkt.pktType == 2: # data trace data value pkt
+                    newRow['operation'] = 'w' if dataPkt.writeAccess else 'r'
+                    newRow['data'] = dataPkt.value
+            newRow['comparator'] = int(dataPkt.comparator)
+            newRow['local_ts'] = localTsCum
+            newRow['global_ts_uncorrected'] = minGlobalTs
+            newRow['local_ts_tc'] = localTsPkts[0].tc
+            dataOut += [newRow]
+
+        # process local ts packets (note: there should be exactly one localTs pkt)
+        newRow = collections.OrderedDict(zip(localTsColumns, [None]*len(localTsColumns)))
+        newRow['local_ts'] = localTsCum
+        newRow['global_ts_uncorrected'] = localTsPkts[0].globalTs
+        newRow['tc'] = localTsPkts[0].tc
+        localTsOut += [newRow]
+
+        # process overflow packets
+        for overflowPkt in overflowPkts:
+            newRow = collections.OrderedDict(zip(overflowColumns, [None]*len(overflowColumns)))
+            newRow['local_ts'] = localTsCum
+            newRow['global_ts_uncorrected'] = overflowPkt.globalTs
+            overflowOut += [newRow]
+
+    # prepare to return DataFrames
+    dfData = pd.DataFrame(dataOut) if dataOut else pd.DataFrame(columns=dataColumns)
+    dfLocalTs = pd.DataFrame(localTsOut) if localTsOut else pd.DataFrame(columns=localTsColumns)
+    dfOverflow = pd.DataFrame(overflowOut) if overflowOut else pd.DataFrame(columns=overflowColumns)
+
+    return dfData, dfLocalTs, dfOverflow
+
+
+def timeCorrection(dfData, dfLocalTs, dfOverflow):
+    """
+    Calculates a regression based on the values in dfLocalTs and adds corrected global timestamps.
+
+    Params:
+        dfData: dataframe containing data trace data
+        dfLocalTs: dataframe containing local timestamp data
+        dfOverflow: dataframe containing overflow data
+    Returns:
+        dfDataCorr: dataframe with added corrected global timestamps
+        dfLocalTsCorr: dataframe with added corrected global timestamps
+        dfOverflowCorr: dataframe with added corrected global timestamps
+    """
+    dfDataCorr = dfData.copy()
+    dfLocalTsCorr = dfLocalTs.copy()
+    dfOverflowCorr = dfOverflow.copy()
+
+    # make sure only local timestamp of which are synchronized are used for regression
+    df = dfLocalTsCorr[dfLocalTsCorr.tc == 0]
+
+    x = df['local_ts'].to_numpy(dtype=float)
+    y = df['global_ts_uncorrected'].to_numpy(dtype=float)
+
+    # calculate linear regression
+    # FIXME: try more elaborate regresssions (piecewise linear, regression splines)
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+    # ## DEBUG visualize
+    # import matplotlib.pyplot as plt
+    # # plt.close('all')
+    # # regression
+    # fig, ax = plt.subplots()
+    # ax.scatter(x, y, marker='.', label='Data', c='r')
+    # ax.plot(x, slope*x + intercept, label='Regression', c='b')
+    # ax.set_title('Regression')
+    # ax.set_xlabel('LocalTs')
+    # ax.set_ylabel('GlobalTs')
+    # ax.legend()
+    # # residuals
+    # fig, ax = plt.subplots()
+    # ax.plot(x, y - slope*x + intercept, label='Residual', c='b')
+    # ax.set_title('Residuals')
+    # ax.set_xlabel('LocalTs')
+    # ax.set_ylabel('Diff')
+    # ax.legend()
+
+    # add corrected timestamps to dataframe
+    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slope + intercept
+    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slope + intercept
+    dfOverflowCorr['global_ts'] = dfOverflowCorr.local_ts * slope + intercept
+
+    return dfDataCorr, dfLocalTsCorr, dfOverflowCorr
+
+
+################################################################################
+# UTILS
+################################################################################
 def map_size(ss):
     if ss == 1:
         return 1
@@ -280,7 +583,6 @@ def map_size(ss):
     else:
         raise Exception('ERROR: Invalid ss size: ss should not be ==0 or >3')
 
-
 def is_float(str):
     try:
         float(str)
@@ -288,253 +590,33 @@ def is_float(str):
     except ValueError:
         return False
 
-
-def read_fun(read_queue, input_file):
-    """
-    Reads from the input file and then puts values into the queue.
-    It also handles special cases by putting a varying number of global timestamps into the queue
-    """
-
-    data_is_next = True  # we expect that raw file starts with data (not with global timestamp)
-    with open(input_file) as open_file_object:
-        for i, line in enumerate(open_file_object):
-            if i == 0:
-                # ignore first line with varnames
-                continue
-
-            if data_is_next:
-                # Line with data
-
-                numbers = []
-                for word in line.split():
-                    if not word.isdigit():
-                        raise Exception('ERROR: element of line is not digits as expected for a line with data')
-
-                    numbers.append(int(word))
-                read_queue.appendleft(('data', numbers))
-                data_is_next = False
-            else:
-                # Line with global timestamp
-
-                # check if line actually contains a float
-                if not is_float(line):
-                    raise Exception('ERROR: line is not float as expected for a line with global timestamp')
-
-                read_queue.appendleft(('global_ts', float(line)))
-                data_is_next = True
-
-
-def parse_fun(read_queue):
-    """
-    Parses packets from the queue
-
-    Relevant passage from ARMv7-M Architecture Reference Manual:
-    "Local timestamping is differential, meaning each timestamp gives the time since the previous local timestamp.
-    When local timestamping is enabled and a DWT or ITM event transfers a packet to the appropriate output FIFO,
-    and the timestamp counter is non-zero, the ITM:
-    * Generates a Local timestamp packet.
-    * Resets the timestamp counter to zero."
-    """
-    columns = ['global_ts', 'comparator', 'data', 'PC', 'operation', 'local_ts']
-    out_list = []
-
-    completedPkts = []
-    completedOverflowPkts = []
-
-    # completedDataPkts = []
-    # completedLocalTimestampPkts = []
-
-    swoParser = SwoParser()
-
-    while read_queue:
-        elem = read_queue.pop()
-        elemType, elemData = elem
-        if elemType == 'data':
-            for swoByte in elemData:
-                ret = swoParser.addSwoByte(swoByte)
-                if ret:
-                    print(ret)
-                    if type(ret) == SwoParser.LocalTimestampPkt:
-                        completedPkts.append(ret)
-                    elif type(ret) == SwoParser.DatatracePkt:
-                        completedPkts.append(ret)
-                    elif type(ret) == SwoParser.OverflowPkt:
-                        completedOverflowPkts.append(ret)
-                    else:
-                        raise Exception['ERROR: Packet completed but type is unknown!']
-
-        elif elemType == 'global_ts':
-            global_ts = elemData
-
-            if not swoParser._streamStarted:
-                continue
-
-            # go through list of completed packts and try to create new rows
-            overflowPkts = []
-            while completedPkts:
-                # find next set of packtes for creating one row
-                idx = None
-                for i, pkt in enumerate(completedPkts):
-                    if type(pkt) == SwoParser.DatatracePkt:
-                        continue
-                    elif type(pkt) == SwoParser.LocalTimestampPkt:
-                        idx = i
-                        break
-                    else:
-                        raise Exception('ERROR: Unrecognized packet type!')
-
-                if idx is None:
-                    # no (more) complete set found -> wait for more data
-                    break
-                elif idx == 0:
-                    # single LocalTimestampPkt
-                    assert type(pkt) == SwoParser.LocalTimestampPkt
-                    dataPkt = completedPkts.pop(0)
-                    new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
-                    new_row['local_ts'] = dataPkt.ts
-                    new_row['global_ts'] = global_ts
-                    out_list += [new_row]
-                else:
-                    # Set with datatrace packets found
-                    dataPkts = []
-                    ltsPkts = []
-                    for i in range(idx+1):
-                        pkt = completedPkts.pop(0)
-                        if type(pkt) == SwoParser.DatatracePkt:
-                            dataPkts.append(pkt)
-                        elif type(pkt) == SwoParser.LocalTimestampPkt:
-                            ltsPkts.append(pkt)
-                        else:
-                            raise Exception('ERROR: Unexpected packet type {}'.format(type(pkt)))
-
-                    assert len(dataPkts) >= 1
-                    assert len(ltsPkts) == 1
-                    # FIXME handle LocalTimestamp pkts with tc!=0 properly
-                    # assert ltsPkts[0].tc == 0
-                    # FIXME support case where multiple comparators output data!
-                    comparators = [e.comparator for e in dataPkts]
-                    if len(set(comparators)) > 1:
-                        raise Exception('ERROR: More than one comparator in set for creating a row!')
-                    else:
-                        comparatorId = comparators[0]
-
-                    ltsUsed = False # indicate whether LocalTimestampPkt has been used for logging a row or not (releveant since local timestamp is a delta timestamp and logged value should therefore not always be incremented when LocalTimestampPkt is used multiple times)
-                    while dataPkts:
-                        # decide whether to process one (data only) or two (data and PC) dataPkts
-                        use2Pkts = False
-                        if len(dataPkts) >= 2:
-                            if (dataPkts[0].comparator == dataPkts[1].comparator) and (dataPkts[0].pktType != dataPkts[1].pktType):
-                                use2Pkts = True
-
-                        # create row
-                        new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
-                        for i in range(use2Pkts+1):
-                            dataPkt = dataPkts.pop(0)
-                            if dataPkt.pktType == 1: # data trace pc value pkt
-                                if not dataPkt.addressPkt: # we want PC value
-                                    new_row['PC'] = hex(dataPkt.value)
-                            elif dataPkt.pktType == 2: # data trace data value pkt
-                                new_row['operation'] = 'w' if dataPkt.writeAccess else 'r'
-                                new_row['data'] = dataPkt.value
-                        new_row['comparator'] = int(comparatorId)
-                        # only log LocalTimestamp if this is the first row logged for this LocalTimestamp epoch (local timestamps are delta tiestamps!)
-                        if not ltsUsed:
-                            new_row['local_ts'] = ltsPkts[0].ts
-                            ltsUsed = True
-                        else:
-                            new_row['local_ts'] = 0
-                        new_row['global_ts'] = global_ts
-                        out_list += [new_row]
-
-
-            # output overflow packats
-            for pkt in completedOverflowPkts:
-                new_row = collections.OrderedDict(zip(columns, [None]*len(columns)))
-                new_row['global_ts'] = global_ts
-                out_list += [new_row]
-            completedOverflowPkts.clear()
-
-        else:
-            # Unrecognized elemType
-            raise Exception('ERROR: Unknown element type!')
-
-    ret = pd.DataFrame(out_list)
-    # FIXME: comparator and data should be ints not floats
-    # return ret.astype({'comparator': 'int32', 'data': 'int32'})
-    return ret
-
-
-
-def correct_ts_with_regression(df_in):
-    """
-    Calculates a regression based on the values in log_table.csv
-    Then projects the global timestamps onto the regression and writes the corrected values in log_table_corrected.csv
-
-    Params:
-        df_in: dataframe containing parsed data
-    Returns:
-        df_out: dataframe containing time corrected data
-    """
-    df_out = df_in.copy()
-
-    # extract the global and local timestamps and put into a numpy array
-    x = df_out['local_ts'].to_numpy(dtype=float)
-    y = df_out['global_ts'].to_numpy(dtype=float)
-
-    # add up the local timestamps and calculate the global timestamp relative to the first global timestamp
-    sum_local_ts = 0
-
-    for local_ts in np.nditer(x, op_flags=['readwrite']):
-        sum_local_ts = local_ts[...] = sum_local_ts + local_ts
-
-    # use the data from the arrays to calculate the regression
-    b = estimate_coef(x, y)
-
-    # correct the global timestamp in the data frame
-    for local_ts, global_ts in np.nditer([x, y], op_flags=['readwrite']):
-        global_ts[...] = b[0] + b[1] * local_ts
-
-    # write the array back into the pandas df to replace the global timestamps
-    df_out['global_ts'] = y
-
-    # The file log_table_corrected.csv now contains the corrected global timestamps together with the DWT packets
-
-    return df_out
-
-
-
-def estimate_coef(x, y):
-    """
-    Calculates coefficient b_0 and b_1 of the regression.
-
-    Parameters:
-      x (numpy array): the local timestamps received from target
-      y (numpy array): the global timestamps taken on the observer
-
-    Returns:
-      int: b_0 offset of linear regression
-      int: b_1 slope of linear regression
-    """
-    # number of observations/points
-    n = np.size(x)
-
-    # mean of x and y vector
-    m_x, m_y = np.mean(x), np.mean(y)
-
-    # calculating cross-deviation and deviation about x
-    SS_xy = np.sum(y * x) - n * m_y * m_x
-    SS_xx = np.sum(x * x) - n * m_x * m_x
-
-    # calculating regression coefficients
-    b_1 = SS_xy / SS_xx
-    b_0 = m_y - b_1 * m_x
-
-    return b_0, b_1
-
-
-
+################################################################################
+# MAIN
+################################################################################
 if __name__ == '__main__':
+    obsid = 7
+    nodeid = 7
+
     if len(sys.argv) > 1:
+        # FIXME: integrate test_dwt_parse.py here
         filename = sys.argv[1]
-        parse_dwt_output(filename, filename + ".csv")
-        correct_ts_with_regression(filename + ".csv", filename + "_corrected.csv")
+        # parse the file
+        # first line of the log file contains the variable names
+        varnames = ""
+        with open(filename, "r") as f:
+            varnames = f.readline().strip().split()
+
+        dfData, dfLocalTs, dfOverflow = processDatatraceOutput(filename)
+
+        dfData['obsid'] = obsid
+        dfData['nodeid'] = nodeid
+        # convert comparator ID to variable name
+        dfData['varname'] = dfData.comparator.apply(lambda x: (varnames[x] if x < len(varnames) else str(x)))
+        # df_corrected.sort_values(by=['global_ts'], inplace=True)
+        with open(filename + '.csv', "w") as outfile:
+            dfData.to_csv(
+              outfile,
+              columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
+              index=False,
+              header=True,
+            )
