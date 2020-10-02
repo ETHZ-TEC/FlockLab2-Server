@@ -203,7 +203,7 @@ def main(argv):
                 cn.commit()
                 msg = "Found %d stuck tests in the database (IDs: %s). Test status set to 'failed'." % (len(rs), ", ".join(testids))
                 logger.info(msg)
-                emails = flocklab.get_admin_emails(cur)
+                emails = flocklab.get_admin_emails()
                 if emails != flocklab.FAILED:
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
             
@@ -251,7 +251,7 @@ def main(argv):
             if len(pids) > 0:
                 msg = "%d stuck threads terminated (PIDs: %s)" % (len(pids), ", ".join(pids))
                 logger.info(msg)
-                emails = flocklab.get_admin_emails(cur)
+                emails = flocklab.get_admin_emails()
                 if emails != flocklab.FAILED:
                     flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
             else:
@@ -284,7 +284,7 @@ def main(argv):
         except:
             msg = "Encountered error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
             logger.error(msg)
-            emails = flocklab.get_admin_emails(cur)
+            emails = flocklab.get_admin_emails()
             msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
             flocklab.send_mail(subject="[FlockLab Cleaner]", message=msg, recipients=emails)
         finally:

@@ -164,7 +164,7 @@ Yours faithfully,\nthe FlockLab server"""
                         if ret != 0:
                             msg = "Could not send Email to %s. Function returned %d" % (owneremail, ret)
                             logger.error(msg)
-                            emails = flocklab.get_admin_emails(cur)
+                            emails = flocklab.get_admin_emails()
                             msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
                             flocklab.send_mail(subject="[FlockLab RetentionCleaner]", message=msg, recipients=emails)
                             continue
@@ -208,7 +208,7 @@ Yours faithfully,\nthe FlockLab server"""
                     if ret != 0:
                         msg = "Could not send Email to %s. Function returned %d" % (owneremail, ret)
                         logger.error(msg)
-                        emails = flocklab.get_admin_emails(cur)
+                        emails = flocklab.get_admin_emails()
                         msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
                         flocklab.send_mail(subject="[FlockLab RetentionCleaner]", message=msg, recipients=emails)
                         continue
@@ -226,7 +226,7 @@ Yours faithfully,\nthe FlockLab server"""
     except:
         msg = "Encountered error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         logger.error(msg)
-        emails = flocklab.get_admin_emails(cur)
+        emails = flocklab.get_admin_emails()
         msg = "%s on server %s encountered error:\n\n%s" % (__file__, os.uname()[1], msg)
         flocklab.send_mail(subject="[FlockLab RetentionCleaner]", message=msg, recipients=emails)
     finally:

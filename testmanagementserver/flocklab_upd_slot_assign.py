@@ -340,7 +340,7 @@ def main(argv):
                     except:
                         logger.error("Could not connect to database")
                         raise
-                    emails = flocklab.get_admin_emails(cur)
+                    emails = flocklab.get_admin_emails()
                     flocklab.send_mail(subject="[FlockLab Slot Updater]", message=msg, recipients=emails)
                     cur.close()
                     cn.close()

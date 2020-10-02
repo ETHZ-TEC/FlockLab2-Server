@@ -232,17 +232,20 @@ function check_imageid($imageid, $userid) {
 ##############################################################################
 */
 function get_admin_emails() {
-    $db = db_connect();
-    $sql =    "SELECT `email`
-            FROM tbl_serv_users
-            WHERE `role` = 'admin'";
-    $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get admin emails from database because: ' . mysqli_error($db));
     $admins = Array();
-    while ($row=mysqli_fetch_array($rs)) {
-        array_push($admins, $row['email']);
+    if (isset($CONFIG['email']['admin_email'])) {
+        array_push($admins, trim($CONFIG['email']['admin_email']));
+    } else {
+      $db = db_connect();
+      $sql =    "SELECT `email`
+              FROM tbl_serv_users
+              WHERE `role` = 'admin'";
+      $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get admin emails from database because: ' . mysqli_error($db));
+      while ($row=mysqli_fetch_array($rs)) {
+          array_push($admins, $row['email']);
+      }
+      mysqli_close($db);
     }
-    mysqli_close($db);
-    
     return $admins;
 }
 
