@@ -541,26 +541,45 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
 
     # calculate linear regression
     # FIXME: try more elaborate regresssions (piecewise linear, regression splines)
-    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+    slope_a, intercept_a, r_value_a, p_value_a, std_err_a = stats.linregress(x, y)
 
-    # ## DEBUG visualize
-    # import matplotlib.pyplot as plt
-    # # plt.close('all')
-    # # regression
-    # fig, ax = plt.subplots()
-    # ax.scatter(x, y, marker='.', label='Data', c='r')
-    # ax.plot(x, slope*x + intercept, label='Regression', c='b')
-    # ax.set_title('Regression')
-    # ax.set_xlabel('LocalTs')
-    # ax.set_ylabel('GlobalTs')
-    # ax.legend()
-    # # residuals
-    # fig, ax = plt.subplots()
-    # ax.plot(x, y - slope*x + intercept, label='Residual', c='b')
-    # ax.set_title('Residuals')
-    # ax.set_xlabel('LocalTs')
-    # ax.set_ylabel('Diff')
-    # ax.legend()
+    # slope_inv, intercept_inv, r_value_inv, p_value_inv, std_err_inv = stats.linregress(y, x)
+    # slope_b = 1/slope_inv
+    # intercept_b = -intercept_inv/slope_inv
+    #
+    # slope_gmr = 1/2 * (slope_a + slope_b)
+    # intercept_gmr = 1/2 * (intercept_a + intercept_b)
+
+    slope = slope_a
+    intercept = intercept_a
+
+    ## DEBUG visualize
+    import matplotlib.pyplot as plt
+    plt.close('all')
+    # regression
+    fig, ax = plt.subplots()
+    ax.scatter(x, y, marker='.', label='Data (uncorrected)', c='r')
+    print('slope_a  : {:.20f}; intercept_a:   {:.6f}'.format(slope_a, intercept_a))
+    # print('slope_gmr: {:.20f}; intercept_gmr: {:.6f}'.format(slope_gmr, intercept_gmr))
+    # print('slope_b  : {:.20f}; intercept_b:   {:.6f}'.format(slope_b, intercept_b))
+    ax.plot(x, slope_a*x + intercept_a, label='Regression (x->y)', c='b', marker='.')
+    # ax.plot(x, slope_b*x + intercept_b, label='Regression (y->x)', c='g', marker='.')
+    # ax.plot(x, slope_gmr*x + intercept_gmr, label='Regression (GMR)', c='orange', marker='.')
+    ax.set_title('Regression')
+    ax.set_xlabel('LocalTs')
+    ax.set_ylabel('GlobalTs')
+    ax.legend()
+    # residuals
+    res = slope*x + intercept - y
+    print('mean of residuals (first half): {}'.format(np.mean(res[:int(len(res)/2)])))
+    print('mean of residuals (second half): {}'.format(np.mean(res[int(len(res)/2):])))
+    fig, ax = plt.subplots()
+    ax.plot(x, res, label='Residual', c='b', marker='.')
+    ax.plot(x, pd.DataFrame(res).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
+    ax.set_title('Residuals')
+    ax.set_xlabel('LocalTs')
+    ax.set_ylabel('Diff')
+    ax.legend()
 
     # add corrected timestamps to dataframe
     dfDataCorr['global_ts'] = dfDataCorr.local_ts * slope + intercept
