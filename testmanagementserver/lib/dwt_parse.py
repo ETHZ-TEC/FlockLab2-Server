@@ -46,6 +46,8 @@ import collections
 ################################################################################
 FULL_TIMESTAMP = 1999999 # timestamp in LocalTimestampPkt when overflow happened
                          # see ARM CoreSight Components Technical Reference Manual
+PRESCALER = 16           # prescaler configured in Trace Control Register (ITM_TCR)
+# PRESCALER = 1
 
 ################################################################################
 # SwoParser Class
@@ -466,7 +468,12 @@ def combinePkts(batchList):
                 raise Exception('ERROR: Unknown packet type {}'.format(type(pkt)))
 
         assert len(localTsPkts) == 1
-        localTsCum += localTsPkts[0].ts
+        localTsCum += localTsPkts[0].ts + 1/PRESCALER # +1 cycle (scaled by prescaler) because transition from last sent value to 0 takes one clock cycle (see ARM CoreSight Components Technical Reference Manual, p. 302)
+        # if localTsPkts[0].ts == FULL_TIMESTAMP:
+        #     localTsCum += 0.0
+        # else:
+        #     localTsCum += 0.1
+
 
         # process data pkts
         while dataPkts:
@@ -497,6 +504,7 @@ def combinePkts(batchList):
         # process local ts packets (note: there should be exactly one localTs pkt)
         newRow = collections.OrderedDict(zip(localTsColumns, [None]*len(localTsColumns)))
         newRow['local_ts'] = localTsCum
+        # newRow['local_ts_diff'] = localTsPkts[0].ts # DEBUG
         newRow['global_ts_uncorrected'] = localTsPkts[0].globalTs
         newRow['tc'] = localTsPkts[0].tc
         localTsOut += [newRow]
@@ -540,7 +548,7 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     y = df['global_ts_uncorrected'].to_numpy(dtype=float)
 
     # calculate linear regression
-    # FIXME: try more elaborate regresssions (piecewise linear, regression splines)
+    # FIXME: try more elaborate regressions (piecewise linear, regression splines)
     slope_a, intercept_a, r_value_a, p_value_a, std_err_a = stats.linregress(x, y)
 
     # slope_inv, intercept_inv, r_value_inv, p_value_inv, std_err_inv = stats.linregress(y, x)
@@ -553,33 +561,33 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     slope = slope_a
     intercept = intercept_a
 
-    ## DEBUG visualize
-    import matplotlib.pyplot as plt
-    plt.close('all')
-    # regression
-    fig, ax = plt.subplots()
-    ax.scatter(x, y, marker='.', label='Data (uncorrected)', c='r')
-    print('slope_a  : {:.20f}; intercept_a:   {:.6f}'.format(slope_a, intercept_a))
-    # print('slope_gmr: {:.20f}; intercept_gmr: {:.6f}'.format(slope_gmr, intercept_gmr))
-    # print('slope_b  : {:.20f}; intercept_b:   {:.6f}'.format(slope_b, intercept_b))
-    ax.plot(x, slope_a*x + intercept_a, label='Regression (x->y)', c='b', marker='.')
-    # ax.plot(x, slope_b*x + intercept_b, label='Regression (y->x)', c='g', marker='.')
-    # ax.plot(x, slope_gmr*x + intercept_gmr, label='Regression (GMR)', c='orange', marker='.')
-    ax.set_title('Regression')
-    ax.set_xlabel('LocalTs')
-    ax.set_ylabel('GlobalTs')
-    ax.legend()
-    # residuals
-    res = slope*x + intercept - y
-    print('mean of residuals (first half): {}'.format(np.mean(res[:int(len(res)/2)])))
-    print('mean of residuals (second half): {}'.format(np.mean(res[int(len(res)/2):])))
-    fig, ax = plt.subplots()
-    ax.plot(x, res, label='Residual', c='b', marker='.')
-    ax.plot(x, pd.DataFrame(res).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
-    ax.set_title('Residuals')
-    ax.set_xlabel('LocalTs')
-    ax.set_ylabel('Diff')
-    ax.legend()
+    # ## DEBUG visualize
+    # import matplotlib.pyplot as plt
+    # plt.close('all')
+    # # regression
+    # fig, ax = plt.subplots()
+    # ax.scatter(x, y, marker='.', label='Data (uncorrected)', c='r')
+    # print('slope_a  : {:.20f}; intercept_a:   {:.6f}'.format(slope_a, intercept_a))
+    # # print('slope_gmr: {:.20f}; intercept_gmr: {:.6f}'.format(slope_gmr, intercept_gmr))
+    # # print('slope_b  : {:.20f}; intercept_b:   {:.6f}'.format(slope_b, intercept_b))
+    # ax.plot(x, slope*x + intercept, label='Regression (x->y)', c='b', marker='.')
+    # # ax.plot(x, slope_b*x + intercept_b, label='Regression (y->x)', c='g', marker='.')
+    # # ax.plot(x, slope_gmr*x + intercept_gmr, label='Regression (GMR)', c='orange', marker='.')
+    # ax.set_title('Regression')
+    # ax.set_xlabel('LocalTs')
+    # ax.set_ylabel('GlobalTs')
+    # ax.legend()
+    # # residuals
+    # res = slope*x + intercept - y
+    # print('mean of residuals (first half): {}'.format(np.mean(res[:int(len(res)/2)])))
+    # print('mean of residuals (second half): {}'.format(np.mean(res[int(len(res)/2):])))
+    # fig, ax = plt.subplots()
+    # ax.plot(x, res, label='Residual', c='b', marker='.')
+    # ax.plot(x, pd.DataFrame(res).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
+    # ax.set_title('Residuals')
+    # ax.set_xlabel('LocalTs')
+    # ax.set_ylabel('Diff')
+    # ax.legend()
 
     # add corrected timestamps to dataframe
     dfDataCorr['global_ts'] = dfDataCorr.local_ts * slope + intercept
@@ -617,7 +625,6 @@ if __name__ == '__main__':
     nodeid = 7
 
     if len(sys.argv) > 1:
-        # FIXME: integrate test_dwt_parse.py here
         filename = sys.argv[1]
         # parse the file
         # first line of the log file contains the variable names
