@@ -1187,7 +1187,10 @@ def main(argv):
             try:
                 item = FetchObsThread_queue.get(block=True, timeout=5)
                 (itemtype, obsid, fdir, f) = item[:4]
-                logger.debug(loggerprefix + "Got element from queue: %d, %s, %s/%s" % (itemtype, str(obsid), fdir, f))
+                fsize = 0
+                if itemtype == ITEM_TO_PROCESS and os.path.isfile("%s/%s" % (fdir, f)):
+                    fsize = os.path.getsize("%s/%s" % (fdir, f))
+                logger.debug(loggerprefix + "Got element from queue: %d, %s, %s/%s, %d" % (itemtype, str(obsid), fdir, f, fsize))
             except queue.Empty:
                 # No one put any data onto the queue.
                 # In normal operation, just ignore the error and try again:
