@@ -288,8 +288,12 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, logque
             infile = open(inputfilename, "r")
             for line in infile:
                 try:
-                    (timestamp, ticks, pin, level) = line.strip().split(',', 3)
-                    outfile.write("%s,%s,%d,%s,%s,%s\n" % (timestamp, ticks, obsid, nodeid, pin, level))
+                    values = line.strip().split(',')
+                    if len(values) > 3:
+                        # monotonic time is included -> append at the end
+                        outfile.write("%s,%d,%s,%s,%s,%s\n" % (values[0], obsid, nodeid, values[2], values[3], values[1]))
+                    else:
+                        outfile.write("%s,%d,%s,%s,%s\n" % (values[0], obsid, nodeid, values[1], values[2]))
                 except ValueError:
                     logqueue.put_nowait((loggername, logging.ERROR, "Could not parse line '%s' in gpiotracing worker process." % line))
                     break
@@ -1084,7 +1088,7 @@ def main(argv):
             if service in ('errorlog', 'timesynclog'):
                 header = 'timestamp,observer_id,node_id,message\n'
             elif service == 'gpiotracing':
-                header = 'timestamp,monotonic_time,observer_id,node_id,pin_name,value\n'
+                header = 'timestamp,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
                 if ppFileFormat == 'rld':
                     continue    # don't open a csv file
