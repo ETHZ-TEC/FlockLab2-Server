@@ -327,6 +327,13 @@ def main(argv):
             testDuration = int(tree.xpath('//d:generalConf/d:scheduleAsap/d:durationSecs', namespaces=ns)[0].text)
         elif sched:
             testDuration = int(tree.xpath('//d:generalConf/d:schedule/d:duration', namespaces=ns)[0].text)
+            testStart = tree.xpath('//d:generalConf/d:schedule/d:start', namespaces=ns)
+            if testStart:
+                testStart = flocklab.get_xml_timestamp(testStart[0].text)
+                if testStart <= time.time():
+                    if not quiet:
+                        print("Element generalConf: Start time has to be in the future.")
+                    errcnt = errcnt + 1
         
         # targetConf additional validation -------------------------------------------- 
         #    * DB image ids need to be in the database and binary field must not be empty
