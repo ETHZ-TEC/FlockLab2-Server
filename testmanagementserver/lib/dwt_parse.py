@@ -177,7 +177,10 @@ class SwoParser():
 
         @property
         def value(self):
-            return (self._plBytes[3] << 24) + (self._plBytes[2] << 16) + (self._plBytes[1] << 8) + (self._plBytes[0] << 0)
+            ret = 0
+            for i, byte in enumerate(self._plBytes):
+                ret |= byte << i * 8
+            return ret
 
         def __str__(self):
             ret = "DatatracePkt {} {:#010b}{}:".format(self._header, self._header, "" if self.isComplete() else " (incomplete)")
@@ -568,14 +571,14 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     residualsFiltered = (slopeFiltered*xFiltered + interceptFiltered) - yFiltered
 
     print('INFO: Outlier filtering removed {:0.2f}%'.format(ratioFiltered*100.))
-    print('INFO: Regression before filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeUnfiltered, interceptUnfiltered))
-    print('INFO: Regression  after filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeFiltered, interceptFiltered))
+    # print('INFO: Regression before filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeUnfiltered, interceptUnfiltered))
+    # print('INFO: Regression  after filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeFiltered, interceptFiltered))
     if ratioFiltered > 0.1:
         raise Exception('ERROR: Outlier filter filtered away more than 10% of all time sync points: filtered {:0.2f}%'.format(ratioFiltered*100.))
 
     ## DEBUG visualize
-    import matplotlib.pyplot as plt
-    plt.close('all')
+    # import matplotlib.pyplot as plt
+    # plt.close('all')
     # # regression
     # fig, ax = plt.subplots()
     # ax.scatter(x, y, marker='.', label='Data (uncorrected)', c='r')
@@ -585,21 +588,21 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     # ax.set_ylabel('GlobalTs')
     # ax.legend()
     # residuals (before outlier filtering)
-    fig, ax = plt.subplots()
-    ax.plot(x, residualsUnfiltered, label='Residual', c='b', marker='.')
-    # ax.plot(x, pd.DataFrame(residualsUnfiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
-    ax.set_title('Residuals (before outlier filtering)')
-    ax.set_xlabel('LocalTs')
-    ax.set_ylabel('Diff')
-    ax.legend()
-    # residuals (after outlier filtering)
-    fig, ax = plt.subplots()
-    ax.plot(xFiltered, residualsFiltered, label='Residual', c='b', marker='.')
-    # ax.plot(x, pd.DataFrame(residualsFiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
-    ax.set_title('Residuals (after outlier filtering)')
-    ax.set_xlabel('LocalTs')
-    ax.set_ylabel('Diff')
-    ax.legend()
+    # fig, ax = plt.subplots()
+    # ax.plot(x, residualsUnfiltered, label='Residual', c='b', marker='.')
+    # # ax.plot(x, pd.DataFrame(residualsUnfiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
+    # ax.set_title('Residuals (before outlier filtering)')
+    # ax.set_xlabel('LocalTs')
+    # ax.set_ylabel('Diff')
+    # ax.legend()
+    # # residuals (after outlier filtering)
+    # fig, ax = plt.subplots()
+    # ax.plot(xFiltered, residualsFiltered, label='Residual', c='b', marker='.')
+    # # ax.plot(x, pd.DataFrame(residualsFiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
+    # ax.set_title('Residuals (after outlier filtering)')
+    # ax.set_xlabel('LocalTs')
+    # ax.set_ylabel('Diff')
+    # ax.legend()
 
     # add corrected timestamps to dataframe
     dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
