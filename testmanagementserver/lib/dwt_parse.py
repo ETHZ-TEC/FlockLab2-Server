@@ -44,10 +44,14 @@ import collections
 ################################################################################
 # Constants
 ################################################################################
-FULL_TIMESTAMP = 1999999 # timestamp in LocalTimestampPkt when overflow happened
-                         # see ARM CoreSight Components Technical Reference Manual
-PRESCALER = 16           # prescaler configured in Trace Control Register (ITM_TCR)
-# PRESCALER = 1
+FULL_TIMESTAMP = 1999999        # timestamp in LocalTimestampPkt when overflow happened
+                                # see ARM CoreSight Components Technical Reference Manual
+
+PRESCALER = 16                  # prescaler configured in Trace Control Register (ITM_TCR)
+                                # NOTE: needs to match the settings on the observer!
+
+DT_FIXED_OFFSET = -7.450e-3     # time offset between datatrace and GPIO service
+                                # (ts_datatrace + offset = ts_gpio)
 
 ################################################################################
 # SwoParser Class
@@ -547,52 +551,60 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     x = df['local_ts'].to_numpy(dtype=float)
     y = df['global_ts_uncorrected'].to_numpy(dtype=float)
 
-    # calculate linear regression
-    # FIXME: try more elaborate regressions (piecewise linear, regression splines)
-    slope_a, intercept_a, r_value_a, p_value_a, std_err_a = stats.linregress(x, y)
+    # calculate intial linear regression
+    # FIXME: try out more elaborate regressions (piecewise linear, regression splines), would mainly be useful for high-ppm-clock sources
+    slopeUnfiltered, interceptUnfiltered, r_valueUnfiltered, p_valueUnfiltered, std_errUnfiltered = stats.linregress(x, y)
 
-    # slope_inv, intercept_inv, r_value_inv, p_value_inv, std_err_inv = stats.linregress(y, x)
-    # slope_b = 1/slope_inv
-    # intercept_b = -intercept_inv/slope_inv
-    #
-    # slope_gmr = 1/2 * (slope_a + slope_b)
-    # intercept_gmr = 1/2 * (intercept_a + intercept_b)
+    residualsUnfiltered = (slopeUnfiltered*x + interceptUnfiltered) - y
 
-    slope = slope_a
-    intercept = intercept_a
+    ## filter outliers (since they have a negative impact on slope of reconstructed globalTs)
+    # determine mask of time sync points to keep
+    maskFiltered = np.abs(residualsUnfiltered) < 2*np.std(residualsUnfiltered)
+    xFiltered = x[maskFiltered]
+    yFiltered = y[maskFiltered]
+    ratioFiltered = (len(maskFiltered) - np.sum(maskFiltered))/len(maskFiltered)
+    # calcualte new regression
+    slopeFiltered, interceptFiltered, r_valueFiltered, p_valueFiltered, std_errFiltered = stats.linregress(xFiltered, yFiltered)
+    residualsFiltered = (slopeFiltered*xFiltered + interceptFiltered) - yFiltered
 
-    # ## DEBUG visualize
-    # import matplotlib.pyplot as plt
-    # plt.close('all')
+    print('INFO: Outlier filtering removed {:0.2f}%'.format(ratioFiltered*100.))
+    print('INFO: Regression before filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeUnfiltered, interceptUnfiltered))
+    print('INFO: Regression  after filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeFiltered, interceptFiltered))
+    if ratioFiltered > 0.1:
+        raise Exception('ERROR: Outlier filter filtered away more than 10% of all time sync points: filtered {:0.2f}%'.format(ratioFiltered*100.))
+
+    ## DEBUG visualize
+    import matplotlib.pyplot as plt
+    plt.close('all')
     # # regression
     # fig, ax = plt.subplots()
     # ax.scatter(x, y, marker='.', label='Data (uncorrected)', c='r')
-    # print('slope_a  : {:.20f}; intercept_a:   {:.6f}'.format(slope_a, intercept_a))
-    # # print('slope_gmr: {:.20f}; intercept_gmr: {:.6f}'.format(slope_gmr, intercept_gmr))
-    # # print('slope_b  : {:.20f}; intercept_b:   {:.6f}'.format(slope_b, intercept_b))
-    # ax.plot(x, slope*x + intercept, label='Regression (x->y)', c='b', marker='.')
-    # # ax.plot(x, slope_b*x + intercept_b, label='Regression (y->x)', c='g', marker='.')
-    # # ax.plot(x, slope_gmr*x + intercept_gmr, label='Regression (GMR)', c='orange', marker='.')
+    # ax.plot(x, slopeUnfiltered*x + interceptUnfiltered, label='Regression (x->y)', c='b', marker='.')
     # ax.set_title('Regression')
     # ax.set_xlabel('LocalTs')
     # ax.set_ylabel('GlobalTs')
     # ax.legend()
-    # # residuals
-    # res = slope*x + intercept - y
-    # print('mean of residuals (first half): {}'.format(np.mean(res[:int(len(res)/2)])))
-    # print('mean of residuals (second half): {}'.format(np.mean(res[int(len(res)/2):])))
-    # fig, ax = plt.subplots()
-    # ax.plot(x, res, label='Residual', c='b', marker='.')
-    # ax.plot(x, pd.DataFrame(res).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
-    # ax.set_title('Residuals')
-    # ax.set_xlabel('LocalTs')
-    # ax.set_ylabel('Diff')
-    # ax.legend()
+    # residuals (before outlier filtering)
+    fig, ax = plt.subplots()
+    ax.plot(x, residualsUnfiltered, label='Residual', c='b', marker='.')
+    # ax.plot(x, pd.DataFrame(residualsUnfiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
+    ax.set_title('Residuals (before outlier filtering)')
+    ax.set_xlabel('LocalTs')
+    ax.set_ylabel('Diff')
+    ax.legend()
+    # residuals (after outlier filtering)
+    fig, ax = plt.subplots()
+    ax.plot(xFiltered, residualsFiltered, label='Residual', c='b', marker='.')
+    # ax.plot(x, pd.DataFrame(residualsFiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
+    ax.set_title('Residuals (after outlier filtering)')
+    ax.set_xlabel('LocalTs')
+    ax.set_ylabel('Diff')
+    ax.legend()
 
     # add corrected timestamps to dataframe
-    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slope + intercept
-    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slope + intercept
-    dfOverflowCorr['global_ts'] = dfOverflowCorr.local_ts * slope + intercept
+    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
+    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
+    dfOverflowCorr['global_ts'] = dfOverflowCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
 
     return dfDataCorr, dfLocalTsCorr, dfOverflowCorr
 
