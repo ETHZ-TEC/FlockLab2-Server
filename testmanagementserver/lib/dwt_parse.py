@@ -252,7 +252,7 @@ class SwoParser():
             elif swoByte & 0b11001111 == 0b11000000:
                 # Local timestamp packet header
                 self._currentPkt.append(type(self).LocalTimestampPkt(header=swoByte, globalTs=globalTs))
-            elif swoByte & 0b10001111 == 0b0:
+            elif (swoByte & 0b10001111 == 0b0) and not (swoByte == 0b01110000):
                 # Local timestamp packet header (single-byte)
                 self._currentPkt.append(type(self).LocalTimestampPkt(header=swoByte, globalTs=globalTs))
             elif swoByte == 0b01110000:
@@ -424,7 +424,7 @@ def splitLocalTsEpochs(pktList):
                     while True:
                         if type(pktList[data1Idx]) == SwoParser.DatatracePkt:
                             break
-                        elif data1Idx <= startIdx + 1:
+                        elif data1Idx <= currentLocalTsIdx:
                             data1Idx = None
                             break
                         else:
@@ -438,6 +438,14 @@ def splitLocalTsEpochs(pktList):
                             stopIdx = data1Idx
                         else:
                             stopIdx = data2Idx
+
+        # # DEBUG
+        # numLocalTsPkts = np.sum([type(pkt)==SwoParser.LocalTimestampPkt for pkt in pktList[startIdx:stopIdx]])
+        # print(numLocalTsPkts)
+        # print('[')
+        # for pkt in pktList[startIdx:stopIdx]:
+        #     print(pkt)
+        # print(']')
 
         # add found epoch
         batchList.append(pktList[startIdx:stopIdx])
@@ -474,13 +482,10 @@ def combinePkts(batchList):
             else:
                 raise Exception('ERROR: Unknown packet type {}'.format(type(pkt)))
 
-        assert len(localTsPkts) == 1
-        localTsCum += localTsPkts[0].ts + 1/PRESCALER # +1 cycle (scaled by prescaler) because transition from last sent value to 0 takes one clock cycle (see ARM CoreSight Components Technical Reference Manual, p. 302)
-        # if localTsPkts[0].ts == FULL_TIMESTAMP:
-        #     localTsCum += 0.0
-        # else:
-        #     localTsCum += 0.1
+        if len(localTsPkts) != 1:
+            raise Exception('ERROR: multiple LocalTsPkt in one batch!')
 
+        localTsCum += localTsPkts[0].ts + 1/PRESCALER # +1 cycle (scaled by prescaler) because transition from last sent value to 0 takes one clock cycle (see ARM CoreSight Components Technical Reference Manual, p. 302)
 
         # process data pkts
         while dataPkts:
