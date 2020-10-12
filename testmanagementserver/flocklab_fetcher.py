@@ -442,8 +442,8 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         input_filename = "%s/%s" % (fdir, f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
-        # DEBUG
-        shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
+        # # DEBUG
+        # shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
         # parse the file
         # first line of the log file contains the variable names
         varnames = ""
@@ -464,13 +464,17 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
             with open(resultfile_path, "a") as outfile:
                 dfData.to_csv(
                   outfile,
-                  columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC'],
+                  columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
                   index=False,
                   header=False
                 )
             # append overflow events to errorlog
             for idx, row in dfOverflow.iterrows():
                 write_to_error_log(row['global_ts_uncorrected'], obsid, nodeid, 'Datatrace: event rate too high (overflow occurred)!')
+            # append info about delayed timestamps to errorlog
+            for idx, row in dfLocalTs.iterrows():
+                  if row['tc'] != 0:
+                    write_to_error_log(row['global_ts'], obsid, nodeid, 'Datatrace: timestamp has been delayed (tc={})!'.format(row['tc']))
 
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
@@ -1085,7 +1089,7 @@ def main(argv):
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
             elif service == 'datatrace':
-                header = 'timestamp,observer_id,node_id,variable,value,access,pc\n'
+                header = 'timestamp,observer_id,node_id,variable,value,access,pc,timestamp_delayed\n'
             lock.acquire()
             f = open(path, 'w')
             f.write(header)

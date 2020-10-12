@@ -302,6 +302,11 @@ def processDatatraceOutput(input_file):
     # parse data/globalTs stream from list
     pktList = parseDataTs(dataTsList)
 
+    # # DEBUG
+    # with open('pktList.txt', 'w') as f:
+    #     for i, pkt in enumerate(pktList):
+    #         f.write('{}\n{}\n'.format(i, pkt))
+
     # split localTs epochs
     batchList = splitEpochs(pktList)
 
@@ -387,8 +392,11 @@ def splitEpochs(pktList):
         if type(pktList[startIdx]) == SwoParser.LocalTimestampPkt and pktList[startIdx].ts == FULL_TIMESTAMP:
             # next packet is local timestamp overflow packet -> put it into its own batch
             stopIdx += 1
+        elif type(pktList[startIdx]) == SwoParser.OverflowPkt:
+            # next packet is overflow packet -> put it into its own batch
+            stopIdx += 1
         else:
-            # next packet is NOT local timestamp overflow packet
+            # next packet is NOT local timestamp overflow packet and NOT OverflowPkt
 
             ## search start of following localTs epoch
 
@@ -417,6 +425,8 @@ def splitEpochs(pktList):
                 # following reference packet found
                 if type(pktList[followingRefpktIdx]) == SwoParser.LocalTimestampPkt and pktList[followingRefpktIdx].ts == FULL_TIMESTAMP:
                     stopIdx = followingRefpktIdx
+                elif type(pktList[followingRefpktIdx]) == SwoParser.OverflowPkt:
+                    stopIdx = followingRefpktIdx
                 else:
                     ## go back to data packet that caused the reference packet
                     ## based on sample traces, up to 2 datatrace packet can precede a LocalTsPkt (PC and data)
@@ -425,7 +435,7 @@ def splitEpochs(pktList):
                     data2Idx = followingRefpktIdx
                     while type(pktList[data2Idx]) != SwoParser.DatatracePkt:
                         data2Idx -= 1
-                        assert data2Idx >= currentRefpktIdx # at least packets up to the found refernce packet should be in the in the current epoch
+                        assert data2Idx >= currentRefpktIdx # at least packets up to the found reference packet should be in the in the current epoch
                     # find data packet preceding the data2 data pkt
                     data1Idx = data2Idx - 1
                     while True:
@@ -447,8 +457,7 @@ def splitEpochs(pktList):
                             stopIdx = data2Idx
 
         # # DEBUG
-        # numLocalTsPkts = np.sum([type(pkt)==SwoParser.LocalTimestampPkt for pkt in pktList[startIdx:stopIdx]])
-        # print(numLocalTsPkts)
+        # print('({},{})'.format(startIdx, stopIdx))
         # print('[')
         # for pkt in pktList[startIdx:stopIdx]:
         #     print(pkt)
@@ -489,7 +498,7 @@ def combinePkts(batchList):
             else:
                 raise Exception('ERROR: Unknown packet type {}'.format(type(pkt)))
 
-        if not (len(localTsPkts) == 1 or len(overflowPkts) == 1) :
+        if not ( (len(localTsPkts) == 1 and len(overflowPkts) == 0) or (len(localTsPkts) == 0 and len(overflowPkts) == 1)) :
             raise Exception('ERROR: batch does not contain exactly 1 reference packet (contains {} LocalTimestampPkt and {} OverflowPkt)!'.format(len(localTsPkts), len(overflowPkts)))
 
         if localTsPkts:
@@ -587,10 +596,10 @@ def timeCorrection(dfData, dfLocalTs):
     print('INFO: Outlier filtering removed {:0.2f}%'.format(ratioFiltered*100.))
     # print('INFO: Regression before filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeUnfiltered, interceptUnfiltered))
     # print('INFO: Regression  after filtering: slope={:0.20f}, intercept={:0.7f}'.format(slopeFiltered, interceptFiltered))
-    if ratioFiltered > 0.1:
+    if ratioFiltered > 0.15:
         raise Exception('ERROR: Outlier filter filtered away more than 10% of all time sync points: filtered {:0.2f}%'.format(ratioFiltered*100.))
 
-    ## DEBUG visualize
+    # # DEBUG visualize
     # import matplotlib.pyplot as plt
     # plt.close('all')
     # # regression
@@ -601,7 +610,7 @@ def timeCorrection(dfData, dfLocalTs):
     # ax.set_xlabel('LocalTs')
     # ax.set_ylabel('GlobalTs')
     # ax.legend()
-    # residuals (before outlier filtering)
+    # # residuals (before outlier filtering)
     # fig, ax = plt.subplots()
     # ax.plot(x, residualsUnfiltered, label='Residual', c='b', marker='.')
     # # ax.plot(x, pd.DataFrame(residualsUnfiltered).rolling(100, center=True, min_periods=1).mean().to_numpy(), label='Residual (moving avg)', c='orange', marker='.')
