@@ -191,6 +191,18 @@ def read_from_db_file(dbfile):
 
 ##############################################################################
 #
+# write_to_error_log: Write an error message to the error log file that will be passed to the user
+#
+##############################################################################
+def write_to_error_log(timestamp, obsid, nodeid, message):
+    # TODO make this more efficient and thread-safe
+    with open(testresultsfile_dict['errorlog'][0], "a") as errorlog:
+        errorlog.write("%s,%d,%d,%s\n" % (str(timestamp), obsid, nodeid, message))
+### END write_to_error_log
+
+
+##############################################################################
+#
 # worker_dbfiles: Parses observer DB files.
 #
 ##############################################################################
@@ -456,6 +468,10 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
                   index=False,
                   header=False
                 )
+            # append overflow events to errorlog
+            for idx, row in dfOverflow.iterrows():
+                write_to_error_log(row['global_ts_uncorrected'], obsid, nodeid, 'Datatrace: event rate too high (overflow occurred)!')
+
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, obsid))

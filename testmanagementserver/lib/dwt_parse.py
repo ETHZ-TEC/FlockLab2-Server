@@ -303,7 +303,7 @@ def processDatatraceOutput(input_file):
     pktList = parseDataTs(dataTsList)
 
     # split localTs epochs
-    batchList = splitLocalTsEpochs(pktList)
+    batchList = splitEpochs(pktList)
 
     # # DEBUG
     # for batch in batchList:
@@ -312,9 +312,9 @@ def processDatatraceOutput(input_file):
     # combine data packets and add localTs
     dfData, dfLocalTs, dfOverflow = combinePkts(batchList)
 
-    dfDataCorr, dfLocalTsCorr, dfOverflowCorr = timeCorrection(dfData, dfLocalTs, dfOverflow)
+    dfDataCorr, dfLocalTsCorr = timeCorrection(dfData, dfLocalTs)
 
-    return dfDataCorr, dfLocalTsCorr, dfOverflowCorr
+    return dfDataCorr, dfLocalTsCorr, dfOverflow
 
 
 def readRaw(input_file):
@@ -375,9 +375,9 @@ def parseDataTs(inList):
     return completedPkts
 
 
-def splitLocalTsEpochs(pktList):
+def splitEpochs(pktList):
     """
-    Splits localTs epochs
+    Splits stream of packets into epochs. Each epoch contains exactly one reference packet (either LocalTsPkt or OverflowPkt).
     """
     batchList = []
     startIdx = 0
@@ -385,46 +385,53 @@ def splitLocalTsEpochs(pktList):
 
     while startIdx < len(pktList):
         if type(pktList[startIdx]) == SwoParser.LocalTimestampPkt and pktList[startIdx].ts == FULL_TIMESTAMP:
-            # next packet is local timestamp overflow packet -> put into own batch
+            # next packet is local timestamp overflow packet -> put it into its own batch
             stopIdx += 1
         else:
             # next packet is NOT local timestamp overflow packet
 
-            # search start of following localTs epoch
-            currentLocalTsIdx = None
-            followingLocalTsIdx = None
-            for i in range(startIdx, len(pktList)):
-                if type(pktList[i]) == SwoParser.LocalTimestampPkt:
-                    if not currentLocalTsIdx:
-                        currentLocalTsIdx = i
-                    else:
-                        followingLocalTsIdx = i
-                        break
-            # we expect that there is at least 1 localTs (which is not a overflow pkt)
-            assert currentLocalTsIdx
-            assert pktList[currentLocalTsIdx].ts != FULL_TIMESTAMP
+            ## search start of following localTs epoch
 
-            # based on following localTs, determine stopIdx
-            if not followingLocalTsIdx:
+            # find current and next reference packet
+            currentRefpktIdx = None
+            followingRefpktIdx = None
+            for i in range(startIdx, len(pktList)):
+                if type(pktList[i]) in (SwoParser.LocalTimestampPkt, SwoParser.OverflowPkt):
+                    if not currentRefpktIdx:
+                        currentRefpktIdx = i
+                    else:
+                        followingRefpktIdx = i
+                        break
+
+            # we expect that there is at least 1 ref packet
+            assert currentRefpktIdx
+            # ref pkt should not be local timestamp overflow packet
+            if type(pktList[currentRefpktIdx]) == SwoParser.LocalTimestampPkt:
+                assert pktList[currentRefpktIdx].ts != FULL_TIMESTAMP
+
+            # based on following reference packet, determine stopIdx
+            if not followingRefpktIdx:
                 # no following localTs found -> rest of list is single epoch
                 stopIdx = len(pktList)
             else:
-                # following localTsIdx found
-                if pktList[followingLocalTsIdx].ts == FULL_TIMESTAMP:
-                    stopIdx = followingLocalTsIdx
+                # following reference packet found
+                if type(pktList[followingRefpktIdx]) == SwoParser.LocalTimestampPkt and pktList[followingRefpktIdx].ts == FULL_TIMESTAMP:
+                    stopIdx = followingRefpktIdx
                 else:
-                    ## go back to data packet that caused the localTs pkt
-                    # find data packet preceding the localTs pkt (beware: overflow packet could be in between)
-                    data2Idx = followingLocalTsIdx
+                    ## go back to data packet that caused the reference packet
+                    ## based on sample traces, up to 2 datatrace packet can precede a LocalTsPkt (PC and data)
+                    ## it is not clear if other packets (e.g. overflow packet) could be between datatrace and localTsPkt
+                    # find data packet preceding the reference pkt
+                    data2Idx = followingRefpktIdx
                     while type(pktList[data2Idx]) != SwoParser.DatatracePkt:
                         data2Idx -= 1
-                        assert data2Idx >= startIdx + 1 # there should be at least 1 pkt in the current epoch
-                    # find data packet preceding the data2 data pkt (beware: overflow packet could be in between)
+                        assert data2Idx >= currentRefpktIdx # at least packets up to the found refernce packet should be in the in the current epoch
+                    # find data packet preceding the data2 data pkt
                     data1Idx = data2Idx - 1
                     while True:
                         if type(pktList[data1Idx]) == SwoParser.DatatracePkt:
                             break
-                        elif data1Idx <= currentLocalTsIdx:
+                        elif data1Idx <= currentRefpktIdx:
                             data1Idx = None
                             break
                         else:
@@ -459,8 +466,8 @@ def combinePkts(batchList):
     Combines data packets and adds localTs
     """
     dataColumns = ['global_ts_uncorrected', 'comparator', 'data', 'PC', 'operation', 'local_ts']
-    localTsColumns = ['global_ts_uncorrected', 'local_ts', 'tc']
-    overflowColumns = ['global_ts_uncorrected', 'local_ts']
+    localTsColumns = ['global_ts_uncorrected', 'local_ts', 'tc', 'full_ts']
+    overflowColumns = ['global_ts_uncorrected']
 
     dataOut = []
     localTsOut = []
@@ -482,10 +489,11 @@ def combinePkts(batchList):
             else:
                 raise Exception('ERROR: Unknown packet type {}'.format(type(pkt)))
 
-        if len(localTsPkts) != 1:
-            raise Exception('ERROR: multiple LocalTsPkt in one batch!')
+        if not (len(localTsPkts) == 1 or len(overflowPkts) == 1) :
+            raise Exception('ERROR: batch does not contain exactly 1 reference packet (contains {} LocalTimestampPkt and {} OverflowPkt)!'.format(len(localTsPkts), len(overflowPkts)))
 
-        localTsCum += localTsPkts[0].ts + 1/PRESCALER # +1 cycle (scaled by prescaler) because transition from last sent value to 0 takes one clock cycle (see ARM CoreSight Components Technical Reference Manual, p. 302)
+        if localTsPkts:
+            localTsCum += localTsPkts[0].ts + 1/PRESCALER # +1 cycle (scaled by prescaler) because transition from last sent value to 0 takes one clock cycle (see ARM CoreSight Components Technical Reference Manual, p. 302)
 
         # process data pkts
         while dataPkts:
@@ -508,24 +516,26 @@ def combinePkts(batchList):
                     newRow['operation'] = 'w' if dataPkt.writeAccess else 'r'
                     newRow['data'] = dataPkt.value
             newRow['comparator'] = int(dataPkt.comparator)
-            newRow['local_ts'] = localTsCum
+            if localTsPkts:
+                newRow['local_ts'] = localTsCum
+                newRow['local_ts_tc'] = localTsPkts[0].tc
             newRow['global_ts_uncorrected'] = minGlobalTs
-            newRow['local_ts_tc'] = localTsPkts[0].tc
             dataOut += [newRow]
 
-        # process local ts packets (note: there should be exactly one localTs pkt)
-        newRow = collections.OrderedDict(zip(localTsColumns, [None]*len(localTsColumns)))
-        newRow['local_ts'] = localTsCum
-        # newRow['local_ts_diff'] = localTsPkts[0].ts # DEBUG
-        newRow['global_ts_uncorrected'] = localTsPkts[0].globalTs
-        newRow['tc'] = localTsPkts[0].tc
-        localTsOut += [newRow]
-
-        # process overflow packets
-        for overflowPkt in overflowPkts:
-            newRow = collections.OrderedDict(zip(overflowColumns, [None]*len(overflowColumns)))
+        # process local ts packets (note: there should be 0 or 1 LocalTimestampPkt)
+        if localTsPkts:
+            newRow = collections.OrderedDict(zip(localTsColumns, [None]*len(localTsColumns)))
             newRow['local_ts'] = localTsCum
-            newRow['global_ts_uncorrected'] = overflowPkt.globalTs
+            # newRow['local_ts_diff'] = localTsPkts[0].ts # DEBUG
+            newRow['global_ts_uncorrected'] = localTsPkts[0].globalTs
+            newRow['tc'] = localTsPkts[0].tc
+            newRow['full_ts'] = int(localTsPkts[0].ts == FULL_TIMESTAMP) # indicate wheter LocalTimestampPkt is overflow pkt or not
+            localTsOut += [newRow]
+
+        # process overflow packets (note: there should be 0 or 1 OverflowPkt)
+        if overflowPkts:
+            newRow = collections.OrderedDict(zip(overflowColumns, [None]*len(overflowColumns)))
+            newRow['global_ts_uncorrected'] = overflowPkts[0].globalTs
             overflowOut += [newRow]
 
     # prepare to return DataFrames
@@ -536,7 +546,7 @@ def combinePkts(batchList):
     return dfData, dfLocalTs, dfOverflow
 
 
-def timeCorrection(dfData, dfLocalTs, dfOverflow):
+def timeCorrection(dfData, dfLocalTs):
     """
     Calculates a regression based on the values in dfLocalTs and adds corrected global timestamps.
 
@@ -551,7 +561,6 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     """
     dfDataCorr = dfData.copy()
     dfLocalTsCorr = dfLocalTs.copy()
-    dfOverflowCorr = dfOverflow.copy()
 
     # make sure only local timestamp of which are synchronized are used for regression
     df = dfLocalTsCorr[dfLocalTsCorr.tc == 0]
@@ -612,9 +621,8 @@ def timeCorrection(dfData, dfLocalTs, dfOverflow):
     # add corrected timestamps to dataframe
     dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
     dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
-    dfOverflowCorr['global_ts'] = dfOverflowCorr.local_ts * slopeFiltered + interceptFiltered + DT_FIXED_OFFSET
 
-    return dfDataCorr, dfLocalTsCorr, dfOverflowCorr
+    return dfDataCorr, dfLocalTsCorr
 
 
 ################################################################################
