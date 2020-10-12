@@ -54,8 +54,8 @@
         // check for login parameters
         if (!(isset($_POST['username']) && isset($_POST['password']) && do_login($_POST['username'], $_POST['password']))) {
             if (count($_POST)==0)
-                $_SESSION['request_path']=$_SERVER['SCRIPT_NAME'];
-            else 
+                $_SESSION['request_path']=$_SERVER['REQUEST_URI'];    //$_SERVER['SCRIPT_NAME']
+            else
                 unset($_SESSION['request_path']);
             header('Location: https://'.$hostname.($path == '/' ? '' : $path).'/login.php'); 
             exit;
