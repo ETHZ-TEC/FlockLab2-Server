@@ -38,6 +38,7 @@
 USER="flocklab"
 HOST="whymper"    # default server
 RSYNCPARAMS="-a -z -c -K --exclude=.* --no-perms --no-owner --no-group --ignore-times --delete"
+LOCKFILE="update.lock"    # write '1' into this file (on the server) to prevent this script from updating/overwriting files
 
 if [ $# -gt 0 ]; then
     HOST=$1
@@ -45,6 +46,13 @@ fi
 
 echo "Going to update files on FlockLab server $HOST..."
 sleep 2   # give the user time to abort, just in case
+
+# simple locking mechanism: before continuing, make sure the lock is released
+RES=$(ssh ${USER}@${HOST} "cat ${LOCKFILE}" 2> /dev/null)
+if [ $? -eq 0 ] && [ $RES == "1" ]; then
+    echo "File system is locked."
+    exit 1;
+fi
 
 # testmanagement server files
 # optional to only look for changed files:  | grep '^<fc' | cut -d' ' -f2
