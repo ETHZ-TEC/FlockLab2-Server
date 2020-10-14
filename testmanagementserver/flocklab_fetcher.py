@@ -443,8 +443,8 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, logqueue
         input_filename = "%s/%s" % (fdir, f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
         # # DEBUG
-        # shutil.copyfile(input_filename, "%s_raw" % resultfile_path)
-        # parse the file
+        # shutil.copyfile(input_filename, "{}_{}_raw".format(resultfile_path, nodeid))
+        ## parse the file
         # first line of the log file contains the variable names
         varnames = ""
         with open(input_filename, "r") as f:

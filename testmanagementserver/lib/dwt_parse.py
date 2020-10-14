@@ -97,6 +97,8 @@ class SwoParser():
             self._tc = (header >> 4) & 0b11 if not self._format2 else 0b00 ## format 2 can only occur if timestamp is synchronous (i.e. tc=0b00)
 
         def addByte(self, byteVal):
+            if len(self._plBytes) >= 4:
+                raise Exception('ERROR: Payload of LocalTimestampPkt cannot be longer than 4 bytes! MCU probably not properly intialized...')
             self._plBytes.append(byteVal)
 
         def isComplete(self):
@@ -678,8 +680,8 @@ if __name__ == '__main__':
         # df_corrected.sort_values(by=['global_ts'], inplace=True)
         with open(filename + '.csv', "w") as outfile:
             dfData.to_csv(
-              outfile,
-              columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
-              index=False,
-              header=True,
+                outfile,
+                columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
+                index=False,
+                header=True,
             )
