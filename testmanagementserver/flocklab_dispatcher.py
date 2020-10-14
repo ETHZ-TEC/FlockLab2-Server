@@ -1333,7 +1333,12 @@ def main(argv):
     else:
         action = "stop"
     starttime = time.time()
-    errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
+    try:
+        errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
+    except MySQLdb._exceptions.OperationalError:
+        # if stop test takes longer than usual, the DB connection might get dropped by the server -> reconnect
+        (cn, cur) = flocklab.connect_to_db()
+    
     # Record time needed to set up test for statistics in DB:
     time_needed = time.time() - starttime
     sql =   """ UPDATE `tbl_serv_tests`
