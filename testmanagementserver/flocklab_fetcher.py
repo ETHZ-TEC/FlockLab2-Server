@@ -1121,7 +1121,7 @@ def main(argv):
             elif service == 'serial':
                 header = 'timestamp,observer_id,node_id,direction,output\n'
             elif service == 'datatrace':
-                header = 'timestamp,observer_id,node_id,variable,value,access,pc,timestamp_delayed\n'
+                header = 'timestamp,observer_id,node_id,variable,value,access,pc,delay_marker\n'
             lock.acquire()
             f = open(path, 'w')
             f.write(header)
