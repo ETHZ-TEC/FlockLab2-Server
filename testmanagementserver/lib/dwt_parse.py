@@ -272,7 +272,7 @@ class SwoParser():
                     self._currentPkt.append(type(self).DatatracePkt(header=swoByte, globalTs=globalTs))
                 else:
                     # Other undefined header
-                    raise Exception("ERROR: Unrecognized discriminator ID in hardware source packet header: {}".format(swoByte)) # packets with undefined discriminator_id appear sporadically -> we cannot throw error here
+                    raise Exception("ERROR: Unrecognized discriminator ID ({}) in hardware source packet header: {}".format(discriminator_id, swoByte))
             else:
                 print("ERROR: Unrecognized DWT packet header: {} {:#010b}".format(swoByte, swoByte))
         else:

@@ -485,21 +485,22 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
         except ValueError:
             logqueue.put_nowait((loggername, logging.WARNING, "Empty data trace results file."))
         else:
-            # add observer and node ID
-            dfData['obsid'] = obsid
-            dfData['nodeid'] = nodeid
-            # convert comparator ID to variable name
-            dfData['varname'] = dfData.comparator.apply(lambda x: (varnames[x] if x < len(varnames) else str(x)))
-            # append datatrace elements from obsever to datatrace log file
-            resultfile_lock.acquire()
-            with open(resultfile_path, "a") as outfile:
-                dfData.to_csv(
-                  outfile,
-                  columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
-                  index=False,
-                  header=False
-                )
-            resultfile_lock.release()
+            if len(dfData):
+                # add observer and node ID
+                dfData['obsid'] = obsid
+                dfData['nodeid'] = nodeid
+                # convert comparator ID to variable name
+                dfData['varname'] = dfData.comparator.apply(lambda x: (varnames[x] if x < len(varnames) else str(x)))
+                # append datatrace elements from obsever to datatrace log file
+                resultfile_lock.acquire()
+                with open(resultfile_path, "a") as outfile:
+                  dfData.to_csv(
+                    outfile,
+                    columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
+                    index=False,
+                    header=False
+                  )
+                resultfile_lock.release()
             # append overflow events to errorlog
             for idx, row in dfOverflow.iterrows():
                 write_to_error_log(row['global_ts_uncorrected'], obsid, nodeid, 'Datatrace: event rate too high (overflow occurred)!')
