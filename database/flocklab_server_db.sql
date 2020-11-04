@@ -136,6 +136,7 @@ CREATE TABLE `tbl_serv_observer` (
   `last_changed` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `sync_method` enum('gps','ptp','ntp') COLLATE utf8_bin NOT NULL,
   PRIMARY KEY (`serv_observer_key`),
+  UNIQUE KEY `observer_id_UNIQUE` (`observer_id`),
   KEY `fk_slot_2` (`slot_2_tg_adapt_list_fk`),
   KEY `fk_slot_3` (`slot_3_tg_adapt_list_fk`),
   KEY `fk_slot_4` (`slot_4_tg_adapt_list_fk`),

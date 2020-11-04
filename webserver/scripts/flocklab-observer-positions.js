@@ -15,4 +15,13 @@ sensornodes=[
 { node_id: 17, x:570, y:620 },
 { node_id: 15, x: 60, y:620 },
 { node_id: 20, x: 85, y:345 },
+{ node_id: 13, x:360, y:200 },
+{ node_id: 16, x:221, y:218 },
+{ node_id: 19, x:464, y:217 },
+{ node_id: 21, x:571, y:234 },
+{ node_id: 23, x:613, y:293 },
+{ node_id: 22, x:475, y:324 },
+{ node_id: 26, x:300, y:304 },
+{ node_id: 24, x:159, y:345 },
+{ node_id: 27, x:128, y:121 },
 ];
