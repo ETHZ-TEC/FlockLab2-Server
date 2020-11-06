@@ -494,19 +494,19 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
                 # append datatrace elements from obsever to datatrace log file
                 resultfile_lock.acquire()
                 with open(resultfile_path, "a") as outfile:
-                  dfData.to_csv(
-                    outfile,
-                    columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
-                    index=False,
-                    header=False
-                  )
+                    dfData.to_csv(
+                        outfile,
+                        columns=['global_ts', 'obsid', 'nodeid', 'varname', 'data', 'operation', 'PC', 'local_ts_tc'],
+                        index=False,
+                        header=False
+                    )
                 resultfile_lock.release()
             # append overflow events to errorlog
             for idx, row in dfOverflow.iterrows():
                 write_to_error_log(row['global_ts_uncorrected'], obsid, nodeid, 'Datatrace: event rate too high (overflow occurred)!')
             # append info about delayed timestamps to errorlog
             for idx, row in dfLocalTs.iterrows():
-                  if row['tc'] != 0:
+                if row['tc'] != 0:
                     write_to_error_log(row['global_ts'], obsid, nodeid, 'Datatrace: timestamp has been delayed (tc={})!'.format(row['tc']))
 
     except:
