@@ -37,7 +37,7 @@
 
 USER="flocklab"
 HOST="whymper"    # default server
-RSYNCPARAMS="-a -z -c -K --exclude=.* --no-perms --no-owner --no-group --ignore-times --delete"
+RSYNCPARAMS="-a -z -c -K --exclude=.* --exclude=*.dat --no-perms --no-owner --no-group --ignore-times --delete"
 LOCKFILE="update.lock"    # write '1' into this file (on the server) to prevent this script from updating/overwriting files
 
 if [ $# -gt 0 ]; then
