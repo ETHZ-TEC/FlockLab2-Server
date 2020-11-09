@@ -377,6 +377,10 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             rld_dataframe.to_csv(resultfile_path, sep=',', index_label='time', header=False, mode='a')
             resultfile_lock.release()
             os.remove(inputfilename)
+    except ValueError:
+        msg = "ValueError in powerprof worker process: %s" % str(sys.exc_info()[1])
+        _errors.append((msg, obsid))
+        logqueue.put_nowait((loggername, logging.ERROR, msg))
     except:
         msg = "Error in powerprof worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, obsid))
