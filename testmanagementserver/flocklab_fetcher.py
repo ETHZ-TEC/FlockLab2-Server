@@ -378,7 +378,7 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             resultfile_lock.release()
             os.remove(inputfilename)
     except ValueError:
-        msg = "ValueError in powerprof worker process: %s" % str(sys.exc_info()[1])
+        msg = "ValueError in powerprof worker process: %s\n" % str(sys.exc_info()[1])
         _errors.append((msg, obsid))
         logqueue.put_nowait((loggername, logging.ERROR, msg))
     except:
