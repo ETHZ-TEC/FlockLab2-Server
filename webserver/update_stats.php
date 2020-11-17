@@ -144,7 +144,7 @@ function collect_stats($filename, $monthly)
         $dpp2testcnt = $dpp2testcnt + $row['c'];
       } else if ($row['pname'] == 'nRF5') {
         $nrftests_per_year[$year] = round($row['c'] * 100 / $tests_per_year[$year]);
-        $nrftestcnt = $dpptestcnt + $row['c'];
+        $nrftestcnt = $nrftestcnt + $row['c'];
       } 
     }
     // Tests by service
@@ -193,7 +193,7 @@ function collect_stats($filename, $monthly)
       } else if ($row['pname'] == 'DPP2LoRa') {
         $dpp2users_per_year[$year] = round($row['c'] / $num_users * 100);
       } else if ($row['pname'] == 'nRF5') {
-        $dpp2users_per_year[$year] = round($row['c'] / $num_users * 100);
+        $nrfusers_per_year[$year] = round($row['c'] / $num_users * 100);
       }
     }
     
