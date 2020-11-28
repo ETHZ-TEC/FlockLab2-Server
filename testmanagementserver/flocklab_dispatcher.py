@@ -871,7 +871,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             cmd.append("--debug")
         p = subprocess.Popen(cmd)
         rs = p.wait()
-        if rs not in (flocklab.SUCCESS, errno.ENOPKG): # flocklab.SUCCESS (0) is successful stop, ENOPKG (65) means the service was not running. 
+        if rs != flocklab.SUCCESS:
             msg = "Could not stop fetcher for test ID %d. Fetcher returned error %d" % (testid, rs)
             errors.append(msg)
             logger.error(msg)

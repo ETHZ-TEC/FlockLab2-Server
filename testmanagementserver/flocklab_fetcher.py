@@ -837,7 +837,8 @@ def stop_fetcher():
             cn.close()
         except:
             logger.warning("Could not connect to database.")
-        return errno.ENOPKG
+            return flocklab.FAILED
+        return flocklab.SUCCESS
 
     return flocklab.SUCCESS
 ### END stop_fetcher
@@ -1006,7 +1007,7 @@ def main(argv):
     ret = flocklab.SUCCESS
     if stop:
         ret = stop_fetcher()
-        logger.info("FlockLab fetcher stopped.")
+        logger.info("FlockLab fetcher stopped (exit code %d)." % ret)
         sys.exit(ret)
 
     # Start the fetcher processes which download data from the observers:
