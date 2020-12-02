@@ -51,12 +51,16 @@ PRESCALER = 16                  # prescaler configured in Trace Control Register
                                 # NOTE: needs to match the settings on the observer!
 
 # time offset between datatrace and GPIO service (ts_datatrace + offset = ts_gpio)
-DT_FIXED_OFFSET = -0.007448270618915558  # no offset correction
+# DT_FIXED_OFFSET = 0  # shift min (no fixed offset correction)
+DT_FIXED_OFFSET = -5.0e-3  # shift half of loop delay
+# DT_FIXED_OFFSET = -0.007448270618915558  # no offset correction
 # DT_FIXED_OFFSET = 0.0008908960223197937  # shift by 2*std(residual)
 # DT_FIXED_OFFSET = 0.0008908960223197937  # shift min(residual)
 
 FILTER_THRESHOLD = 0.15 # Threshold for percentage of filtered messages to produce an error
-RESIDUAL_UNFILTERED_THRESHOLD = 0.150 # Threshold for residuals magnitude to producing error (in seconds)
+RESIDUAL_UNFILTERED_THRESHOLD = 0.300 # Threshold for residuals magnitude to producing error (in seconds)
+PLATFORM_CORRECTION_OFFSET = -1.3e-3 # offset for platforms (Linux version) with larger overhead
+
 
 ################################################################################
 # SwoParser Class
@@ -313,7 +317,7 @@ def processDatatraceOutput(input_file):
     # plt.close('all')
 
     # read raw file into list
-    dataTsList = readRaw(input_file)
+    dataTsList, sleepOverhead = readRaw(input_file)
 
     # parse data/globalTs stream from list (returns packet list split into different sync packet epochs)
     syncEpochList = parseDataTs(dataTsList)
@@ -342,7 +346,7 @@ def processDatatraceOutput(input_file):
         if len(dfLocalTs) < 2:
             raise Exception('ERROR: dfLocalTs is empty or does not contain enough pkts -> unable to apply time correction!')
 
-        dfDataCorr, dfLocalTsCorr = timeCorrection(dfData, dfLocalTs)
+        dfDataCorr, dfLocalTsCorr = timeCorrection(dfData, dfLocalTs, sleepOverhead)
 
         dfDataCorrList.append(dfDataCorr)
         dfLocalTsCorrList.append(dfLocalTsCorr)
@@ -366,8 +370,8 @@ def readRaw(input_file):
     with open(input_file) as f:
         lines = f.readlines()
 
-    # ignore first line with varnames
-    lines.pop(0)
+    # skip first line with varnames but extract sleep_overhead value
+    sleepOverhead = float(lines.pop(0).split()[-1:][0])
 
     for i in range(int(len(lines)/2)):
         # we expect that raw file starts with data (not with global timestamp)
@@ -388,7 +392,7 @@ def readRaw(input_file):
         # add data and timestamp as tuple
         outList.append((numbers, globalTs))
 
-    return outList
+    return outList, sleepOverhead
 
 
 def parseDataTs(inList):
@@ -604,7 +608,7 @@ def combinePkts(batchList):
     return dfData, dfLocalTs, dfOverflow
 
 
-def timeCorrection(dfData, dfLocalTs):
+def timeCorrection(dfData, dfLocalTs, sleepOverhead):
     """
     Calculates a regression based on the values in dfLocalTs and adds corrected global timestamps.
 
@@ -665,7 +669,7 @@ def timeCorrection(dfData, dfLocalTs):
 
     # # DEBUG visualize
     # import matplotlib.pyplot as plt
-    # # plt.close('all')
+    # plt.close('all')
     # ## regression
     # fig, ax = plt.subplots()
     # ax.scatter(x, y, marker='.', label='Data (uncorrected)', c='r')
@@ -718,9 +722,13 @@ def timeCorrection(dfData, dfLocalTs):
     # ax.set_xlabel('Diff [s]')
     # ax.set_ylabel('Count')
 
+    # add platform (linux version) dependent correction offset
+    # measured sleepOverhead is used to identify platform
+    platformCorrection = PLATFORM_CORRECTION_OFFSET if sleepOverhead > 0.263e-3 else 0
+
     # add corrected timestamps to dataframe
-    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET
-    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET
+    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
+    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
 
     return dfDataCorr, dfLocalTsCorr
 

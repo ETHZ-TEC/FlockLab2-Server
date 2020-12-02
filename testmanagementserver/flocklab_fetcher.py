@@ -482,7 +482,7 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
         # first line of the log file contains the variable names
         varnames = ""
         with open(input_filename, "r") as f:
-            varnames = f.readline().strip().split()
+            varnames = f.readline().strip().split()[:-1] # ignore last element (sleep_overhead value)
         try:
             # process raw datatrace log (parse & apply time correction)
             dfData, dfLocalTs, dfOverflow = dwt.processDatatraceOutput(input_filename)
