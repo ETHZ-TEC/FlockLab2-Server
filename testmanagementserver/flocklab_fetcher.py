@@ -695,7 +695,7 @@ class FetchObsThread(threading.Thread):
                     else:
                         self._logger.debug(self._loggerprefix + "No files to download from observer.")
 
-                    if False and removelast == False: # this is the last execution of the while loop
+                    if removelast == False: # this is the last execution of the while loop
                         cmd = ['ssh' ,'%s'%(self._obsethernet), "rm -rf %s" % self._obstestresfolder]
                         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
                         out, err = p.communicate(None)
