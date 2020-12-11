@@ -216,11 +216,13 @@ def append_lines_to_file(filename=None, filelock=None, lines=None):
     if not filename or not filelock or not lines:
         return
     try:
-        filelock.acquire()
-        f = open(filename, "a")
-        f.writelines(lines)
-        f.close()
-        filelock.release()
+        if filelock.acquire(timeout=-1):    # no timeout
+            f = open(filename, "a")
+            f.writelines(lines)
+            f.close()
+            filelock.release()
+        else:
+            raise Exception("threading.Lock: failed to acquire lock")
     except Exception:
         filelock.release()
         raise
