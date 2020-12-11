@@ -667,9 +667,10 @@ class FetchObsThread(threading.Thread):
                         else:
                             self._logger.debug("Downloaded results files from observer.")
                             # put a copy to the debug directory
-                            for f in copyfilelist:
-                                fname = os.path.basename(f)
-                                shutil.copyfile("%s/%s" % (self._obsfiledir, fname), "%s/%s" % (self._obsfiledebugdir, fname))
+                            if self._obsfiledebugdir:
+                                for f in copyfilelist:
+                                    fname = os.path.basename(f)
+                                    shutil.copyfile("%s/%s" % (self._obsfiledir, fname), "%s/%s" % (self._obsfiledebugdir, fname))
                             # Tell the fetcher to start working on the files:
                             for f in copyfilelist:
                                 fname = os.path.basename(f)
