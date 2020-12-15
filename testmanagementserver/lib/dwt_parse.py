@@ -56,6 +56,7 @@ DT_FIXED_OFFSET = -5.0e-3  # shift half of loop delay
 # DT_FIXED_OFFSET = -0.007448270618915558  # no offset correction
 # DT_FIXED_OFFSET = 0.0008908960223197937  # shift by 2*std(residual)
 # DT_FIXED_OFFSET = 0.0008908960223197937  # shift min(residual)
+DT_FIXED_OFFSET_RESET = +11.65e-3
 
 FILTER_THRESHOLD = 0.15 # Threshold for percentage of filtered messages to produce an error
 RESIDUAL_UNFILTERED_THRESHOLD = 0.300 # Threshold for residuals magnitude to producing error (in seconds)
@@ -346,7 +347,7 @@ def processDatatraceOutput(input_file):
         if len(dfLocalTs) < 2:
             raise Exception('ERROR: dfLocalTs is empty or does not contain enough pkts -> unable to apply time correction!')
 
-        dfDataCorr, dfLocalTsCorr = timeCorrection(dfData, dfLocalTs, sleepOverhead)
+        dfDataCorr, dfLocalTsCorr = timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch=(i==0))
 
         dfDataCorrList.append(dfDataCorr)
         dfLocalTsCorrList.append(dfLocalTsCorr)
@@ -372,6 +373,9 @@ def readRaw(input_file):
 
     # skip first line with varnames but extract sleep_overhead value
     sleepOverhead = float(lines.pop(0).split()[-1:][0])
+    # # DEBUG for old trace files without sleepOverhead value
+    # lines.pop(0).split()
+    # sleepOverhead = 0
 
     for i in range(int(len(lines)/2)):
         # we expect that raw file starts with data (not with global timestamp)
@@ -608,7 +612,7 @@ def combinePkts(batchList):
     return dfData, dfLocalTs, dfOverflow
 
 
-def timeCorrection(dfData, dfLocalTs, sleepOverhead):
+def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     """
     Calculates a regression based on the values in dfLocalTs and adds corrected global timestamps.
 
@@ -729,6 +733,21 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead):
     # add corrected timestamps to dataframe
     dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
     dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
+
+
+    # correct offset of global timestamp using the synchronized release from reset at start of the test on FlockLab 2
+    # NOTE: this only works for the first syncEpoch (epoch begins with start of test on FlockLab 2)
+    if firstSyncEpoch:
+      df = dfLocalTsCorr[dfLocalTsCorr.tc == 0]
+      firstSyncPoint = df.iloc[0] # first sync point without delay indicated
+      startCorr = firstSyncPoint.global_ts - firstSyncPoint.local_ts*slopeFinal
+      startActual = int(startCorr) # FlockLab 2 makes sure that test is started (i.e. reset is released) exactly when new second starts
+      offsetReset = startCorr - startActual
+      # DEBUG
+      print('INFO: offset (based on initial reset): {}'.format(offsetReset))
+
+      dfDataCorr['global_ts'] = dfDataCorr.global_ts - offsetReset + DT_FIXED_OFFSET_RESET
+      dfLocalTsCorr['global_ts'] = dfLocalTsCorr.global_ts - offsetReset + DT_FIXED_OFFSET_RESET
 
     return dfDataCorr, dfLocalTsCorr
 
