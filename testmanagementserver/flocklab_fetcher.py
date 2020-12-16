@@ -439,19 +439,12 @@ def worker_serial(queueitem=None, nodeid=None, resultfile_path=None, resultfile_
         inputfilename = "%s/%s" % (fdir, f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
         result = []
-        infile = open(inputfilename, "r")
-        # read line by line and check for decode errors
-        while True:
-            try:
-                line = infile.readline()
-            except UnicodeDecodeError:
-                continue      # ignore invalid lines
-            if not line:
-                break
+        infile = open(inputfilename, "r", encoding="utf8", errors="ignore")   # ignore decoding errors
+        for line in infile.readlines():
             try:
                 (timestamp, msg) = line.strip().split(',', 1)
             except:
-                continue
+                continue    # invalid line -> just ignore
             result.append("%s,%d,%s,r,%s\n" % (timestamp, obsid, nodeid, msg.rstrip()))
         infile.close()
         append_lines_to_file(resultfile_path, resultfile_lock, result)
