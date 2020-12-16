@@ -219,6 +219,7 @@ def append_lines_to_file(filename=None, filelock=None, lines=None):
         if filelock.acquire(timeout=-1):    # no timeout
             f = open(filename, "a")
             f.writelines(lines)
+            f.flush()
             f.close()
             filelock.release()
         else:
