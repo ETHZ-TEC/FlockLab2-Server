@@ -34,7 +34,7 @@
 <?php include_once('include/presets.php');?>
 <?php
     // provide archive
-    if (isset($_POST['testid']) && is_numeric($_POST['testid']) && check_testid($_POST['testid'],$_SESSION['serv_users_key'])) {
+    if (isset($_POST['testid']) && is_numeric($_POST['testid']) && (check_testid($_POST['testid'],$_SESSION['serv_users_key']) || $_SESSION['is_admin'])) {
         $testid = $_POST['testid'];
         // check file
         $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
