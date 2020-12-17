@@ -65,7 +65,7 @@
 <?php
   /* Get all status information about the observers from the database and display them in the table. */
   $db = db_connect();
-  $sql = "SELECT obs.observer_id, obs.status, obs.last_changed, 
+  $sql = "SELECT obs.observer_id, obs.status, obs.last_changed, obs.sync_method,
           slot1.name AS name1, slot1.description AS desc1, 
           slot2.name AS name2, slot2.description AS desc2, 
           slot3.name AS name3, slot3.description AS desc3, 
@@ -90,6 +90,7 @@
         <tr>
             <th style="width:40px">Observer ID</th>
             <th>Status</th>
+            <th>Time Sync</th>
             <th>Adapter<BR>Slot 1</th>
             <th>Adapter<BR>Slot 2</th>
             <th>Adapter<BR>Slot 3</th>
@@ -109,6 +110,7 @@
                 echo "0";*/
             echo $row['observer_id'] . "</td>";
             echo "<td>" . $row['status'] . "</td>";
+            echo "<td>" . strtoupper($row['sync_method']) . "</td>";
             echo "<td class='qtip_show targetplatform' title='";
             echo ($row['name1'] == "") ? "No or unknown adapter installed'></td>" : $row['desc1'] . "'>" . $row['name1'] . "</td>";
             echo "<td class='qtip_show targetplatform' title='";
