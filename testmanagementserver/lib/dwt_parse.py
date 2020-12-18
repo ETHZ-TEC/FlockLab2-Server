@@ -51,12 +51,8 @@ PRESCALER = 16                  # prescaler configured in Trace Control Register
                                 # NOTE: needs to match the settings on the observer!
 
 # time offset between datatrace and GPIO service (ts_datatrace + offset = ts_gpio)
-# DT_FIXED_OFFSET = 0  # shift min (no fixed offset correction)
 DT_FIXED_OFFSET = -5.0e-3  # shift half of loop delay
-# DT_FIXED_OFFSET = -0.007448270618915558  # no offset correction
-# DT_FIXED_OFFSET = 0.0008908960223197937  # shift by 2*std(residual)
-# DT_FIXED_OFFSET = 0.0008908960223197937  # shift min(residual)
-DT_FIXED_OFFSET_RESET = +11.65e-3
+# DT_FIXED_OFFSET_RESET = +11.65e-3 # time correction based on reset is disabled, see comment at end of timeCorrection()
 
 FILTER_THRESHOLD = 0.15 # Threshold for percentage of filtered messages to produce an error
 RESIDUAL_UNFILTERED_THRESHOLD = 0.300 # Threshold for residuals magnitude to producing error (in seconds)
@@ -734,20 +730,20 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
     dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
 
+    # NOTE: Disabled offset correction based on reset again as it seemed that duration between release of reset pin and start of local timestamp counter is application dependent, i.e. not constant
+    # # correct offset of global timestamp using the synchronized release from reset at start of the test on FlockLab 2
+    # # NOTE: this only works for the first syncEpoch (epoch begins with start of test on FlockLab 2)
+    # if firstSyncEpoch:
+    #   df = dfLocalTsCorr[dfLocalTsCorr.tc == 0]
+    #   firstSyncPoint = df.iloc[0] # first sync point without delay indicated
+    #   startCorr = firstSyncPoint.global_ts - firstSyncPoint.local_ts*slopeFinal
+    #   startActual = int(startCorr) # FlockLab 2 makes sure that test is started (i.e. reset is released) exactly when new second starts
+    #   offsetReset = startCorr - startActual
+    #   # DEBUG
+    #   print('INFO: offset (based on initial reset): {}'.format(offsetReset))
 
-    # correct offset of global timestamp using the synchronized release from reset at start of the test on FlockLab 2
-    # NOTE: this only works for the first syncEpoch (epoch begins with start of test on FlockLab 2)
-    if firstSyncEpoch:
-      df = dfLocalTsCorr[dfLocalTsCorr.tc == 0]
-      firstSyncPoint = df.iloc[0] # first sync point without delay indicated
-      startCorr = firstSyncPoint.global_ts - firstSyncPoint.local_ts*slopeFinal
-      startActual = int(startCorr) # FlockLab 2 makes sure that test is started (i.e. reset is released) exactly when new second starts
-      offsetReset = startCorr - startActual
-      # DEBUG
-      print('INFO: offset (based on initial reset): {}'.format(offsetReset))
-
-      dfDataCorr['global_ts'] = dfDataCorr.global_ts - offsetReset + DT_FIXED_OFFSET_RESET
-      dfLocalTsCorr['global_ts'] = dfLocalTsCorr.global_ts - offsetReset + DT_FIXED_OFFSET_RESET
+    #   dfDataCorr['global_ts'] = dfDataCorr.global_ts - offsetReset + DT_FIXED_OFFSET_RESET
+    #   dfLocalTsCorr['global_ts'] = dfLocalTsCorr.global_ts - offsetReset + DT_FIXED_OFFSET_RESET
 
     return dfDataCorr, dfLocalTsCorr
 
