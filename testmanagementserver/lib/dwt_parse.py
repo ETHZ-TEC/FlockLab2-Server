@@ -628,7 +628,7 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     df = dfLocalTsCorr[dfLocalTsCorr.tc == 0]
 
     x = df['local_ts'].to_numpy(dtype=float)
-    y = df['global_ts_uncorrected'].to_numpy(dtype=float)
+    y = df['global_ts_uncorrected'].to_numpy(dtype=float) + DT_FIXED_OFFSET
 
     # calculate intial linear regression
     # FIXME: try out more elaborate regressions (piecewise linear, regression splines), would mainly be useful for high-ppm-clock sources
@@ -727,8 +727,8 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     platformCorrection = PLATFORM_CORRECTION_OFFSET if sleepOverhead > 0.263e-3 else 0
 
     # add corrected timestamps to dataframe
-    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
-    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFinal + interceptFinal + DT_FIXED_OFFSET + platformCorrection
+    dfDataCorr['global_ts'] = dfDataCorr.local_ts * slopeFinal + interceptFinal + platformCorrection
+    dfLocalTsCorr['global_ts'] = dfLocalTsCorr.local_ts * slopeFinal + interceptFinal + platformCorrection
 
     # NOTE: Disabled offset correction based on reset again as it seemed that duration between release of reset pin and start of local timestamp counter is application dependent, i.e. not constant
     # # correct offset of global timestamp using the synchronized release from reset at start of the test on FlockLab 2
