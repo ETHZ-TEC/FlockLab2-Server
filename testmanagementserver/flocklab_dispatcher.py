@@ -269,8 +269,9 @@ class StartTestThread(threading.Thread):
 def start_test(testid, cur, cn, obsdict_key, obsdict_id):
     errors = []
     warnings = []
+    abortOnError = False
     
-    try:    
+    try:
         logger.debug("Entering start_test() function...")
         # First, validate the XML file again. If validation fails, return immediately:
         cmd = [flocklab.config.get('dispatcher','validationscript'), '--testid=%d' % testid]
@@ -424,6 +425,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     xmldict_key[obs_key] = (xmlpath, xmlfhand)
                     xmlfhand.write('<?xml version="1.0" encoding="UTF-8"?>\n\n<obsConf>\n\n')
                 # Go through the blocks of the XML file and write the configs to the affected observer XML configs:
+                # generalConf ---
+                ret = tree.xpath('//d:generalConf/d:abortOnError', namespaces=ns)
+                if ret and ret[0].text.lower() == 'yes':
+                    abortOnError = True
                 # targetConf ---
                 targetconfs = tree.xpath('//d:targetConf', namespaces=ns)
                 if not targetconfs:
@@ -455,7 +460,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                 xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[3], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (imagedict_key[obskey][0][1]))
                             xmldict_key[obskey][1].write("\t<platform>%s</platform>\n" % (imagedict_key[obskey][0][2]))
-                            xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][2]))
+                            if abortOnError:
+                                # what to do if one of the services fails to start
+                                xmlblock += "\t<abortOnError>yes</abortOnError>\n"
                             slot = imagedict_key[obskey][0][1]
                         xmldict_key[obskey][1].write("</obsTargetConf>\n\n")
                         #logger.debug("Wrote obsTargetConf XML for observer ID %s" %obsid)
@@ -702,7 +709,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     warnings.append(err[0])
             if len(obs_error) > 0:
                 # Abort or continue?
-                if not flocklab.config.get("dispatcher", "continue_on_error"):
+                if abortOnError or not flocklab.config.get("dispatcher", "continue_on_error"):
                     msg = "At least one observer failed to start the test, going to abort..."
                     errors.append(msg)
                     logger.error(msg)
