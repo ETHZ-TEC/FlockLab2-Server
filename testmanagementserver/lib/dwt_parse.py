@@ -628,12 +628,14 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     Params:
         dfData: dataframe containing data trace data
         dfLocalTs: dataframe containing local timestamp data
-        dfOverflow: dataframe containing overflow data
+        sleepOverhead: overhead of calling time.sleep on the corresponding observer
+        firstSyncEpoch: Indicate if this is the first sync epoch (only relevent for offset correction based on initial reset -> not used anymore)
     Returns:
         dfDataCorr: dataframe with added corrected global timestamps
         dfLocalTsCorr: dataframe with added corrected global timestamps
-        dfOverflowCorr: dataframe with added corrected global timestamps
     """
+
+    regIsMonotonic = False
     dfDataCorr = dfData.copy()
     dfLocalTsCorr = dfLocalTs.copy()
 
@@ -724,6 +726,16 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
         yFinalReg = slopeFinal*xFiltered + interceptFinal
         residualsFinal = yFiltered - yFinalReg
 
+    # generate warning if regression splines are not monotoincally increasing (i.e. ordering of events on the same node is not necessary preserved)
+    if PIECEWISE_REGRESSION:
+        xEval = np.arange(x[0], x[-1], PIECEWISE_REGRESSION_SEGMENT_LENGTH*3e6/5) # FIXME: hard-coded factor (3e6) to convert 1s into local timestamp counter cycles depends on clock speed (here 48MHz) and prescaler (here 16)
+        yEval = interpolate.splev(xEval, tckFinal, der=0)
+        regIsMonotonic = np.all(np.diff(yEval) > 0)
+    else:
+        regIsMonotonic = (slopeFinal > 0)
+    if not regIsMonotonic:
+        raise Exception('ERROR: Ordering of events is not preserved since regression for time correction is not monotonic!')
+
     # # DEBUG visualize
     # import matplotlib.pyplot as plt
     # plt.close('all')
@@ -763,7 +775,7 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     # ax.set_xlabel('LocalTs')
     # ax.set_ylabel('Diff')
     # ax.legend()
-    # # residuals hist (before outlier filtering)
+    # ## residuals hist (before outlier filtering)
     # fig, ax = plt.subplots()
     # ax.hist(residualsUnfiltered, 50)
     # # ax.axvline(y=0, xmin=0, xmax=x[-1], linestyle='--', c='k')
@@ -771,7 +783,7 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, firstSyncEpoch):
     # ax.set_title('Residuals Histogram (before outlier filtering)')
     # ax.set_xlabel('Diff [s]')
     # ax.set_ylabel('Count')
-    # # residuals hist (after offset correction)
+    # ## residuals hist (after offset correction)
     # fig, ax = plt.subplots()
     # ax.hist(residualsFinal, 50)
     # # ax.axvline(y=0, xmin=0, xmax=x[-1], linestyle='--', c='k')
