@@ -32,7 +32,6 @@
     <serialConf>
         <obsIds>2 4 6 7 9</obsIds>
         <baudrate>115200</baudrate>
-        <port>serial</port>
     </serialConf>
 
     <!-- GPIO Tracing Service configuration -->

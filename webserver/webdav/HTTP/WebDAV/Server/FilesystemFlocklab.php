@@ -481,12 +481,12 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
         if ($power) {
             // pipe file from archive
             $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
-            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
             exec($cmd , $output, $ret);
             if ($ret > 0)
                 return false;
             // dump whole archive
-            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"cat ".$archivepath.'/'.$testid.".tar.gz\"";
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"cat ".$archivepath.'/'.$testid.".tar.gz\"";
             $stream = popen($cmd, "r");
             return $stream;
         }
@@ -494,13 +494,13 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
             flog("nopower");
             $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
             $split_path = $CONFIG['testmanagementserver']['toolsdir'];
-            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls ".$archivepath.'/'.$testid.".tar.gz\"";
             exec($cmd , $output, $ret);
             if ($ret > 0)
                 return false;
             // dump stripped archive
             flog("nopower dump");
-            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"/bin/zcat ".$archivepath.'/'.$testid.".tar.gz | ".$split_path."/flocklab_archive_split | /usr/bin/pigz\"";
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"/bin/zcat ".$archivepath.'/'.$testid.".tar.gz | ".$split_path."/flocklab_archive_split | /usr/bin/pigz\"";
             flog("nopower dump ". $cmd);
             $stream = popen($cmd, "r");
             return $stream;
@@ -513,7 +513,7 @@ class HTTP_WebDAV_Server_Filesystem extends HTTP_WebDAV_Server
             return null;
         // file exists?
         $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
-        $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls -l ".$archivepath.'/'.$testid.".tar.gz\"";
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls -l ".$archivepath.'/'.$testid.".tar.gz\"";
         exec($cmd , $output, $ret);
         if ($ret > 0)
             return 0;
