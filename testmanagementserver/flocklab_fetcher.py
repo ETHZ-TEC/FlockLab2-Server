@@ -194,11 +194,11 @@ def read_from_db_file(dbfile):
 # write_to_error_log: Write an error message to the error log file that will be passed to the user
 #
 ##############################################################################
-def write_to_error_log(timestamp, obsid, nodeid, message):
+def write_to_error_log(timestamp, obsid, message):
     try:
         testresultsfile_dict['errorlog'][1].acquire()
         errorlog = open(testresultsfile_dict['errorlog'][0], "a")
-        errorlog.write("%s,%d,%d,%s\n" % (str(timestamp), obsid, nodeid, message))
+        errorlog.write("%s,%d,%s\n" % (str(timestamp), obsid, message))
         errorlog.close()
         testresultsfile_dict['errorlog'][1].release()
     except Exception:
@@ -411,7 +411,7 @@ def worker_logs(queueitem=None, nodeid=None, resultfile_path=None, resultfile_lo
         infile = open(inputfilename, "r")
         for line in infile:
             (timestamp, msg) = line.strip().split(',', 1)
-            result.append("%s,%d,%s,%s\n" % (timestamp, obsid, nodeid, msg))
+            result.append("%s,%d,%s\n" % (timestamp, obsid, msg))
         infile.close()
         append_lines_to_file(resultfile_path, resultfile_lock, result)
         os.remove(inputfilename)
@@ -483,7 +483,7 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             # process raw datatrace log (parse & apply time correction)
             dfData, dfLocalTs, dfOverflow = dwt.processDatatraceOutput(input_filename)
         except Exception as e:
-            write_to_error_log('{}'.format(time.time()), obsid, nodeid, 'Datatrace: Error occurred when processing datatrace raw output! Potential problems: SWO/CPU speed mismatch (see cpuSpeed tag in xml config) or target did not start properly. Error: {}'.format(e))
+            write_to_error_log('{}'.format(time.time()), obsid, 'Datatrace: Error occurred when processing datatrace raw output! Potential problems: SWO/CPU speed mismatch (see cpuSpeed tag in xml config) or target did not start properly. Error: {}'.format(e))
         else:
             if len(dfData):
                 # add observer and node ID
@@ -503,11 +503,11 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
                 resultfile_lock.release()
             # append overflow events to errorlog
             for idx, row in dfOverflow.iterrows():
-                write_to_error_log(row['global_ts_uncorrected'], obsid, nodeid, 'Datatrace: event rate too high (overflow occurred)!')
+                write_to_error_log(row['global_ts_uncorrected'], obsid, 'Datatrace: event rate too high (overflow occurred)!')
             # append info about delayed timestamps to errorlog
             for idx, row in dfLocalTs.iterrows():
                 if row['tc'] != 0:
-                    write_to_error_log(row['global_ts'], obsid, nodeid, 'Datatrace: timestamp has been delayed (tc={})!'.format(row['tc']))
+                    write_to_error_log(row['global_ts'], obsid, 'Datatrace: timestamp has been delayed (tc={})!'.format(row['tc']))
 
     except:
         msg = "Error in datatrace worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
@@ -1114,7 +1114,7 @@ def main(argv):
             testresultsfile_dict[service] = (path, lock)
             # Create file and write header:
             if service in ('errorlog', 'timesynclog'):
-                header = 'timestamp,observer_id,node_id,message\n'
+                header = 'timestamp,observer_id,message\n'
             elif service == 'gpiotracing':
                 header = 'timestamp,observer_id,node_id,pin_name,value\n'
             elif service == 'powerprofiling':
@@ -1126,9 +1126,11 @@ def main(argv):
             elif service == 'datatrace':
                 header = 'timestamp,observer_id,node_id,variable,value,access,pc,delay_marker\n'
             lock.acquire()
-            f = open(path, 'w')
-            f.write(header)
-            f.close()
+            # only create file and write header if it does not yet exist (e.g. the errorlog file may already exist)
+            if not os.path.isfile(path):
+                f = open(path, 'w')
+                f.write(header)
+                f.close()
             lock.release()
         # Start logging thread:
         logqueue = manager.Queue(maxsize=10000)
