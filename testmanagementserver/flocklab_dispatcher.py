@@ -513,11 +513,15 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         cpuSpeed = dbgconf.xpath('d:cpuSpeed', namespaces=ns)
                         if cpuSpeed:
                             cpuSpeed = cpuSpeed[0].text.strip()
-                            xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % (cpuSpeed)
+                        else:
+                            cpuSpeed = flocklab.config.get("observer", "datatrace_cpuspeed")      # use default CPU speed
+                        xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % (cpuSpeed)
                         gdbPort = dbgconf.xpath('d:gdbPort', namespaces=ns)
                         if gdbPort:
                             gdbPort = gdbPort[0].text.strip()
                             xmlblock += "\t<gdbPort>%s</gdbPort>\n" % (gdbPort)
+                        xmlblock += "\t<prescaler>%s</prescaler>\n" % flocklab.config.get("observer", "datatrace_prescaler")
+                        xmlblock += "\t<loopDelay>%s</loopDelay>\n" % flocklab.config.get("observer", "datatrace_loopdelay")
                         dwtconfs = dbgconf.xpath('d:dataTraceConf', namespaces=ns)
                         for dwtconf in dwtconfs:
                             var  = dwtconf.xpath('d:variable', namespaces=ns)[0].text.strip()
