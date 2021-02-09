@@ -483,7 +483,7 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             # process raw datatrace log (parse & apply time correction)
             dfData, dfLocalTs, dfOverflow = dwt.processDatatraceOutput(input_filename)
         except Exception as e:
-            write_to_error_log('{}'.format(time.time()), obsid, 'Datatrace: Error occurred when processing datatrace raw output! Potential problems: SWO/CPU speed mismatch (see cpuSpeed tag in xml config) or target did not start properly. Error: {}'.format(e))
+            write_to_error_log('{}'.format(time.time()), obsid, 'A datatrace error occurred when processing raw output ({}). Potential cause: SWO/CPU speed mismatch (see cpuSpeed tag in xml config) or target did not start properly.'.format(e))
         else:
             if len(dfData):
                 # add observer and node ID
