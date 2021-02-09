@@ -458,14 +458,14 @@ def splitEpochs(pktList):
             followingRefpktIdx = None
             for i in range(startIdx, len(pktList)):
                 if type(pktList[i]) in (SwoParser.LocalTimestampPkt, SwoParser.OverflowPkt):
-                    if not currentRefpktIdx:
+                    if currentRefpktIdx is None:
                         currentRefpktIdx = i
                     else:
                         followingRefpktIdx = i
                         break
 
             # we expect that there is at least 1 ref packet
-            assert currentRefpktIdx
+            assert not currentRefpktIdx is None
             # ref pkt should not be local timestamp overflow packet
             if type(pktList[currentRefpktIdx]) == SwoParser.LocalTimestampPkt:
                 assert pktList[currentRefpktIdx].ts != FULL_TIMESTAMP
