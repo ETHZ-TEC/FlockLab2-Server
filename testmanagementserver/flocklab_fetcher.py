@@ -481,7 +481,7 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             varnames = f.readline().strip().split()[:-1] # ignore last element (sleep_overhead value)
         try:
             # process raw datatrace log (parse & apply time correction)
-            dfData, dfLocalTs, dfOverflow = dwt.processDatatraceOutput(input_filename)
+            dfData, dfLocalTs, dfOverflow, dfError = dwt.processDatatraceOutput(input_filename)
         except Exception as e:
             write_to_error_log('{}'.format(time.time()), obsid, 'A datatrace error occurred when processing raw output ({}). Potential cause: SWO/CPU speed mismatch (see cpuSpeed tag in xml config) or target did not start properly.'.format(e))
         else:
@@ -501,9 +501,13 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
                         header=False
                     )
                 resultfile_lock.release()
+
+            # append parsing errors to errorlog
+            for idx, row in dfError.iterrows():
+                write_to_error_log(row['global_ts_uncorrected'], obsid, 'Datatrace: {}'.format(row['message']))
             # append overflow events to errorlog
             for idx, row in dfOverflow.iterrows():
-                write_to_error_log(row['global_ts_uncorrected'], obsid, 'Datatrace: event rate too high (overflow occurred)!')
+                write_to_error_log(row['global_ts_uncorrected'], obsid, 'Datatrace: event rate too high (buffer overflow occurred)!')
             # append info about delayed timestamps to errorlog
             for idx, row in dfLocalTs.iterrows():
                 if row['tc'] != 0:

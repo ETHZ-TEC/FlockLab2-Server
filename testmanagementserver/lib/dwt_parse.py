@@ -236,18 +236,19 @@ class SwoParser():
         """
         retPkt = None
         newSyncEpoch = False
+        parseError = None
 
         # ignore payload bytes of unrecognized packet
         if self._ignoreBytes:
             self._ignoreBytes -= 1
-            return retPkt, newSyncEpoch
+            return retPkt, newSyncEpoch, parseError
 
         # process sync packet (to sync to packet in byte stream)
         if self._processingSyncPkt:
             # read all zeros until get an 0x80, then we are in sync (Synchronization packet)
             # NOTE: dpp2lora bytestream does not contain required single-bit in Synchronization packet
             if swoByte == 0:
-                return retPkt, newSyncEpoch
+                return retPkt, newSyncEpoch, parseError
             # elif swoByte == 0x08:
             #     return retPkt, newSyncEpoch
             else:
@@ -276,15 +277,23 @@ class SwoParser():
                 if discriminator_id in [0, 1, 2]:
                     # 0 Event counter wrapping, 1 Exception tracing, 2 PC sampling
                     self._ignoreBytes = plSize
-                    print('WARNING: Hardware source packet with discriminator_id={} ignored!'.format(discriminator_id))
+                    msg = 'WARNING: Hardware source packet with discriminator_id={} ignored!'.format(discriminator_id)
+                    print(msg)
+                    parseError = {'global_ts_uncorrected': globalTs, 'message': msg}
                 elif discriminator_id >= 8 and discriminator_id <= 23:
                     # Data tracing
                     self._currentPkt.append(type(self).DatatracePkt(header=swoByte, globalTs=globalTs))
                 else:
-                    # Other undefined header
-                    raise Exception("ERROR: Unrecognized discriminator ID ({}) in hardware source packet header: {}".format(discriminator_id, swoByte))
+                    # Other undefined discriminator_id
+                    # NOTE: Do not ignore payload bytes based on size (in most cases where discriminator_id is undefined, the header is not actually a valid header)
+                    msg = "ERROR: Unrecognized discriminator ID ({} {:#010b}) in hardware source packet header: {}".format(discriminator_id, swoByte, swoByte)
+                    print(msg)
+                    parseError = {'global_ts_uncorrected': globalTs, 'message': msg}
             else:
-                print("ERROR: Unrecognized DWT packet header: {} {:#010b}".format(swoByte, swoByte))
+                # NOTE: Do not ignore payload bytes based on size (in most cases where header is not recognized, the header is not actually a valid header)
+                msg = "ERROR: Unrecognized DWT packet header: {} {:#010b}".format(swoByte, swoByte)
+                print(msg)
+                parseError = {'global_ts_uncorrected': globalTs, 'message': msg}
         else:
             # PAYLOAD: we currently have a begun packet -> add data
             self._currentPkt[0].addByte(swoByte)
@@ -293,7 +302,7 @@ class SwoParser():
         if len(self._currentPkt) != 0 and self._currentPkt[0].isComplete():
             retPkt = self._currentPkt.pop()
 
-        return retPkt, newSyncEpoch
+        return retPkt, newSyncEpoch, parseError
 
 ################################################################################
 # METHODS
@@ -306,7 +315,10 @@ def processDatatraceOutput(input_file):
     Parameters:
         input_file (str): path to the raw data trace file
     Returns:
-        df: dataframe containing the processed data
+        dfData: dataframe containing the data trace data
+        dfLocalTs: dataframe containing the local timestamps
+        dfOverflow: dataframe containing the overflow packets
+        dfError: dataframe containing messages about errors which occurred during processing (note this only contains errors that are not raised!)
     """
 
     # # DEBUG
@@ -317,19 +329,20 @@ def processDatatraceOutput(input_file):
     dataTsList, sleepOverhead = readRaw(input_file)
 
     # parse data/globalTs stream from list (returns packet list split into different sync packet epochs)
-    syncEpochList = parseDataTs(dataTsList)
+    syncEpochList, parseErrorList = parseDataTs(dataTsList)
+
+    # # DEBUG
+    # for i, pktList in enumerate(syncEpochList):
+    #     with open('pktList_{}.txt'.format(i), 'w') as f:
+    #         for i, pkt in enumerate(pktList):
+    #             f.write('{}\n{}\n'.format(i, pkt))
 
     # process packet list of each sync epoch separately
     dfDataCorrList = []
     dfLocalTsCorrList = []
     dfOverflowList = []
     for i, pktList in enumerate(syncEpochList):
-        # # DEBUG
         print('INFO: Sync Epoch {}'.format(i))
-        # with open('pktList_{}.txt'.format(i), 'w') as f:
-        #     for i, pkt in enumerate(pktList):
-        #         f.write('{}\n{}\n'.format(i, pkt))
-
         # split localTs epochs
         batchList = splitEpochs(pktList)
 
@@ -353,8 +366,9 @@ def processDatatraceOutput(input_file):
     dfData = pd.concat(dfDataCorrList)
     dfLocalTs = pd.concat(dfLocalTsCorrList)
     dfOverflow = pd.concat(dfOverflowList)
+    dfError = pd.DataFrame(parseErrorList)
 
-    return dfData, dfLocalTs, dfOverflow
+    return dfData, dfLocalTs, dfOverflow, dfError
 
 
 def readRaw(input_file):
@@ -401,6 +415,7 @@ def parseDataTs(inList):
     """
     syncEpochList = []
     completedPkts = []
+    parseErrorList = []
     firstSyncEpoch = True # we assume that SWO byte stream starts with sync pkt => first sync epoch is expected to be empty
     swoParser = SwoParser()
 
@@ -408,7 +423,7 @@ def parseDataTs(inList):
         data, globalTs = inList.pop(0)
 
         for swoByte in data:
-            ret, newSyncEpoch = swoParser.addSwoByte(swoByte, globalTs)
+            ret, newSyncEpoch, parseError = swoParser.addSwoByte(swoByte, globalTs)
             if newSyncEpoch:
                 # print('INFO: new sync epoch started!')
                 if firstSyncEpoch:
@@ -419,6 +434,9 @@ def parseDataTs(inList):
                 completedPkts = [] # NOTE: do not use completedPkts.clear() since this would also clear the list just appended to syncEpochList (as both variables point to the same list object)
             if ret:
                 completedPkts.append(ret)
+            if parseError:
+                parseErrorList.append(parseError)
+
 
     # append last sync epoch to syncEpochList
     syncEpochList.append(completedPkts)
@@ -430,7 +448,7 @@ def parseDataTs(inList):
     #         print(i)
     #         print(pkt)
 
-    return syncEpochList
+    return syncEpochList, parseErrorList
 
 
 def splitEpochs(pktList):
@@ -465,10 +483,11 @@ def splitEpochs(pktList):
                         break
 
             # we expect that there is at least 1 ref packet
-            assert not currentRefpktIdx is None
+            if currentRefpktIdx is None:
+                raise Exception('ERROR: No reference packet found for batch!')
             # ref pkt should not be local timestamp overflow packet
-            if type(pktList[currentRefpktIdx]) == SwoParser.LocalTimestampPkt:
-                assert pktList[currentRefpktIdx].ts != FULL_TIMESTAMP
+            if (type(pktList[currentRefpktIdx]) == SwoParser.LocalTimestampPkt) and (pktList[currentRefpktIdx].ts == FULL_TIMESTAMP):
+                raise Exception('ERROR: Reference packet should be local timestamp overflow packet!')
 
             # based on following reference packet, determine stopIdx
             if not followingRefpktIdx:
@@ -488,7 +507,9 @@ def splitEpochs(pktList):
                     data2Idx = followingRefpktIdx
                     while type(pktList[data2Idx]) != SwoParser.DatatracePkt:
                         data2Idx -= 1
-                        assert data2Idx >= currentRefpktIdx # at least packets up to the found reference packet should be in the in the current epoch
+                        # at least packets up to the found reference packet should be in the in the current epoch
+                        if data2Idx < currentRefpktIdx:
+                            raise Exception('ERROR: There should be at least 1 one reference packet in the current epoch!')
                     # find data packet preceding the data2 data pkt
                     data1Idx = data2Idx - 1
                     while True:
