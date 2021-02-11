@@ -513,7 +513,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         cpuspeed = srconf.xpath('d:cpuSpeed', namespaces=ns)
                         if cpuspeed:
                             cpuspeed = cpuspeed[0].text.strip()
-                            xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuspeed
+                        else:
+                            cpuSpeed = flocklab.config.get("observer", "datatrace_cpuspeed")      # use default CPU speed
+                        xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuspeed
                         xmlblock += "</obsSerialConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)
