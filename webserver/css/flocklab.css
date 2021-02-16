@@ -516,11 +516,11 @@ form td:hover {
     background-color: #FFFFFF;
     color: #333;
     overflow: visible;
-    padding: 6px;
+    padding: 3px;
 }
 
 #linktest td {
-    padding: 6px;
+    padding: 3px;
 }
 
 #linktest td:hover {
