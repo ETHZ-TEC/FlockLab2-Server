@@ -174,7 +174,7 @@ def main(argv):
     now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())
     
     # schedule link measurement if needed
-    #flocklab.schedule_linktest(cur, cn, debug)
+    flocklab.schedule_linktest(cur, cn, debug)
     
     # Check for work ---
     # Check if a new test is to be started ---

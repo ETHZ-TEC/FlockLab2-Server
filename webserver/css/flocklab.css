@@ -511,3 +511,18 @@ form td:hover {
     visibility: hidden;
     /* display: none; */
 }
+
+#linktest th {
+    background-color: #FFFFFF;
+    color: #333;
+    overflow: visible;
+    padding: 6px;
+}
+
+#linktest td {
+    padding: 6px;
+}
+
+#linktest td:hover {
+    background-color: #FFFFFF;
+}

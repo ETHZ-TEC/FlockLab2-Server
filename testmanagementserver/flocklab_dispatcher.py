@@ -32,7 +32,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 """
 
-import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib, lxml.etree, MySQLdb, signal
+import sys, os, getopt, errno, threading, shutil, time, datetime, subprocess, tempfile, queue, re, logging, traceback, __main__, types, hashlib, lxml.etree, MySQLdb, signal, tarfile
 import lib.flocklab as flocklab
 import flocklab as fltools
 
@@ -1040,27 +1040,94 @@ def prepare_testresults(testid, cur):
 
 ##############################################################################
 #
-# evalute_linkmeasurement
+# evaluate_linkmeasurement
 #
 ##############################################################################
-def evalute_linkmeasurement(testid, cur):
+def evaluate_linkmeasurement(testid, cur):
+    global logger
+    if not logger:
+        logger = flocklab.get_logger()
     errors = []
     # if link measurement, evaluate data
-    cur.execute("SELECT `username` FROM `tbl_serv_tests` LEFT JOIN `tbl_serv_users` ON (`serv_users_key`=`owner_fk`) WHERE (`serv_tests_key` = %s)" %testid)
+    cur.execute("SELECT `username`, `time_start_act` FROM `tbl_serv_tests` LEFT JOIN `tbl_serv_users` ON (`serv_users_key`=`owner_fk`) WHERE (`serv_tests_key` = %s)" % testid)
     ret = cur.fetchone()
-    if ret and ret[0]==flocklab.config.get('linktests', 'user'):
+    if ret and ret[0] == flocklab.config.get('linktests', 'user'):
+        teststarttime = ret[1]
+        # Get test results from archive --- 
+        archive_path = "%s/%s%s" % (flocklab.config.get('archiver', 'archive_dir'), testid, flocklab.config.get('archiver','archive_ext'))
+        if not os.path.exists(archive_path):
+            msg = "Archive path %s does not exist, removing link measurement." % archive_path
+            cur.execute("DELETE FROM `tbl_serv_link_measurements` WHERE `test_fk` = %s" % testid)
+            logger.error(msg)
+            errors.append(msg)
+            return errors
+        # Extract serial service results file ---
+        logger.debug("Extracting serial service file from archive...")
+        tempdir = tempfile.mkdtemp()
+        archive = tarfile.open(archive_path, 'r:gz')
+        for f in archive.getmembers():
+            if re.search("serial[_]?", f.name) is not None:
+                archive.extract(f, tempdir)
+                _serial_service_file = "%s/%s" % (tempdir, f.name)
+                logger.debug("Found serial service file in test archive.")
+                break
+        archive.close()
+        if _serial_service_file is None:
+            msg =  "Serial service file could not be found in archive %s, removing link measurement." % archive_path
+            cur.execute("DELETE FROM `tbl_serv_link_measurements` WHERE `test_fk` = %s" % testid)
+            logger.error(msg)
+            errors.append(msg)
+            return errors
+        # Run evaluation script
         logger.debug("Evaluating link measurements.")
-        cmd = [flocklab.config.get('dispatcher', 'testtolinkmapscript')]
-        p = subprocess.Popen(cmd)
-        rs = p.wait()
+        cmd = [flocklab.config.get('dispatcher', 'linktestevalscript'), _serial_service_file]
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        out, err = p.communicate()
+        rs = p.returncode
         if rs != flocklab.SUCCESS:
-            msg = "Error %s returned from testtolinkmap script" % str(rs)
+            msg = "Linktest eval script returned with an error:\n%s" % str(out.strip())
             logger.error(msg)
             errors.append(msg)
         else:
             logger.debug("Link measurement evaluations finished.")
+            # Get platform info
+            sql = """SELECT `c`.`platforms_fk`, `d`.`name` FROM `tbl_serv_tests` as `a`
+                        LEFT JOIN `tbl_serv_map_test_observer_targetimages` as `b` ON (`a`.serv_tests_key = `b`.test_fk) 
+                        LEFT JOIN `tbl_serv_targetimages` AS `c` ON (`b`.`targetimage_fk` = `c`.`serv_targetimages_key`)
+                        LEFT JOIN `tbl_serv_platforms` AS `d` ON (`c`.`platforms_fk` = `d`.`serv_platforms_key`)
+                     WHERE `a`.serv_tests_key = %s LIMIT 1"""
+            cur.execute(sql % str(testid))
+            ret = cur.fetchone()
+            if not ret:
+                msg = "Could not determine platform for test %d" % testid
+                logger.error(msg)
+                errors.append(msg)
+            else:
+                platform_fk   = ret[0]
+                platform_name = ret[1]
+            # Load the results
+            resultspath = os.path.realpath("data")     # TODO remove hardcoded path
+            resultsfile = os.path.join(resultspath, "linktest_map.html")
+            if not os.path.isfile(resultsfile):
+                msg = "Linktest results file %s not found." % (resultsfile)
+                logger.error(msg)
+                errors.append(msg)
+            else:
+                resultsdata = ""
+                with open(resultsfile, 'r') as rf:
+                    resultsdata = rf.read()
+                    z = re.findall("<body>(.*)</body>", resultsdata, re.MULTILINE | re.DOTALL)
+                    if z:
+                        resultsdata = z[0]
+                # Store results in DB
+                logger.debug("Storing XML file in DB...")
+                cur.execute("DELETE FROM `tbl_serv_link_measurements` WHERE `test_fk`=%s" % str(testid))
+                cur.execute("INSERT INTO `tbl_serv_link_measurements` (`test_fk`, `platform_fk`, `begin`, `radio_cfg`, `links`) VALUES (%s, %s, %s, %s, %s)", ((str(testid), platform_fk, teststarttime, '', resultsdata)))
+            # Remove the temporary files
+            if os.path.isdir(resultspath):
+                shutil.rmtree(resultspath)
     return errors
-### END evalute_linkmeasurement()
+### END evaluate_linkmeasurement()
 
 
 ##############################################################################
@@ -1430,9 +1497,10 @@ def main(argv):
         for e in err:
             errors.append(e)
         # Evaluate link measurement:
-        #err = evalute_linkmeasurement(testid, cur)
-        #for e in err:
-        #    errors.append(e)
+        err = evaluate_linkmeasurement(testid, cur)
+        cn.commit()
+        for e in err:
+            errors.append(e)
         if len(errors) == 0:
             status = 'finished'
     

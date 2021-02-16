@@ -1020,101 +1020,62 @@ def is_test_running(cursor=None):
 #
 ##############################################################################
 def schedule_linktest(cur, cn, debug=False):
-    global config, logger
     # Check the arguments:
     if not config or not logger or ((type(cur) != MySQLdb.cursors.Cursor) or (type(cn) != MySQLdb.connections.Connection)):
         return FAILED
     
-    sql = "SELECT TIMESTAMPDIFF(MINUTE, `begin`, NOW()) AS `last` FROM `tbl_serv_web_link_measurements` ORDER BY `last` ASC LIMIT 1"
+    sql = "SELECT TIMESTAMPDIFF(MINUTE, `begin`, NOW()) AS `last` FROM `tbl_serv_link_measurements` ORDER BY `last` ASC LIMIT 1"
     cur.execute(sql)
     rs = cur.fetchone()
-    if rs:
+    if not rs:
+        logger.debug("No link measurements found.")
+        lasttest = 60 * config.getint("linktests", "interval_hours") * 2    # any number > (interval_hours + interval_random_minutes) will do
+    else:
         lasttest = int(rs[0])
-        logger.debug("Last link measurement was %s minutes ago."%(lasttest))
-        nexttest = 60 * config.getint("linktests", "interval_hours") + random.randint(-config.getint("linktests", "interval_random_minutes"), config.getint("linktests", "interval_random_minutes"))
-        
-        if lasttest >= nexttest:
+        logger.debug("Last link measurement was %s minutes ago." % (lasttest))
+    
+    nexttest = 60 * config.getint("linktests", "interval_hours") + random.randint(-config.getint("linktests", "interval_random_minutes"), config.getint("linktests", "interval_random_minutes"))
+    if lasttest >= nexttest:
+        # Schedule new tests
+        # Check if the lockfile is present:
+        lockfile = config.get("linktests", "lockfile")
+        if os.path.exists(lockfile):
+            logger.debug("Lockfile %s exists already. Skip adding new linktests." % lockfile)
+            # If the last scheduled link tests are a long time ago, generate a warning since it may be that the lockfile was not deleted for whatever reason:
+            if lasttest > 2 * nexttest:
+                logger.error("Lockfile %s exists and the last linktest was %d min ago (interval is %d min)." % (lockfile, lasttest, config.getint("linktests", "interval_hours")))
+        else:
+            # Create the lockfile:
+            basedir = os.path.dirname(lockfile)
+            if not os.path.exists(basedir):
+                os.makedirs(basedir)
+            open(lockfile, 'a').close()
+            logger.debug("Touched lockfile %s" % lockfile)
+            
             # Schedule new tests
-            # Check if the lockfile is present:
-            lockfile = config.get("linktests", "lockfile")
-            if os.path.exists(lockfile):
-                logger.debug("Lockfile %s exists already. Skip adding new linktests.")
-                # If the last scheduled link tests are a long time ago, generate a warning since it may be that the lockfile was not deleted for whatever reason:
-                if lasttest > 2*nexttest:
-                    logger.error("Lockfile %s exists and the last linktest was %d min ago (interval is %d min)"%(lockfile, lasttest, config.getint("linktests", "interval_hours")))
-            else:
-                # Create the lockfile:
-                basedir = os.path.dirname(lockfile)
-                if not os.path.exists(basedir):
-                    os.makedirs(basedir)
-                open(lockfile, 'a').close()
-                logger.debug("Touched lockfile %s"%lockfile)
-                
-                # Schedule new tests
-                logger.debug("Schedule new link measurements")
-                listing = os.listdir(config.get("linktests", "testfolder"))
-                for linktestfile in listing:
-                    if re.search("\.xml$", os.path.basename(linktestfile)) is not None:
-                        # read platform
-                        parser = lxml.etree.XMLParser(remove_comments=True)
-                        tree = lxml.etree.parse("%s/%s" % (config.get("linktests", "testfolder"),linktestfile), parser)
-                        ns = {'d': config.get('xml', 'namespace')}
-                        pl = tree.xpath('//d:platform', namespaces=ns)
-                        platform = pl[0].text.strip()
-                        # get available observers with that platform from DB
-                        sql = """SELECT LPAD(obs.observer_id, 3, '0') as obsid
-                                FROM `flocklab`.`tbl_serv_observer` AS obs 
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_list` AS a ON obs.slot_1_tg_adapt_list_fk = a.serv_tg_adapt_list_key 
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_types` AS slot1 ON a.tg_adapt_types_fk = slot1.serv_tg_adapt_types_key
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_list` AS b ON obs.slot_2_tg_adapt_list_fk = b.serv_tg_adapt_list_key 
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_types` AS slot2 ON b.tg_adapt_types_fk = slot2.serv_tg_adapt_types_key
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_list` AS c ON obs.slot_3_tg_adapt_list_fk = c.serv_tg_adapt_list_key 
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_types` AS slot3 ON c.tg_adapt_types_fk = slot3.serv_tg_adapt_types_key
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_list` AS d ON obs.slot_4_tg_adapt_list_fk = d.serv_tg_adapt_list_key 
-                                LEFT JOIN `flocklab`.`tbl_serv_tg_adapt_types` AS slot4 ON d.tg_adapt_types_fk = slot4.serv_tg_adapt_types_key
-                                WHERE
-                                obs.status = 'online' AND (
-                                LOWER(slot1.name) = LOWER('%s') OR
-                                LOWER(slot2.name) = LOWER('%s') OR
-                                LOWER(slot3.name) = LOWER('%s') OR
-                                LOWER(slot4.name) = LOWER('%s'))
-                                ORDER BY obs.observer_id""" % (platform,platform,platform,platform)
+            logger.debug("Schedule new link measurements")
+            listing = os.listdir(config.get("linktests", "testfolder"))
+            for linktestfile in listing:
+                if re.search("\.xml$", os.path.basename(linktestfile)) is not None:
+                    logger.info("Adding link test '%s'." % linktestfile)
+                    cmd = [config.get("linktests", "starttest_script"), '-c', "%s" % os.path.join(config.get("linktests", "testfolder"), linktestfile)]
+                    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, cwd=os.path.dirname(config.get("linktests", "starttest_script")))
+                    out, err = p.communicate()
+                    rs = p.wait()
+                    testid = re.search("Test ID: ([0-9]*)",out)
+                    if (testid is None) | (rs != SUCCESS):
+                        logger.error("Could not register link test %s (%s)" % (linktestfile, err.strip()))
+                    else:
+                        # flag in db
+                        sql = "INSERT INTO `tbl_serv_link_measurements` (test_fk, begin, platform_fk, links, radio_cfg) \
+                            SELECT %s, NOW(), serv_platforms_key, NULL, '' from tbl_serv_platforms WHERE serv_platforms_key = (SELECT `b`.platforms_fk FROM \
+                            flocklab.tbl_serv_map_test_observer_targetimages as `a` left join \
+                            flocklab.tbl_serv_targetimages as `b` ON (a.targetimage_fk = b.serv_targetimages_key) WHERE `a`.test_fk=%s ORDER BY serv_platforms_key LIMIT 1)" % (testid.group(1), testid.group(1))
                         cur.execute(sql)
-                        ret = cur.fetchall()
-                        if not ret:
-                            logger.info("Target platform %s not available, skipping link test." % platform)
-                            continue
-                        logger.debug("Observers with platform %s: %s" %(platform,' '.join([x[0] for x in ret])))
-                        obsIdTags = tree.xpath('//d:obsIds', namespaces=ns)
-                        for o in obsIdTags:
-                            o.text = ' '.join([x[0] for x in ret])
-                        targetIdTags = tree.xpath('//d:targetIds', namespaces=ns)
-                        for o in targetIdTags:
-                            o.text = ' '.join(map(str,list(range(len(ret)))))
-                        # generate temporary test config
-                        (fd, xmlpath) = tempfile.mkstemp(suffix='.xml')
-                        tree.write(xmlpath, xml_declaration=True, encoding="UTF-8")
-                        logger.info("add link test: %s" % linktestfile)
-                        cmd = [config.get("linktests", "starttest_script"), '-c', "%s" % xmlpath]
-                        
-                        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, cwd=os.path.dirname(config.get("linktests", "starttest_script")))
-                        out, err = p.communicate()
-                        rs = p.wait()
-                        testid = re.search("Test ID: ([0-9]*)",out)
-                        if (testid is None) | (rs != SUCCESS):
-                            logger.error("Could not register link test %s (%s)" % (linktestfile,err))
-                        else:
-                            # flag in db
-                            sql = "INSERT INTO `tbl_serv_web_link_measurements` (test_fk, begin, end, platform_fk, links) \
-                                SELECT %s, NOW(), NOW(), serv_platforms_key, NULL from tbl_serv_platforms WHERE serv_platforms_key = (SELECT `b`.platforms_fk FROM \
-                                flocklab.tbl_serv_map_test_observer_targetimages as `a` left join \
-                                flocklab.tbl_serv_targetimages as `b` ON (a.targetimage_fk = b.serv_targetimages_key) WHERE `a`.test_fk=%s ORDER BY serv_platforms_key LIMIT 1)"% (testid.group(1), testid.group(1))
-                            cur.execute(sql)
-                            cn.commit()
-                        os.remove(xmlpath)
-                # Delete the lockfile:
-                os.remove(lockfile)
-                logger.debug("Removed lockfile %s"%lockfile)
+                        cn.commit()
+            # Delete the lockfile:
+            os.remove(lockfile)
+            logger.debug("Removed lockfile %s" % lockfile)
 ### END schedule_linktest()
 
 

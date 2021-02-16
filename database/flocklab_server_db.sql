@@ -356,22 +356,20 @@ CREATE TABLE `tbl_serv_users` (
 -- Table structure for table `tbl_serv_web_link_measurements`
 --
 
-DROP TABLE IF EXISTS `tbl_serv_web_link_measurements`;
+DROP TABLE IF EXISTS `tbl_serv_link_measurements`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `tbl_serv_web_link_measurements` (
+CREATE TABLE `tbl_serv_link_measurements` (
   `serv_link_measurements_key` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `test_fk` int(10) unsigned DEFAULT NULL,
   `platform_fk` int(10) unsigned NOT NULL,
-  `links` longblob,
   `begin` datetime NOT NULL,
-  `end` datetime NOT NULL,
-  `radio` enum('','RF212','RF230') COLLATE utf8_bin DEFAULT '',
+  `radio_cfg` enum('', 'fsk_868','lora_868') COLLATE utf8_bin,
+  `links` longtext COLLATE utf8_bin,
   PRIMARY KEY (`serv_link_measurements_key`),
   KEY `date_begin` (`begin`),
-  KEY `fk_tbl_serv_web_link_measurements_platforms` (`platform_fk`),
-  KEY `radio` (`radio`),
-  CONSTRAINT `fk_tbl_serv_web_link_measurements_platforms` FOREIGN KEY (`platform_fk`) REFERENCES `tbl_serv_platforms` (`serv_platforms_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
+  KEY `fk_tbl_serv_link_measurements_platforms` (`platform_fk`),
+  CONSTRAINT `fk_tbl_serv_link_measurements_platforms` FOREIGN KEY (`platform_fk`) REFERENCES `tbl_serv_platforms` (`serv_platforms_key`) ON DELETE NO ACTION ON UPDATE NO ACTION
 ) ENGINE=InnoDB AUTO_INCREMENT=13880 DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
