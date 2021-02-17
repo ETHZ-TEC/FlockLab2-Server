@@ -23,9 +23,14 @@ body {
 
 a {
     color: #28549f;
+    text-decoration: none;
 }
 a img {
     border: none;
+}
+
+a:hover {
+    color: #e08e00;
 }
 
 div.header img {
@@ -45,7 +50,7 @@ div.container {
     /* background-image: url(../pics/bg_container.png);*/
     /* background-repeat: repeat-x; */
     border: 0px solid #DDD;
-    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-family: Arial, Helvetica;
     font-size: small;
 }
 
@@ -423,7 +428,7 @@ div.content table.recaptchatable {
 }
 
 #content .ui-widget {
-    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-family: Arial, Helvetica;
     font-size: small;
 }
 

@@ -41,6 +41,24 @@
           WHERE `a`.links IS NOT NULL";
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get link test information from database because: ' . mysqli_error($db));
   
+  if (isset($_POST['action']) && $_POST['action'] == 'dl') {
+    if (isset($_POST['test_id']) && is_numeric($_POST['test_id']) && intval($_POST['test_id']) >= 0) {
+      $sql = "SELECT links FROM `flocklab`.`tbl_serv_link_measurements`
+              WHERE test_fk = ".sprintf("%d", intval($_POST['test_id']));
+      $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get link test information from database because: ' . mysqli_error($db));
+      if ($rs !== false) {
+        $row = mysqli_fetch_assoc($rs);
+        header("Content-Type: binary/octet-stream");
+        header("Content-Disposition: attachment; filename=\"linktest_".$_POST['test_id'].".pkl\"");
+        echo $row['links'];
+      } else {
+        header("HTTP/1.0 400 Bad Request");
+      }
+      mysqli_close($db);
+    }
+    exit();
+  }
+  
   // get currently used observers
   $platforms = Array();
   while ($row = mysqli_fetch_array($rs)) {
@@ -48,17 +66,19 @@
   }
   
   $linktestdata = "";
-  if (isset($_POST['test_id'])) {
+  if (isset($_POST['test_id']) && is_numeric($_POST['test_id']) && intval($_POST['test_id']) >= 0) {
     // fetch the linktest data
-    $sql = "SELECT links FROM `flocklab`.`tbl_serv_link_measurements`
+    $sql = "SELECT links_html FROM `flocklab`.`tbl_serv_link_measurements`
             WHERE test_fk = ".sprintf("%d", intval($_POST['test_id']));
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get link test information from database because: ' . mysqli_error($db));
     if ($row = mysqli_fetch_array($rs)) {
       $linktestdata = $row[0];
     }
+  } else {
+    $_POST['test_id'] = -1;
   }
   $linktests = Array();
-  if (isset($_POST['platform']) && intval($_POST['platform']) >= 0) {
+  if (isset($_POST['platform']) && is_numeric($_POST['platform']) && intval($_POST['platform']) >= 0) {
     // get a list of all linktest for the specified platform
     $sql = "SELECT a.test_fk, b.name, a.begin, a.radio_cfg FROM `flocklab`.`tbl_serv_link_measurements` AS `a`
             LEFT JOIN tbl_serv_platforms AS `b` ON `a`.platform_fk = `b`.serv_platforms_key
@@ -68,14 +88,12 @@
     while ($row = mysqli_fetch_array($rs)) {
       $linktests[] = array('test_id' => $row[0], 'start_time' => $row[2], 'radio_cfg' => $row[3]);
     }
+  } else {
+    $_POST['platform'] = -1;
   }
   
   mysqli_close($db);
 ?>
-<script type="text/javascript" src="scripts/jquery-ui-1.8.21.custom.min.js"></script>
-<script type="text/javascript" src="scripts/protovis-d3.3.js"></script>
-<script type="text/javascript" src="scripts/flocklab-observer-positions.js"></script>
-<script type="text/javascript" src="scripts/jquery.cookie.js"></script>
 <h1>Link Tests</h1>
 <form>
 <table>
@@ -117,9 +135,20 @@
     </tr>
   </tbody>
 </table>
+<table>
+  <tr>
+    <td>
+<?php
+  if ($_POST['test_id'] >= 0) {
+    echo "<a href=# onclick='$(document.selecttest.action).val(\"dl\");document.selecttest.submit()'>Download test results in a machine-readable format (pickle).</a>";
+  }
+?>
+    </td>
+  </tr>
+</table>
 </form>
 <?php
-  echo '<form name="selecttest" method="post" action="'.$_SERVER['PHP_SELF'].'"><input type="hidden" name="platform" value="'.$_POST['platform'].'"><input type="hidden" name="test_id" value="'.$_POST['test_id'].'"></form>';
+  echo '<form name="selecttest" method="post" action="'.$_SERVER['PHP_SELF'].'"><input type="hidden" name="platform" value="'.$_POST['platform'].'"><input type="hidden" name="test_id" value="'.$_POST['test_id'].'"><input type="hidden" name="action" value=""></form>';
 ?>
   <br />
   <br />

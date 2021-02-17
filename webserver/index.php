@@ -38,7 +38,7 @@
         // hide ui
         if ($(".dlpane").length == 0) {
             $("body").first().prepend('<div class="dlpane" style="position:absolute;margin:0;z-index:10000;width:100%;height:100%;background-color:#000;opacity:0.4;filter:alpha(opacity=40);"><\/div>'+
-            '<div class="dlpane" style="position:absolute;font-family: Verdana, Arial, Helvetica, sans-serif;width:100%;z-index:10001;background-color:gray"><div class="info" style="width:100%"><div style="float:left;"><img height="50" width="50" alt="" src="pics/icons/wait.gif"><\/div>'+
+            '<div class="dlpane" style="position:absolute;font-family: Arial, Helvetica;width:100%;z-index:10001;background-color:gray"><div class="info" style="width:100%"><div style="float:left;"><img height="50" width="50" alt="" src="pics/icons/wait.gif"><\/div>'+
             '<p>Please wait while test results are being fetched (Id '+testid+'). Depending on the amount of data this could take several minutes.. <\/p><\/div><\/div>'
             );
         }
@@ -257,7 +257,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         <th width="100px">Title</th>
                         <th width="150px">Description</th>
                         <th width="35px">IMG</th>
-                        <th width="35px" class='qtip_show' title='State'>State</th>
+                        <th width="40px" class='qtip_show' title='State'>State</th>
                         <th>Start</th>
                         <th>End</th>
                         <th width="80px" class='qtip_show' title='Actions'>Actions</th>

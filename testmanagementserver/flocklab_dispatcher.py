@@ -1080,7 +1080,8 @@ def evaluate_linkmeasurement(testid, cur):
             return errors
         # Run evaluation script
         logger.debug("Evaluating link measurements.")
-        cmd = [flocklab.config.get('dispatcher', 'linktestevalscript'), _serial_service_file]
+        tempdir = tempfile.mkdtemp()
+        cmd = [flocklab.config.get('dispatcher', 'linktestevalscript'), _serial_service_file, tempdir]       # arguments are input file and output directory
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         out, err = p.communicate()
         rs = p.returncode
@@ -1089,14 +1090,17 @@ def evaluate_linkmeasurement(testid, cur):
             logger.error(msg)
             errors.append(msg)
         else:
+            logger.debug(out)
             logger.debug("Link measurement evaluations finished.")
             # Get platform info
-            sql = """SELECT `c`.`platforms_fk`, `d`.`name` FROM `tbl_serv_tests` as `a`
-                        LEFT JOIN `tbl_serv_map_test_observer_targetimages` as `b` ON (`a`.serv_tests_key = `b`.test_fk) 
-                        LEFT JOIN `tbl_serv_targetimages` AS `c` ON (`b`.`targetimage_fk` = `c`.`serv_targetimages_key`)
-                        LEFT JOIN `tbl_serv_platforms` AS `d` ON (`c`.`platforms_fk` = `d`.`serv_platforms_key`)
-                     WHERE `a`.serv_tests_key = %s LIMIT 1"""
-            cur.execute(sql % str(testid))
+            sql = """
+                  SELECT `c`.`platforms_fk`, `d`.`name` FROM `tbl_serv_tests` as `a`
+                    LEFT JOIN `tbl_serv_map_test_observer_targetimages` as `b` ON (`a`.serv_tests_key = `b`.test_fk)
+                    LEFT JOIN `tbl_serv_targetimages` AS `c` ON (`b`.`targetimage_fk` = `c`.`serv_targetimages_key`)
+                    LEFT JOIN `tbl_serv_platforms` AS `d` ON (`c`.`platforms_fk` = `d`.`serv_platforms_key`)
+                  WHERE `a`.serv_tests_key = %s LIMIT 1
+                  """ % str(testid)
+            cur.execute(sql)
             ret = cur.fetchone()
             if not ret:
                 msg = "Could not determine platform for test %d" % testid
@@ -1106,26 +1110,23 @@ def evaluate_linkmeasurement(testid, cur):
                 platform_fk   = ret[0]
                 platform_name = ret[1]
             # Load the results
-            resultspath = os.path.realpath("data")     # TODO remove hardcoded path
-            resultsfile = os.path.join(resultspath, "linktest_map.html")
-            if not os.path.isfile(resultsfile):
-                msg = "Linktest results file %s not found." % (resultsfile)
+            resultsfile_html = os.path.join(tempdir, "linktest_map.html")
+            resultsfile_data = os.path.join(tempdir, "linktest_data.pkl")
+            if not os.path.isfile(resultsfile_html) or not os.path.isfile(resultsfile_data):
+                msg = "Linktest results file %s or %s not found." % (resultsfile_html, resultsfile_data)
                 logger.error(msg)
                 errors.append(msg)
             else:
-                resultsdata = ""
-                with open(resultsfile, 'r') as rf:
-                    resultsdata = rf.read()
-                    z = re.findall("<body>(.*)</body>", resultsdata, re.MULTILINE | re.DOTALL)
-                    if z:
-                        resultsdata = z[0]
+                resultshtml = ""
+                with open(resultsfile_html, 'r') as f:
+                    resultshtml = f.read()
+                resultsdata = None
+                with open(resultsfile_data, 'rb') as f:
+                    resultsdata = f.read()
                 # Store results in DB
                 logger.debug("Storing XML file in DB...")
                 cur.execute("DELETE FROM `tbl_serv_link_measurements` WHERE `test_fk`=%s" % str(testid))
-                cur.execute("INSERT INTO `tbl_serv_link_measurements` (`test_fk`, `platform_fk`, `begin`, `radio_cfg`, `links`) VALUES (%s, %s, %s, %s, %s)", ((str(testid), platform_fk, teststarttime, '', resultsdata)))
-            # Remove the temporary files
-            if os.path.isdir(resultspath):
-                shutil.rmtree(resultspath)
+                cur.execute("INSERT INTO `tbl_serv_link_measurements` (`test_fk`, `platform_fk`, `begin`, `radio_cfg`, `links`, `links_html`) VALUES (%s, %s, %s, %s, %s, %s)", (str(testid), platform_fk, teststarttime, '', resultsdata, resultshtml))
     return errors
 ### END evaluate_linkmeasurement()
 

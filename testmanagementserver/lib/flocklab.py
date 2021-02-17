@@ -1067,10 +1067,12 @@ def schedule_linktest(cur, cn, debug=False):
                         logger.error("Could not register link test %s (%s)" % (linktestfile, err.strip()))
                     else:
                         # flag in db
-                        sql = "INSERT INTO `tbl_serv_link_measurements` (test_fk, begin, platform_fk, links, radio_cfg) \
-                            SELECT %s, NOW(), serv_platforms_key, NULL, '' from tbl_serv_platforms WHERE serv_platforms_key = (SELECT `b`.platforms_fk FROM \
-                            flocklab.tbl_serv_map_test_observer_targetimages as `a` left join \
-                            flocklab.tbl_serv_targetimages as `b` ON (a.targetimage_fk = b.serv_targetimages_key) WHERE `a`.test_fk=%s ORDER BY serv_platforms_key LIMIT 1)" % (testid.group(1), testid.group(1))
+                        sql = """
+                              INSERT INTO `tbl_serv_link_measurements` (test_fk, begin, platform_fk, radio_cfg)
+                              SELECT %s, NOW(), serv_platforms_key, '' from tbl_serv_platforms WHERE serv_platforms_key = (SELECT `b`.platforms_fk FROM
+                              flocklab.tbl_serv_map_test_observer_targetimages as `a` left join
+                              flocklab.tbl_serv_targetimages as `b` ON (a.targetimage_fk = b.serv_targetimages_key) WHERE `a`.test_fk=%s ORDER BY serv_platforms_key LIMIT 1)
+                              """ % (testid.group(1), testid.group(1))
                         cur.execute(sql)
                         cn.commit()
             # Delete the lockfile:
