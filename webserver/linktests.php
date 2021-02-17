@@ -135,6 +135,7 @@
     </tr>
   </tbody>
 </table>
+<div id="linktest">
 <table>
   <tr>
     <td>
@@ -152,7 +153,6 @@
 ?>
   <br />
   <br />
-<div id="linktest">
 <?php
   echo $linktestdata;
 ?>

@@ -284,7 +284,7 @@ a.fc-event {
     
 a.fc-event,
 .fc-event-draggable {
-    cursor: pointer;
+    /* cursor: pointer;*/
     }
     
 .fc-rtl .fc-event {

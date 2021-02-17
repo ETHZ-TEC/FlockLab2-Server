@@ -29,10 +29,6 @@ a img {
     border: none;
 }
 
-a:hover {
-    color: #e08e00;
-}
-
 div.header img {
     vertical-align: middle;
     border: 0px none;
@@ -521,13 +517,18 @@ form td:hover {
     background-color: #FFFFFF;
     color: #333;
     overflow: visible;
-    padding: 3px;
+    padding: 3px 2px 3px 2px;
 }
 
 #linktest td {
-    padding: 3px;
+    text-align: center;
+    padding: 3px 2px 3px 3px;
 }
 
 #linktest td:hover {
     background-color: #FFFFFF;
+}
+
+#linktest a:hover {
+    color: #e08e00;
 }
