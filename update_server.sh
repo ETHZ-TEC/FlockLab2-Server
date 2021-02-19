@@ -73,7 +73,7 @@ RES=$(rsync ${RSYNCPARAMS} -i --dry-run -e 'ssh -q' webserver/ ${USER}@${HOST}:w
 if [ -z "$RES" ]; then
     echo "Webserver files are up to date."
 else
-    printf "Updating webserver files..."
+    printf "Updating webserver files... "
     rsync ${RSYNCPARAMS} -e 'ssh -q' webserver/ ${USER}@${HOST}:webserver
     if [ $? -ne 0 ]; then
         printf "failed to copy repository files!\n"

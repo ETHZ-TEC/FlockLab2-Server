@@ -89,7 +89,7 @@ class StopTestThread(threading.Thread):
             if (rs != 0):
                 if (rs == 1):
                     if ("No such file or directory" in err):
-                        msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test." % (self._obsdict_key[self._obskey][1])
+                        msg = "SD card on observer ID %s is not mounted." % (self._obsdict_key[self._obskey][1])
                     else:
                         msg = "Observer ID %s is not reachable (returned %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
                 else:
@@ -181,11 +181,11 @@ class StartTestThread(threading.Thread):
             if (rs != 0):
                 if (rs == 1):
                     if ("No such file or directory" in err):
-                        msg = "SD card on observer ID %s is not mounted, observer will thus be omitted for this test." % (self._obsdict_key[self._obskey][1])
+                        msg = "SD card on observer ID %s is not mounted (observer will thus be omitted for this test)." % (self._obsdict_key[self._obskey][1])
                     else:
-                        msg = "Observer ID %s is not reachable, it will thus be omitted for this test (returned: %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
+                        msg = "Observer ID %s is not reachable and will thus be omitted for this test (returned: %d: %s, %s)." % (self._obsdict_key[self._obskey][1], rs, out, err)
                 else:
-                    msg = "Observer ID %s is not responsive, it will thus be omitted for this test (SSH returned %d). Command: %s" % (self._obsdict_key[self._obskey][1], rs, " ".join(cmd))
+                    msg = "Observer ID %s is not responsive and will thus be omitted for this test (SSH returned %d)." % (self._obsdict_key[self._obskey][1], rs)
                 errors.append((msg, errno.EHOSTUNREACH, self._obsdict_key[self._obskey][1]))
                 logger.error(msg)
             else:
@@ -260,6 +260,28 @@ class StartTestThread(threading.Thread):
 ### END StartTestThread
 
 
+##############################################################################
+#
+# write_to_error_log      write into the error log file that is passed to the user together with the test results
+#
+##############################################################################
+def write_to_error_log(testid, obsid, message):
+    if not isinstance(testid, int):
+        return
+    testresultsdir = "%s/%d" %(flocklab.config.get('fetcher', 'testresults_dir'), testid)
+    if not os.path.exists(testresultsdir):
+        os.makedirs(testresultsdir)
+        logger.debug("Created %s" % testresultsdir)
+    errorlogfilename = "%s/errorlog.csv" % (testresultsdir)
+    writeheader      = False
+    if not os.path.isfile(errorlogfilename):
+        writeheader  = True
+    with open("%s/errorlog.csv" % (testresultsdir), "a") as errorlog:
+        if writeheader:
+            errorlog.write('timestamp,observer_id,message\n')
+        errorlog.write("%.3f,%s,%s\n" % (time.time(), str(obsid), message))
+        errorlog.close()
+
 
 ##############################################################################
 #
@@ -269,8 +291,9 @@ class StartTestThread(threading.Thread):
 def start_test(testid, cur, cn, obsdict_key, obsdict_id):
     errors = []
     warnings = []
+    abortOnError = False
     
-    try:    
+    try:
         logger.debug("Entering start_test() function...")
         # First, validate the XML file again. If validation fails, return immediately:
         cmd = [flocklab.config.get('dispatcher','validationscript'), '--testid=%d' % testid]
@@ -424,6 +447,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     xmldict_key[obs_key] = (xmlpath, xmlfhand)
                     xmlfhand.write('<?xml version="1.0" encoding="UTF-8"?>\n\n<obsConf>\n\n')
                 # Go through the blocks of the XML file and write the configs to the affected observer XML configs:
+                # generalConf ---
+                ret = tree.xpath('//d:generalConf/d:abortOnError', namespaces=ns)
+                if ret and ret[0].text.lower() == 'yes':
+                    abortOnError = True
                 # targetConf ---
                 targetconfs = tree.xpath('//d:targetConf', namespaces=ns)
                 if not targetconfs:
@@ -455,7 +482,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                 xmldict_key[obskey][1].write("\t<image core=\"%d\">%s/%d/%s</image>\n" % (coreimage[3], flocklab.config.get("observer", "testconfigfolder"),testid, os.path.basename(coreimage[0])))
                             xmldict_key[obskey][1].write("\t<slotnr>%s</slotnr>\n" % (imagedict_key[obskey][0][1]))
                             xmldict_key[obskey][1].write("\t<platform>%s</platform>\n" % (imagedict_key[obskey][0][2]))
-                            xmldict_key[obskey][1].write("\t<os>%s</os>\n" % (imagedict_key[obskey][0][2]))
+                            if abortOnError:
+                                # what to do if one of the services fails to start
+                                xmlblock += "\t<abortOnError>yes</abortOnError>\n"
                             slot = imagedict_key[obskey][0][1]
                         xmldict_key[obskey][1].write("</obsTargetConf>\n\n")
                         #logger.debug("Wrote obsTargetConf XML for observer ID %s" %obsid)
@@ -484,7 +513,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         cpuspeed = srconf.xpath('d:cpuSpeed', namespaces=ns)
                         if cpuspeed:
                             cpuspeed = cpuspeed[0].text.strip()
-                            xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuspeed
+                        else:
+                            cpuSpeed = flocklab.config.get("observer", "datatrace_cpuspeed")      # use default CPU speed
+                        xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuspeed
                         xmlblock += "</obsSerialConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)
@@ -506,11 +537,15 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         cpuSpeed = dbgconf.xpath('d:cpuSpeed', namespaces=ns)
                         if cpuSpeed:
                             cpuSpeed = cpuSpeed[0].text.strip()
-                            xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % (cpuSpeed)
+                        else:
+                            cpuSpeed = flocklab.config.get("observer", "datatrace_cpuspeed")      # use default CPU speed
+                        xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % (cpuSpeed)
                         gdbPort = dbgconf.xpath('d:gdbPort', namespaces=ns)
                         if gdbPort:
                             gdbPort = gdbPort[0].text.strip()
                             xmlblock += "\t<gdbPort>%s</gdbPort>\n" % (gdbPort)
+                        xmlblock += "\t<prescaler>%s</prescaler>\n" % flocklab.config.get("observer", "datatrace_prescaler")
+                        xmlblock += "\t<loopDelay>%s</loopDelay>\n" % flocklab.config.get("observer", "datatrace_loopdelay")
                         dwtconfs = dbgconf.xpath('d:dataTraceConf', namespaces=ns)
                         for dwtconf in dwtconfs:
                             var  = dwtconf.xpath('d:variable', namespaces=ns)[0].text.strip()
@@ -700,9 +735,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                     #logger.error("Error from test start thread for observer %s: %s" %(str(err[2]), str(err[0])))
                     obs_error.append(err[2])
                     warnings.append(err[0])
+                    write_to_error_log(testid, err[2], err[0])
             if len(obs_error) > 0:
                 # Abort or continue?
-                if not flocklab.config.get("dispatcher", "continue_on_error"):
+                if abortOnError or not flocklab.config.get("dispatcher", "continue_on_error"):
                     msg = "At least one observer failed to start the test, going to abort..."
                     errors.append(msg)
                     logger.error(msg)
@@ -724,7 +760,11 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 rs = p.wait()
                 if (rs != 0):
                     msg = "Serial proxy for test ID %d could not be started (error code %d)." % (testid, rs)
-                    errors.append(msg)
+                    if abortOnError:
+                        errors.append(msg)
+                    else:
+                        warnings.append(msg)
+                        write_to_error_log(testid, 0, msg)
                     logger.error(msg)
                     logger.debug("Executed command was: %s" % (str(cmd)))
                 else:
@@ -1284,7 +1324,7 @@ def main(argv):
         cn.commit()
         if len(errors) != 0:
             # Test start failed. Make it abort:
-            logger.warning("Going to abort test because of errors when trying to start it.")
+            logger.error("Going to abort test because of errors when trying to start it.")
             abort = True
         # Inform user:
         ret = inform_user(testid, cur, action, errors, warnings)

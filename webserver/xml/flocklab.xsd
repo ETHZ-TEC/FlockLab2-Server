@@ -116,6 +116,13 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:element>
+    <xs:element name="abortOnError" minOccurs="0" default="no">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="yes|no"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:element>
   </xs:sequence>
 </xs:complexType>
 

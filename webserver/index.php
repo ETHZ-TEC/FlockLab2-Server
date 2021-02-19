@@ -256,7 +256,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         <th width="35px">ID</th>
                         <th width="100px">Title</th>
                         <th width="150px">Description</th>
-                        <th width="30px">IMG</th>
+                        <th width="35px">IMG</th>
                         <th width="35px" class='qtip_show' title='State'>State</th>
                         <th>Start</th>
                         <th>End</th>

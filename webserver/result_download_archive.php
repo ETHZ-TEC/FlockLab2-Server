@@ -39,7 +39,7 @@
         // check file
         $archivepath =  $CONFIG['testmanagementserver']['archivedir'];
         $archive = 
-        $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls -l ".$archivepath.'/'.$testid.".tar.gz\"";
+        $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"ls -l ".$archivepath.'/'.$testid.".tar.gz\"";
         exec($cmd , $output, $ret);
         if ($ret > 0) {
             echo json_encode(array('status'=>'error', 'output'=>'data not available'));
@@ -58,7 +58,7 @@
                 echo json_encode(array('status'=>'success', 'testid'=>$testid));
                 exit();
              }
-            $cmd = "ssh ".$CONFIG['testmanagementserver']['sshflags']." ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"cat ".$archivepath.'/'.$testid.".tar.gz\"";
+            $cmd = "ssh ".$CONFIG['testmanagementserver']['user']."@".$CONFIG['testmanagementserver']['host']." \"cat ".$archivepath.'/'.$testid.".tar.gz\"";
             $stream = popen($cmd, "r");
             // Send the file to the user's browser:
             header("Content-Type: application/x-gzip");
