@@ -1090,7 +1090,7 @@ def main(argv):
                 if tree.xpath('//d:debugConf', namespaces=ns):
                     for debugConf in tree.xpath('//d:debugConf', namespaces=ns):
                         # print(lxml.etree.tostring(debugConf, pretty_print=True).decode()) # DEBUG
-                        obsList = [int(obsIdStr) for obsIdStr in debugConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split(' ')]
+                        obsList = [int(obsIdStr) for obsIdStr in debugConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split()]
                         cpuSpeedTmp = debugConf.xpath('.//d:cpuSpeed', namespaces=ns)
                         if cpuSpeedTmp:
                             cpuSpeed = int(cpuSpeedTmp[0].text)
