@@ -477,11 +477,18 @@ def worker_datatrace(queueitem=None, nodeid=None, resultfile_path=None, resultfi
         ## parse the file
         # first line of the log file contains the variable names
         varnames = ""
+
+        cpuSpeed = None
+        if arg:
+            cpuSpeed = arg
+        else:
+            raise Exception('A datatrace error occurred: cpuSpeed not provided!')
+
         with open(input_filename, "r") as f:
             varnames = f.readline().strip().split()[:-1] # ignore last element (sleep_overhead value)
         try:
             # process raw datatrace log (parse & apply time correction)
-            dfData, dfLocalTs, dfOverflow, dfError = dwt.processDatatraceOutput(input_filename)
+            dfData, dfLocalTs, dfOverflow, dfError = dwt.processDatatraceOutput(input_filename, cpuSpeed)
         except Exception as e:
             write_to_error_log('{}'.format(time.time()), obsid, 'A datatrace error occurred when processing raw output ({}). Potential cause: SWO/CPU speed mismatch (see cpuSpeed tag in xml config) or target did not start properly.'.format(e))
         else:
@@ -1070,12 +1077,29 @@ def main(argv):
                 else:
                     servicesUsed_dict[service] = False
             # check which file format the user wants for the power profiling
+            # NOTE: This implementation assumes that the same file format is configured for all observers. In case multiple powerProfilingConf blocks with differing file formats are present, the file format found first will be used.
             if servicesUsed_dict['powerprofiling']:
                 if tree.xpath('//d:powerProfilingConf/d:fileFormat', namespaces=ns):
                     ppFileFormat = tree.xpath('//d:powerProfilingConf/d:fileFormat', namespaces=ns)[0].text
                     logger.debug("User wants file format %s for power profiling." % (ppFileFormat))
                 else:
                     logger.debug("Element <fileFormat> not detected.")
+            # extract cpuSpeed for datatracing (for all observer configured for datatracing)
+            dtCpuSpeed = {}
+            if servicesUsed_dict['datatrace']:
+                if tree.xpath('//d:debugConf', namespaces=ns):
+                    for debugConf in tree.xpath('//d:debugConf', namespaces=ns):
+                        # print(lxml.etree.tostring(debugConf, pretty_print=True).decode()) # DEBUG
+                        obsList = [int(obsIdStr) for obsIdStr in debugConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split(' ')]
+                        cpuSpeedTmp = debugConf.xpath('.//d:cpuSpeed', namespaces=ns)
+                        if cpuSpeedTmp:
+                            cpuSpeed = int(cpuSpeedTmp[0].text)
+                        else:
+                            cpuSpeed = flocklab.config.getint("observer", "datatrace_cpuspeed")
+                        for obsId in obsList:
+                            dtCpuSpeed[obsId] = cpuSpeed
+                if len(dtCpuSpeed) == 0:
+                    logger.debug("Element <cpuSpeed> not detected.")
         except:
             msg = "XML parsing failed: %s: %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]))
             errors.append(msg)
@@ -1262,7 +1286,7 @@ def main(argv):
                 worker_f    = worker_serial
             elif (re.search("^datatrace_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['datatrace']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['datatrace'][0], testresultsfile_dict['datatrace'][1], logqueue, None]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['datatrace'][0], testresultsfile_dict['datatrace'][1], logqueue, dtCpuSpeed[obsid]]
                 worker_f    = worker_datatrace
             elif (re.search("^error_[0-9]{14}\.log$", f) != None):
                 pool        = service_pools_dict['logs']
