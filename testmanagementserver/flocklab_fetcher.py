@@ -1077,7 +1077,7 @@ def main(argv):
                 else:
                     servicesUsed_dict[service] = False
             # check which file format the user wants for the power profiling
-            # FIXME: this implementation assumes that the same file format is configured for all observers but this does not hold in general since there can be multiple powerProfilingConf blocks
+            # NOTE: This implementation assumes that the same file format is configured for all observers. In case multiple powerProfilingConf blocks with differing file formats are present, the file format found first will be used.
             if servicesUsed_dict['powerprofiling']:
                 if tree.xpath('//d:powerProfilingConf/d:fileFormat', namespaces=ns):
                     ppFileFormat = tree.xpath('//d:powerProfilingConf/d:fileFormat', namespaces=ns)[0].text
@@ -1091,7 +1091,11 @@ def main(argv):
                     for debugConf in tree.xpath('//d:debugConf', namespaces=ns):
                         # print(lxml.etree.tostring(debugConf, pretty_print=True).decode()) # DEBUG
                         obsList = [int(obsIdStr) for obsIdStr in debugConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split(' ')]
-                        cpuSpeed = int(debugConf.xpath('.//d:cpuSpeed', namespaces=ns)[0].text)
+                        cpuSpeedTmp = debugConf.xpath('.//d:cpuSpeed', namespaces=ns)
+                        if cpuSpeedTmp:
+                            cpuSpeed = int(cpuSpeedTmp[0].text)
+                        else:
+                            cpuSpeed = flocklab.config.getint("observer", "datatrace_cpuspeed")
                         for obsId in obsList:
                             dtCpuSpeed[obsId] = cpuSpeed
                 if len(dtCpuSpeed) == 0:
