@@ -54,7 +54,7 @@ FILTER_THRESHOLD                    = 0.15      # Threshold for percentage of fi
 RESIDUAL_UNFILTERED_THRESHOLD       = 0.300     # Threshold for residuals magnitude to producing error (in seconds)
 
 # time correction
-DT_FIXED_OFFSET_ADDITIONAL          = 0.1e-3    # mean offset in addition to half of loop delay
+DT_FIXED_OFFSET_ADDITIONAL          = 0.0e-3    # mean offset in addition to half of loop delay
 
 # time correction based on Linux platform
 # old platform: 4.14.108-ti-r124
