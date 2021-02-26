@@ -1262,7 +1262,7 @@ def main(argv):
             else: # type is ITEM_PROCESSED
                 nextitem = workmanager.done(item)
             if nextitem is None:
-                logger.debug(loggerprefix + "Next item is None.")
+                #logger.debug(loggerprefix + "Next item is None.")
                 continue
             (itemtype, obsid, fdir, f, workerstate) = nextitem
             #logger.debug(loggerprefix + "Next item is %s/%s (Obs%s)." % (fdir, f, str(obsid)))

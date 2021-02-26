@@ -35,6 +35,16 @@
   require_once('include/layout.php');
   require_once('include/presets.php');
   
+  if (isset($_GET['action']) && !isset($_POST['action'])) {
+    $_POST['action'] = $_GET['action'];
+  }
+  if (isset($_GET['test_id']) && !isset($_POST['test_id'])) {
+    $_POST['test_id'] = $_GET['test_id'];
+  }
+  if (isset($_GET['platform']) && !isset($_POST['platform'])) {
+    $_POST['platform'] = $_GET['platform'];
+  }
+  
   $db = db_connect();
   $sql = "SELECT DISTINCT a.platform_fk, b.name FROM `flocklab`.`tbl_serv_link_measurements` AS `a`
           LEFT JOIN tbl_serv_platforms AS `b` ON `a`.platform_fk = `b`.serv_platforms_key
@@ -82,7 +92,7 @@
     // get a list of all linktest for the specified platform
     $sql = "SELECT a.test_fk, b.name, a.begin, a.radio_cfg FROM `flocklab`.`tbl_serv_link_measurements` AS `a`
             LEFT JOIN tbl_serv_platforms AS `b` ON `a`.platform_fk = `b`.serv_platforms_key
-            WHERE `a`.links IS NOT NULL
+            WHERE `a`.links IS NOT NULL and `a`.platform_fk = ".sprintf("%d", intval($_POST['platform']))."
             ORDER BY serv_link_measurements_key DESC";
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get link test information from database because: ' . mysqli_error($db));
     while ($row = mysqli_fetch_array($rs)) {
