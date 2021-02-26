@@ -79,6 +79,7 @@ div.content table {
     border-width: 0px;
     /* min-width: 700px;*/
     /*border-collapse: collapse;*/
+    border-spacing: 0px;
 }
 
 div.content th, div.content td {
@@ -513,16 +514,26 @@ form td:hover {
     /* display: none; */
 }
 
+#linktest table, tbody {
+    border-spacing: 0px;
+    border-collapse: collapse;
+    padding: 0px;
+    border-width: 0px;
+    margin: 0px;
+}
+
 #linktest th {
     background-color: #FFFFFF;
     color: #333;
-    overflow: visible;
-    padding: 3px 2px 3px 2px;
+    padding: 5px 5px 5px 5px;
 }
 
 #linktest td {
     text-align: center;
     padding: 3px 2px 3px 3px;
+    min-width: 20px;
+    border: 1px solid #DDD;
+    border-spacing: 0;
 }
 
 #linktest td:hover {

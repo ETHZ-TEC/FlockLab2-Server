@@ -146,17 +146,13 @@
   </tbody>
 </table>
 <div id="linktest">
-<table>
-  <tr>
-    <td>
+<br />
 <?php
   if ($_POST['test_id'] >= 0) {
-    echo "<a href=# onclick='$(document.selecttest.action).val(\"dl\");document.selecttest.submit()'>Download test results in a machine-readable format (pickle).</a>";
+    echo " &nbsp; <a href=# onclick='$(document.selecttest.action).val(\"dl\");document.selecttest.submit()'>Download test results in a machine-readable format (pickle).</a>";
   }
 ?>
-    </td>
-  </tr>
-</table>
+<br />
 </form>
 <?php
   echo '<form name="selecttest" method="post" action="'.$_SERVER['PHP_SELF'].'"><input type="hidden" name="platform" value="'.$_POST['platform'].'"><input type="hidden" name="test_id" value="'.$_POST['test_id'].'"><input type="hidden" name="action" value=""></form>';

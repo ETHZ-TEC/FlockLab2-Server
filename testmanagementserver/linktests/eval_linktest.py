@@ -230,9 +230,6 @@ def evalSerialLog():
                         <td>{pathloss_html}</td>
                       </tr>
                       <tr>
-                        <td> </td>
-                      </tr>
-                      <tr>
                         <th><br />PRR Matrix</th>
                       </tr>
                       <tr>

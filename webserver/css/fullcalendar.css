@@ -364,7 +364,7 @@ a.fc-event,
 
 table.fc-border-separate {
     border-collapse: separate;
-    border: 1px solid #DDD;
+    border: 0px solid #DDD;
     }
     /*
 .fc-border-separate th,
