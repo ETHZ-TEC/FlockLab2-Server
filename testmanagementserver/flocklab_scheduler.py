@@ -91,8 +91,7 @@ def test_startstopabort(testid=None, abort=False, delay=0):
         logger.debug("Command executed was: %s"%(str(cmd2)))
         rs = errno.EALREADY
     else:
-        if debug:
-            cmd.append('--debug')
+        cmd.append('--debug')
         p = subprocess.Popen(cmd)
         p.wait()
         rs = p.returncode
@@ -235,7 +234,7 @@ def main(argv):
                         flocklab.send_mail(subject="[FlockLab Scheduler] Missed test %d" % (testid), message=msg, recipients=owner_email)
                 else:
                     logger.error("Error %s returned when trying to get test owner information" % str(rs))
-            logger.debug("Updated test status of %d missed tests to 'failed' and informed users." % nmissed)
+            logger.warning("Updated test status of %d missed tests to 'failed' and informed users." % nmissed)
         else:
             logger.debug("No missed tests found.")
         rs = errno.ENODATA
@@ -253,7 +252,7 @@ def main(argv):
             testid = int(test[0])
             dispatcher_pid = flocklab.get_dispatcher_pid(testid)
             if dispatcher_pid != flocklab.FAILED:
-                logger.debug("Telling dispatcher with pid %d to abort test %d (status: %s)." % (dispatcher_pid, testid, test[1]))
+                logger.warning("Telling dispatcher with pid %d to abort test %d (status: %s)." % (dispatcher_pid, testid, test[1]))
                 os.kill(dispatcher_pid, signal.SIGTERM)
     
     # Release Lock ---

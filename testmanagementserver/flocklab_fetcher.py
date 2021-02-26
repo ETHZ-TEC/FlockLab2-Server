@@ -618,7 +618,7 @@ class FetchObsThread(threading.Thread):
     def run(self):
         try:
             self._loggerprefix = "(FetchObsThread.%d) "%self._obsid
-            self._logger.info(self._loggerprefix + "FetchObsThread starting...")
+            #self._logger.info(self._loggerprefix + "FetchObsThread starting...")
             removelast = True
 
             # Let thread run until someone calls terminate() on it:
@@ -700,8 +700,8 @@ class FetchObsThread(threading.Thread):
                                     self._logger.error(self._loggerprefix + "Could not remove files on observer, result was %d, error: %s" % (rs, err))
                             else:
                                 self._logger.debug(self._loggerprefix + "No files left to delete on observer.")
-                    else:
-                        self._logger.debug(self._loggerprefix + "No files to download from observer.")
+                    #else:
+                    #    self._logger.debug(self._loggerprefix + "No files to download from observer.")
 
                     if removelast == False: # this is the last execution of the while loop
                         cmd = ['ssh' ,'%s'%(self._obsethernet), "rm -rf %s" % self._obstestresfolder]

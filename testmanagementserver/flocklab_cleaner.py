@@ -122,11 +122,11 @@ def main(argv):
                 rs = cur.fetchall()
                 for (testid, starttime) in rs:
                     testid = str(testid)
-                    logger.debug("Found test ID %s to delete." % testid)
+                    logger.info("Found test ID %s to delete." % testid)
                     # If a test is to be deleted which has not run yet, delete it completely. Otherwise, keep the metadata of the test for statistics:
                     if (starttime > datetime.datetime.today()):
                         delete_all = True
-                        logger.debug("Test ID %s did not run yet, thus all data (including the test metadata) will be deleted." % testid)
+                        logger.warning("Test ID %s did not run yet, thus all data (including the test metadata) will be deleted." % testid)
                     else:
                         delete_all = False 
                     # Clean through all relevant tables ---
@@ -140,7 +140,7 @@ def main(argv):
                         starttime = time.time()
                         num_deleted_rows = cur.execute(sql%(table, testid))
                         cn.commit()
-                        logger.debug("Deleted %i rows of data in table %s for test ID %s in %f seconds" % (num_deleted_rows, table, testid, (time.time()-starttime)))
+                        logger.debug("Deleted %i rows of data in table %s for test ID %s in %f seconds." % (num_deleted_rows, table, testid, (time.time()-starttime)))
                     
                     # Delete cached test results ---
                     archive_path = "%s/%s%s" % (flocklab.config.get('archiver','archive_dir'), testid, flocklab.config.get('archiver','archive_ext'))
@@ -151,7 +151,7 @@ def main(argv):
                                 os.remove(path)
                             else:
                                 shutil.rmtree(path)
-                            logger.debug("Removed path %s for test %s." % (path, testid))
+                            logger.info("Removed path %s for test %s." % (path, testid))
                     
                     # Delete test itself ---
                     if delete_all:
@@ -162,7 +162,7 @@ def main(argv):
                         starttime = time.time()
                         num_deleted_rows = cur.execute(sql % (testid))
                         cn.commit()
-                        logger.debug("Deleted %i rows of data in table tbl_serv_tests for test ID %s in %f seconds" % (num_deleted_rows, testid, (time.time()-starttime)))
+                        logger.debug("Deleted %i rows of data in table tbl_serv_tests for test ID %s in %f seconds." % (num_deleted_rows, testid, (time.time()-starttime)))
                     else:
                         # Set test status to deleted but keep metadata ---
                         flocklab.set_test_status(cur, cn, int(testid), "deleted")
@@ -176,10 +176,10 @@ def main(argv):
                 for f in os.listdir(vizdir):
                     path = os.path.join(vizdir, f)
                     if os.stat(path).st_mtime < earliest_keeptime:
-                        logger.debug("Removing plots %s..." % path)
+                        logger.info("Removing plots %s..." % path)
                         os.remove(path)
             else:
-                logger.debug("Directory '%s' does not exist." % vizdir)
+                logger.warning("Directory '%s' does not exist." % vizdir)
             
             # Get parameters ---
             now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime())

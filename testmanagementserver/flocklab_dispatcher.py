@@ -235,11 +235,11 @@ class StartTestThread(threading.Thread):
                         logger.debug("Test start script on observer ID %s succeeded (took %us)." % (self._obsdict_key[self._obskey][1], int(time.time() - starttime)))
                     # Remove image file and xml on server:
                     os.remove(self._xmldict_key[self._obskey][0])
-                    logger.debug("Removed XML config %s for observer ID %s" % (self._xmldict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
+                    #logger.debug("Removed XML config %s for observer ID %s" % (self._xmldict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
                     if self._obskey in list(self._imagedict_key.keys()):
                         for image in self._imagedict_key[self._obskey]:
                             os.remove(image[0])
-                            logger.debug("Removed target image %s for observer ID %s" % (self._imagedict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
+                            #logger.debug("Removed target image %s for observer ID %s" % (self._imagedict_key[self._obskey][0], self._obsdict_key[self._obskey][1]))
             
         except:
             logger.debug("Exception: %s, %s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1])))
@@ -881,7 +881,7 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             thread = StopTestThread(obskey, obsdict_key, errors_queue,testid)
             thread_list.append((thread, obskey))
             thread.start()
-            logger.debug("Started thread for test stop on observer ID %s" %(str(obsdict_key[obskey][1])))
+            #logger.debug("Started thread for test stop on observer ID %s" %(str(obsdict_key[obskey][1])))
         # Wait for all threads to finish:
         for (thread, obskey) in thread_list:
             thread.join(timeout=(flocklab.config.getint('tests','cleanuptime') * 0.75))
