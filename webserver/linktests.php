@@ -116,7 +116,7 @@
   <tbody>
     <tr>
       <td>
-        <select name="platforms[]" style="width:200px" onChange="$(document.selecttest.platform).val($(this).val());document.selecttest.submit()">
+        <select name="platforms[]" style="width:200px" onChange="$(document.selecttest.platform).val($(this).val());$(document.selecttest.test_id).val(-1); document.selecttest.submit()">
           <option value="-1">-</option>
 <?php
   $selected_platform = 0;
