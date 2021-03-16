@@ -267,23 +267,32 @@ def evalSerialLog():
     radio_cfg_str = ""
     if "coderate" in radioConfig:
         # DPP2 LoRa platform
-        modulation = "FSK"
         if radioConfig['modulation'] == 1:
-            modulation = "LoRa"
-        radio_cfg_str = 'Radio: SX1262, frequency: %.3fMHz, TX power: %ddBm, modulation: %s, datarate: %dkbps, bandwidth: %dkHz, coderate: %d' % (radioConfig['frequency'] / 1000000.0, radioConfig['txPower'], modulation, radioConfig['datarate'] / 1000.0, radioConfig['bandwidth'] / 1000.0, radioConfig['coderate'])
+            radioConfig['modulation'] = "LoRa"
+            radioConfig['datarate']   = "SF7"
+            radioConfig['bandwidth']  = 125000
+        else:
+            radioConfig['modulation'] = "FSK"
+            radioConfig['datarate']   = "%dkbps" % (radioConfig['datarate'] / 1000.0)
+        radio_cfg_str = 'Radio: SX1262, frequency: %.3fMHz, TX power: %ddBm, modulation: %s, datarate: %s, bandwidth: %dkHz, coding rate: %d' % (radioConfig['frequency'] / 1000000.0, radioConfig['txPower'], radioConfig['modulation'], radioConfig['datarate'], radioConfig['bandwidth'] / 1000.0, radioConfig['coderate'])
     elif "radio" in radioConfig:
-        radio_cfg_str = 'Radio: %s, frequency: %.3fMHz, TX power: %ddBm, modulation: %s, datarate: %dkbps, bandwidth: %dkHz' % (radioConfig['radio'], radioConfig['frequency'] / 1000000.0, radioConfig['txPower'], str(radioConfig['modulation']), radioConfig['datarate'] / 1000.0, radioConfig['bandwidth'] / 1000.0)
+        radioConfig['datarate'] = "%dkbps" % (radioConfig['datarate'] / 1000.0)
+        radio_cfg_str = 'Radio: %s, frequency: %.3fMHz, TX power: %ddBm, modulation: %s, datarate: %s, bandwidth: %dkHz' % (radioConfig['radio'], radioConfig['frequency'] / 1000000.0, radioConfig['txPower'], str(radioConfig['modulation']), radioConfig['datarate'], radioConfig['bandwidth'] / 1000.0)
         if "nrf5" in radioConfig['radio'].lower():
             crc_error_html = "n/a"   # no CRC data available
 
     htmlPath = '{}/linktest_map.html'.format(outputdir)
     os.makedirs(os.path.split(htmlPath)[0], exist_ok=True)
-    with open(htmlPath,"w") as fp:
+    with open(htmlPath, "w") as fp:
         fp.write(html_template.format(
                  pathloss_html=pathloss_html,
                  prr_html=prr_html,
                  crc_error_html=crc_error_html,
                  config=radio_cfg_str))
+
+    configPath = '{}/linktest_config.json'.format(outputdir)
+    with open(configPath, "w") as fp:
+        json.dump(radioConfig, fp)
 
 
 if __name__ == "__main__":

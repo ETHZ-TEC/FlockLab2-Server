@@ -364,7 +364,7 @@ CREATE TABLE `tbl_serv_link_measurements` (
   `test_fk` int(10) unsigned DEFAULT NULL,
   `platform_fk` int(10) unsigned NOT NULL,
   `begin` datetime NOT NULL,
-  `radio_cfg` enum('', 'fsk_868','lora_868') COLLATE utf8_bin,
+  `radio_cfg` text COLLATE utf8_bin,
   `links` mediumblob,
   `links_html` longtext COLLATE utf8_bin,
   PRIMARY KEY (`serv_link_measurements_key`),

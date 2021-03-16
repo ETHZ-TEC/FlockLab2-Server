@@ -1112,6 +1112,7 @@ def evaluate_linkmeasurement(testid, cur):
             # Load the results
             resultsfile_html = os.path.join(tempdir, "linktest_map.html")
             resultsfile_data = os.path.join(tempdir, "linktest_data.pkl")
+            resultsfile_cfg  = os.path.join(tempdir, "linktest_config.json")
             if not os.path.isfile(resultsfile_html) or not os.path.isfile(resultsfile_data):
                 msg = "Linktest results file %s or %s not found." % (resultsfile_html, resultsfile_data)
                 logger.error(msg)
@@ -1123,10 +1124,14 @@ def evaluate_linkmeasurement(testid, cur):
                 resultsdata = None
                 with open(resultsfile_data, 'rb') as f:
                     resultsdata = f.read()
+                resultsconfig = ""
+                if os.path.isfile(resultsfile_cfg):
+                    with open(resultsfile_cfg, 'r') as f:
+                        resultsconfig = f.read()
                 # Store results in DB
                 logger.debug("Storing XML file in DB...")
                 cur.execute("DELETE FROM `tbl_serv_link_measurements` WHERE `test_fk`=%s" % str(testid))
-                cur.execute("INSERT INTO `tbl_serv_link_measurements` (`test_fk`, `platform_fk`, `begin`, `radio_cfg`, `links`, `links_html`) VALUES (%s, %s, %s, %s, %s, %s)", (str(testid), platform_fk, teststarttime, '', resultsdata, resultshtml))
+                cur.execute("INSERT INTO `tbl_serv_link_measurements` (`test_fk`, `platform_fk`, `begin`, `radio_cfg`, `links`, `links_html`) VALUES (%s, %s, %s, %s, %s, %s)", (str(testid), platform_fk, teststarttime, resultsconfig, resultsdata, resultshtml))
     return errors
 ### END evaluate_linkmeasurement()
 
