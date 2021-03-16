@@ -1142,6 +1142,7 @@ def evaluate_linkmeasurement(testid, cur):
 #
 ##############################################################################
 def inform_user(testid, cur, job, errors, warnings):
+    fl_tools_info = "The test results can also be downloaded with the FlockLab Tools: https://gitlab.ethz.ch/tec/public/flocklab/wiki/-/wikis/Man/flocklab-tools"
     if len(errors) != 0:
         subj = "Error notification"
         if job == 'start':
@@ -1161,10 +1162,10 @@ def inform_user(testid, cur, job, errors, warnings):
             msg  = "Your test has been prepared and is going to start as planned, but consider the following warnings:\n\n" 
         elif job == 'stop':
             subj = "Test %d stopped with warnings" %testid
-            msg = "Your test has been stopped as planned and the results will be available on the website soon.\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/\nConsider the following warnings:\n\n"
+            msg = "Your test has been stopped as planned and the results will be available on the website soon.\n%s\nConsider the following warnings:\n\n" % fl_tools_info
         elif job == 'abort':
             subj = "Test %d aborted with warnings" %testid
-            msg = "Your test has been aborted as requested and the results (if any) will be available on the website soon\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/\nConsider the following warnings:\n\n"
+            msg = "Your test has been aborted as requested and the results (if any) will be available on the website soon\n%s\nConsider the following warnings:\n\n" % fl_tools_info
         for warn in warnings:
             msg += "\t * %s\n" %warn
         ret = flocklab.SUCCESS
@@ -1174,10 +1175,10 @@ def inform_user(testid, cur, job, errors, warnings):
             msg  = "Your test has been prepared and is going to start as planned." 
         elif job == 'stop':
             subj = "Test %d stopped as planned" %testid
-            msg = "Your test has been stopped as planned. The results will be available on the website soon.\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/"
+            msg = "Your test has been stopped as planned. The results will be available on the website soon.\n%s" % fl_tools_info
         elif job == 'abort':
             subj = "Test %d aborted as requested" %testid
-            msg = "Your test has been aborted as requested. The results (if any) will be available on the website soon.\nTest results are also accessible using webdav: webdavs://www.flocklab.ethz.ch/user/webdav/"
+            msg = "Your test has been aborted as requested. The results (if any) will be available on the website soon.\n%s" % fl_tools_info
         ret = flocklab.SUCCESS
 
     rs = flocklab.get_test_owner(cur, testid)
