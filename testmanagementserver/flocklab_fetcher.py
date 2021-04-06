@@ -309,6 +309,7 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, result
     try:
         _errors = []
         cur_p = multiprocessing.current_process()
+        includepps = arg
         (itemtype, obsid, fdir, f, workerstate) = queueitem
         inputfilename = "%s/%s" % (fdir, f)
         loggername = "(%s.%d) " % (cur_p.name, obsid)
@@ -318,9 +319,13 @@ def worker_gpiotracing(queueitem=None, nodeid=None, resultfile_path=None, result
             try:
                 values = line.strip().split(',')
                 if len(values) > 3:
+                    if not includepps and "PPS" in values[2]:
+                        continue
                     # monotonic time is included -> append at the end
                     result.append("%s,%d,%s,%s,%s,%s\n" % (values[0], obsid, nodeid, values[2], values[3], values[1]))
                 else:
+                    if not includepps and "PPS" in values[1]:
+                        continue
                     result.append("%s,%d,%s,%s,%s\n" % (values[0], obsid, nodeid, values[1], values[2]))
             except ValueError:
                 logqueue.put_nowait((loggername, logging.ERROR, "Could not parse line '%s' in gpiotracing worker process." % line))
@@ -1037,6 +1042,7 @@ def main(argv):
         owner_fk = rs[0]
     else:
         owner_fk = None
+    owner_is_admin = flocklab.is_user_admin(cur, owner_fk)
     rs = flocklab.get_test_obs(cur, testid)
     if isinstance(rs, tuple):
         obsdict_byid = rs[1]
@@ -1270,7 +1276,7 @@ def main(argv):
             # Match the filename against the patterns and schedule an appropriate worker function:
             if (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
                 pool        = service_pools_dict['gpiotracing']
-                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], testresultsfile_dict['gpiotracing'][1], logqueue, None]
+                worker_args = [nextitem, nodeid, testresultsfile_dict['gpiotracing'][0], testresultsfile_dict['gpiotracing'][1], logqueue, owner_is_admin]
                 worker_f    = worker_gpiotracing
             elif (re.search("^powerprofiling_[0-9]{14}\.rld$", f) != None):
                 pool        = service_pools_dict['powerprofiling']
