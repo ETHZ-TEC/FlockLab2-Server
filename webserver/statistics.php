@@ -38,7 +38,7 @@
 <?php
   $statsfilename = "statistics.dat";
   $stats = parse_ini_file($statsfilename);
-  $granularity = "month";
+  $granularity = $stats['granularity'];     // month or year
   
   function convert_x_label($entry, $labels) {
     $num2month = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
