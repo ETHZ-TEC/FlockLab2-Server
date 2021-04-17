@@ -118,11 +118,12 @@ def obs_connect_process(conreqQueue, condoneQueue, _stopevent):
                 sock.connect(w)
                 logger.info("Connected to observer %s on port %d" % (w[0],w[1]))
                 condoneQueue.put((sock, w))
+                worklist.remove(w)
             except ConnectionRefusedError:
-                logger.info("Could not connect to observer %s on port %d, dropping connection." % (w[0],w[1]))
+                logger.info("Could not connect to observer %s on port %d, will retry later..." % (w[0],w[1]))
+                time.sleep(5)
             except Exception:
-                logger.info("Could not connect to observer %s on port %d: %s, %s\n%s" % (w[0], w[1], str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
-            finally:
+                logger.warn("Could not connect to observer %s on port %d: %s, %s\n%s" % (w[0], w[1], str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc()))
                 worklist.remove(w)
 ### END obs_connect_process
 
@@ -316,7 +317,7 @@ class ProxyConnections():
                 logger.info("Established connection %s" % (str((connectionConfig, addr))))
         else:
             conn.close()
-            logger.info("Connection not for us, addr was %s" % str(addr))
+            logger.info("Connection request from %s ignored" % addr[0])
 
     def getChanges(self):
         a = self.addlist
@@ -384,7 +385,7 @@ class ProxyConnections():
                         m = ''
                         try:
                             m = i.recv(1024)
-                            logger.debug("received %d bytes from socket %s" % (len(m), str(i)))
+                            #logger.debug("received %d bytes from socket %s" % (len(m), str(i)))
                         except socket.error as serr:
                             # user probably disconnected, don't generate an error message
                             logger.debug("socket_error")
