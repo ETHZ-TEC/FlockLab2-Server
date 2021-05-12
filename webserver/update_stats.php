@@ -111,6 +111,8 @@ function collect_stats($filename, $monthly)
   $gpioactuationcnt       = 0;
   $powerprof_per_year     = Array();
   $powerprofcnt           = 0;
+  $debug_per_year         = Array();
+  $debugcnt               = 0;
 
   $sql = "select month(time_start_act) as m, year(time_start_act) as y, count(*) as num from tbl_serv_tests where time_start_act is not null group by ".($monthly ? "y, m" : "y");
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
@@ -133,22 +135,23 @@ function collect_stats($filename, $monthly)
       } else {
         $tests_per_mote[$row['pname']] = $row['c'];
       }
+      $val = $row['c'];   // or as percent: round($row['c'] * 100 / $tests_per_year[$index])
       if ($row['pname'] == 'Tmote') {
-        $tmotetests_per_year[$index] = round($row['c'] * 100 / $tests_per_year[$index]);
+        $tmotetests_per_year[$index] = $val;
         $tmotetestcnt = $tmotetestcnt + $row['c'];
       } else if ($row['pname'] == 'DPP') {
-        $dpptests_per_year[$index] = round($row['c'] * 100 / $tests_per_year[$index]);
+        $dpptests_per_year[$index] = $val;
         $dpptestcnt = $dpptestcnt + $row['c'];
       } else if ($row['pname'] == 'DPP2LoRa') {
-        $dpp2tests_per_year[$index] = round($row['c'] * 100 / $tests_per_year[$index]);
+        $dpp2tests_per_year[$index] = $val;
         $dpp2testcnt = $dpp2testcnt + $row['c'];
       } else if ($row['pname'] == 'nRF5') {
-        $nrftests_per_year[$index] = round($row['c'] * 100 / $tests_per_year[$index]);
+        $nrftests_per_year[$index] = $val;
         $nrftestcnt = $nrftestcnt + $row['c'];
       }
     }
     // Tests by service
-    $sql = "select sum(ExtractValue(testconfig_xml, 'count(/testConf/serialConf|/testConf/serialReaderConf)') > 0) as num_serial, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)') > 0) as num_tracing, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)') > 0) as num_actuation, sum(ExtractValue(testconfig_xml, 'count(/testConf/powerProfilingConf|/testConf/powerprofConf)') > 0) as num_power from tbl_serv_tests where year(time_start_act) = $year".($monthly ? " and month(time_start_act) = $month" : "");
+    $sql = "select sum(ExtractValue(testconfig_xml, 'count(/testConf/serialConf|/testConf/serialReaderConf)') > 0) as num_serial, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)') > 0) as num_tracing, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)') > 0) as num_actuation, sum(ExtractValue(testconfig_xml, 'count(/testConf/powerProfilingConf|/testConf/powerprofConf)') > 0) as num_power, sum(ExtractValue(testconfig_xml, 'count(/testConf/debugConf)') > 0) as num_debug from tbl_serv_tests where year(time_start_act) = $year".($monthly ? " and month(time_start_act) = $month" : "");
     $rs3 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     $row = mysqli_fetch_array($rs3);
 
@@ -160,6 +163,8 @@ function collect_stats($filename, $monthly)
     $gpioactuationcnt = $gpioactuationcnt + $row['num_actuation'];
     $powerprof_per_year[$index] = round($row['num_power'] * 100 / $tests_per_year[$index]);
     $powerprofcnt = $powerprofcnt + $row['num_power'];
+    $debug_per_year[$index] = round($row['num_debug'] * 100 / $tests_per_year[$index]);
+    $debugcnt = $debugcnt + $row['num_debug'];
   }
   arsort($tests_per_mote);
 
@@ -173,6 +178,7 @@ function collect_stats($filename, $monthly)
   $gpiotracingusers_per_year   = Array();
   $gpioactuationusers_per_year = Array();
   $powerprofusers_per_year     = Array();
+  $debugusers_per_year         = Array();
   $sql = "select month(time_start_act) as m, year(time_start_act) as y, count(distinct owner_fk) as num from tbl_serv_tests group by ".($monthly ? "y, m" : "y")." having y is not null";
   $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
   while ($row = mysqli_fetch_array($rs)) {
@@ -199,13 +205,14 @@ function collect_stats($filename, $monthly)
         $nrfusers_per_year[$index]   = round($row['c'] / $num_users * 100);
       }
     }
-    $sql = "select sum(num_all > 0) as user_all, sum(num_serial > 0) as user_serial, sum(num_tracing > 0) as user_tracing, sum(num_actuation > 0) as user_actuation, sum(num_power > 0) as user_power from (select sum(1) as num_all, sum(ExtractValue(testconfig_xml, 'count(/testConf/serialConf|/testConf/serialReaderConf)') > 0) as num_serial, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)') > 0) as num_tracing, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)') > 0) as num_actuation, sum(ExtractValue(testconfig_xml, 'count(/testConf/powerProfilingConf|/testConf/powerprofConf)') > 0) as num_power from tbl_serv_tests where year(time_start_act) = $year".($monthly ? " and month(time_start_act) = $month" : "")." and (test_status_preserved in ('finished', 'retention expiring', 'synced') or test_status_preserved is null) group by owner_fk) as stats;";
+    $sql = "select sum(num_all > 0) as user_all, sum(num_serial > 0) as user_serial, sum(num_tracing > 0) as user_tracing, sum(num_actuation > 0) as user_actuation, sum(num_power > 0) as user_power, sum(num_debug > 0) as user_debug from (select sum(1) as num_all, sum(ExtractValue(testconfig_xml, 'count(/testConf/serialConf|/testConf/serialReaderConf)') > 0) as num_serial, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioTracingConf|/testConf/gpioMonitorConf)') > 0) as num_tracing, sum(ExtractValue(testconfig_xml, 'count(/testConf/gpioActuationConf|/testConf/gpioSettingConf)') > 0) as num_actuation, sum(ExtractValue(testconfig_xml, 'count(/testConf/powerProfilingConf|/testConf/powerprofConf)') > 0) as num_power, sum(ExtractValue(testconfig_xml, 'count(/testConf/debugConf)') > 0) as num_debug from tbl_serv_tests where year(time_start_act) = $year".($monthly ? " and month(time_start_act) = $month" : "")." and (test_status_preserved in ('finished', 'retention expiring', 'synced') or test_status_preserved is null) group by owner_fk) as stats;";
     $rs3 = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
     $row = mysqli_fetch_array($rs3);
     $serialusers_per_year[$index]        = round($row['user_serial'] / $num_users * 100);        // in percent
     $gpiotracingusers_per_year[$index]   = round($row['user_tracing'] / $num_users * 100);
     $gpioactuationusers_per_year[$index] = round($row['user_actuation'] / $num_users * 100);
     $powerprofusers_per_year[$index]     = round($row['user_power'] / $num_users * 100);
+    $debugusers_per_year[$index]         = round($row['user_debug'] / $num_users * 100);
   }
   $sql = 'select avg(setuptime) as tsetup, avg(cleanuptime) as tcleanup, avg(timestampdiff(SECOND, time_start_act, time_end_act)) as avgruntime from tbl_serv_tests where time_start_act is not null and time_end_act is not null';
   $rs  = mysqli_query($db, $sql) or flocklab_die('Cannot get statistics from database because: ' . mysqli_error($db));
@@ -305,6 +312,9 @@ gpioactuationusers_per_year = \"".str_replace('"', '\'', serialize($gpioactuatio
 powerprof_tests = ".(string)$powerprofcnt."
 powerprof_per_year = \"".str_replace('"', '\'', serialize($powerprof_per_year))."\"
 powerprofusers_per_year = \"".str_replace('"', '\'', serialize($powerprofusers_per_year))."\"
+debug_tests = ".(string)$debugcnt."
+debug_per_year = \"".str_replace('"', '\'', serialize($debug_per_year))."\"
+debugusers_per_year = \"".str_replace('"', '\'', serialize($debugusers_per_year))."\"
 
 ";
 

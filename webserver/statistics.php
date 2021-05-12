@@ -138,7 +138,7 @@
   var defaultColors =  ['#3366CC','#DC3912','#FF9900','#109618','#990099','#3B3EAC','#0099C6','#DD4477','#66AA00','#B82E2E','#316395','#994499','#22AA99','#AAAA11','#6633CC','#E67300','#8B0707','#329262','#5574A6','#3B3EAC'];
 </script>
 <style>
-  .chartContainer { float: left; display: block; width: 600px; text-align: left; margin-top: 10px; margin-bottom: 10px; padding: 10px; }
+  .chartContainer { float: left; display: block; width: 700px; text-align: left; margin-top: 10px; margin-bottom: 10px; padding: 10px; }
   .chartTitle { margin: 25px; width: 100%; text-align: center; font-weight: bold }
   .chartArea { display: block; }
   .numberField { text-align: right; }
@@ -172,6 +172,7 @@
     <tr><td>Number of tests with GPIO tracing: </td><td class="numberField"><?php echo $stats['gpiotracing_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['gpiotracing_tests']); ?></td></tr>
     <tr><td>Number of tests with GPIO actuation: </td><td class="numberField"><?php echo $stats['gpioactuation_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['gpioactuation_tests']); ?></td></tr>
     <tr><td>Number of tests with power profiling: </td><td class="numberField"><?php echo $stats['powerprof_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['powerprof_tests']); ?></td></tr>
+    <tr><td>Number of tests with debug service: </td><td class="numberField"><?php echo $stats['debug_tests']; ?></td></td><td class="numberField"><?php print_tests_percent($stats['debug_tests']); ?></td></tr>
   </table>
 </div>
 <div class="chartContainer"><div class="chartTitle">Flocklab users by country</div><canvas id="chartCountries" class="chartArea"></canvas></div>
@@ -201,15 +202,15 @@
     create_line_chart("chartTestRuntime", $stats['runtime_cdf'], ["runtime [minutes]", "percentage of tests"]);
     $dataseries = [$stats['tmote_per_year'], $stats['dpp_per_year'], $stats['dpp2_per_year'], $stats['nrf_per_year']];
     $dataserieslabels = ['Tmote', 'DPP', 'DPP2LoRa', 'nRF5'];
-    create_multi_line_chart("chartPlatformsYear", $dataseries, $dataserieslabels, [$granularity, "percentage of tests"]);
-    $dataseries = [$stats['serial_per_year'], $stats['gpiotracing_per_year'], $stats['gpioactuation_per_year'], $stats['powerprof_per_year']];
-    $dataserieslabels = ['serial logging', 'GPIO tracing', 'GPIO actuation', 'power profiling'];
+    create_multi_line_chart("chartPlatformsYear", $dataseries, $dataserieslabels, [$granularity, "number of tests"]);
+    $dataseries = [$stats['serial_per_year'], $stats['gpiotracing_per_year'], $stats['gpioactuation_per_year'], $stats['powerprof_per_year'], $stats['debug_per_year']];
+    $dataserieslabels = ['serial', 'GPIO tracing', 'GPIO actuation', 'power profiling', 'debug & datatrace'];
     create_multi_line_chart("chartServicesYear", $dataseries, $dataserieslabels, [$granularity, "percentage of tests"]);
     $dataseries = [$stats['tmoteusers_per_year'], $stats['dppusers_per_year'], $stats['dpp2users_per_year'], $stats['nrfusers_per_year']];
     $dataserieslabels = ['Tmote', 'DPP', 'DPP2LoRa', 'nRF5'];
     create_multi_line_chart("chartPlatformsUsers", $dataseries, $dataserieslabels, [$granularity, "percentage of users"]);
-    $dataseries = [$stats['serialusers_per_year'], $stats['gpiotracingusers_per_year'], $stats['gpioactuationusers_per_year'], $stats['powerprofusers_per_year']];
-    $dataserieslabels = ['serial logging', 'GPIO tracing', 'GPIO actuation', 'power profiling'];
+    $dataseries = [$stats['serialusers_per_year'], $stats['gpiotracingusers_per_year'], $stats['gpioactuationusers_per_year'], $stats['powerprofusers_per_year'], $stats['debugusers_per_year']];
+    $dataserieslabels = ['serial', 'GPIO tracing', 'GPIO actuation', 'power profiling', 'debug & datatrace'];
     create_multi_line_chart("chartServicesUsers", $dataseries, $dataserieslabels, [$granularity, "percentage of users"]);
   ?>
 </script>
