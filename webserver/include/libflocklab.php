@@ -502,13 +502,14 @@ function trigger_scheduler($debug = false) {
 
 // check quota
 function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
+    global $CONFIG;
     $this_runtime = $testconfig->generalConf->schedule->duration / 60;
-    // check quota
-    // 1. get scheduled tests / time for this user
+
+    // get scheduled tests / time for this user
     $db = db_connect();
     $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end_wish`,`time_start_wish`)))/60 as runtime, COUNT(*) as test_num
         FROM `tbl_serv_tests`
-        WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test)?'':' AND `serv_tests_key`!='.$exclude_test);
+        WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test) ? '' : ' AND `serv_tests_key`!='.$exclude_test);
     $res = mysqli_query($db, $sql) or flocklab_die('Cannot check user quota because: ' . mysqli_error($db));
     $row = mysqli_fetch_assoc($res);
     $test_num = $row['test_num'];
@@ -516,7 +517,33 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
         $runtime = 0;
     else
         $runtime = $row['runtime'];
-    // 2. compare to quota
+
+    // get scheduled tests / time for this user during office hours
+    $runtime_daytime = 0;
+    if ($CONFIG['tests']['quota_daytime']) {
+      $now = new DateTime();
+      $now->setTimeZone(new DateTimeZone("UTC"));
+      $curr_hour = intval($now->format('G'));
+      $this_start = -1;
+      if (isset($testconfig->generalConf->schedule->start)) {
+        $startdt = new DateTime($testconfig->generalConf->schedule->start);
+        $startdt->setTimeZone(new DateTimeZone("UTC"));
+        $this_start = intval($startdt->format('G'));
+      }
+      if (($this_start < 0 && $curr_hour >= $CONFIG['tests']['daytime_start'] && $curr_hour < $CONFIG['tests']['daytime_end']) ||
+          ($this_start > $CONFIG['tests']['daytime_start'] && $this_start < $CONFIG['tests']['daytime_end'])) {
+        $runtime_daytime = $this_runtime;
+        $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end_wish`,`time_start_wish`)))/60 as runtime, COUNT(*) as test_num
+        FROM `tbl_serv_tests`
+        WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test)?'':' AND `serv_tests_key`!='.$exclude_test.' AND HOUR(`time_start_wish`) > '.$CONFIG['tests']['daytime_start'].' AND HOUR(`time_start_wish`) < '.$CONFIG['tests']['daytime_end']);
+        $res = mysqli_query($db, $sql) or flocklab_die('Cannot check user quota because: ' . mysqli_error($db));
+        $row = mysqli_fetch_assoc($res);
+        if ($row['test_num'] != 0)
+            $runtime_daytime = $runtime_daytime + $row['runtime'];
+      }
+    }
+
+    // get the allowed quota
     $sql = 'SELECT `quota_runtime`, `quota_tests`
         FROM `tbl_serv_users`
         WHERE `serv_users_key` = ' . $_SESSION['serv_users_key'];
@@ -528,7 +555,9 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
             $quota['needed']=array('runtime'=>round($this_runtime + $runtime,2), 'num'=>$test_num+1);
         }
         mysqli_close($db);
-        return (($test_num < $row['quota_tests']) && $this_runtime + $runtime <= $row['quota_runtime']);
+        return (($test_num < $row['quota_tests']) &&
+                (($this_runtime + $runtime) <= $row['quota_runtime']) &&
+                ($runtime_daytime <= $CONFIG['tests']['quota_daytime']));
     }
     mysqli_close($db);
     return false;
@@ -849,7 +878,7 @@ function resource_cleanup($targetnodes) {
 ##############################################################################
 #
 # schedule_test
-#    
+#
 # returns associative array:
 #    'feasible' => True / False
 #    'start_time' => DateTime    time start wish
