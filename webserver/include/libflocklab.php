@@ -521,17 +521,16 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
     // get scheduled tests / time for this user during office hours
     $runtime_daytime = 0;
     if ($CONFIG['tests']['quota_daytime']) {
-      $now = new DateTime();
-      $now->setTimeZone(new DateTimeZone("UTC"));
-      $curr_hour = intval($now->format('G'));
-      $this_start = -1;
       if (isset($testconfig->generalConf->schedule->start)) {
         $startdt = new DateTime($testconfig->generalConf->schedule->start);
-        $startdt->setTimeZone(new DateTimeZone("UTC"));
-        $this_start = intval($startdt->format('G'));
+      } else {
+        $startdt = new DateTime();
       }
-      if (($this_start < 0 && $curr_hour >= $CONFIG['tests']['daytime_start'] && $curr_hour < $CONFIG['tests']['daytime_end']) ||
-          ($this_start > $CONFIG['tests']['daytime_start'] && $this_start < $CONFIG['tests']['daytime_end'])) {
+      $startdt->setTimeZone(new DateTimeZone("UTC"));
+      $this_start     = intval($startdt->format('G'));
+      $this_dayofweek = intval($startdt->format('N'));
+      if ($this_start >= $CONFIG['tests']['daytime_start'] && $this_start <= $CONFIG['tests']['daytime_end'] && $this_dayofweek < 6) {
+        // test starts during daytime (Mo-Fr)
         $runtime_daytime = $this_runtime;
         $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end_wish`,`time_start_wish`)))/60 as runtime, COUNT(*) as test_num
         FROM `tbl_serv_tests`
