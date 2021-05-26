@@ -82,7 +82,7 @@ def load_config():
     global config
     if config:
         if logger:
-            logger.warning("Config already loaded")
+            logger.debug("Config already loaded")
         return SUCCESS
     config = get_config()
     if not config:
