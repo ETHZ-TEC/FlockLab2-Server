@@ -242,6 +242,20 @@
                   <xs:enumeration value="1"/>
                   <xs:enumeration value="2"/>
                   <xs:enumeration value="4"/>
+                  <xs:enumeration value="8"/>
+                  <xs:enumeration value="16"/>
+                  <xs:enumeration value="32"/>
+                  <xs:enumeration value="64"/>
+                  <xs:enumeration value="128"/>
+                  <xs:enumeration value="256"/>
+                  <xs:enumeration value="512"/>
+                  <xs:enumeration value="1024"/>
+                  <xs:enumeration value="2048"/>
+                  <xs:enumeration value="4096"/>
+                  <xs:enumeration value="8192"/>
+                  <xs:enumeration value="16384"/>
+                  <xs:enumeration value="32768"/>
+                  <xs:enumeration value="65536"/>
                 </xs:restriction>
               </xs:simpleType>
             </xs:element>
