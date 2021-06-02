@@ -406,6 +406,7 @@ div.content table.recaptchatable {
     margin: 0px;
     display: none;
     font-weight: normal;
+    width: 95%;
 }
 #vertical-ticker li{
     padding:5px;
@@ -415,7 +416,7 @@ div.content table.recaptchatable {
     border-bottom:1px solid #ddd;
     text-align:left;
     font-size: .9em;
-    color: #DDD;
+    color: #666666;
     width: 100%;
 }
 
