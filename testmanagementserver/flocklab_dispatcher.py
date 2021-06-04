@@ -929,12 +929,13 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
         # Set stop time in DB ---
         cur.execute("UPDATE `tbl_serv_tests` SET `time_end_act` = UTC_TIMESTAMP() WHERE `serv_tests_key` = %d" %testid)
         cn.commit()
-        
-        return (errors, warnings)
+    
     except Exception:
         msg = "Unexpected error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
+        errors.append(msg)
         logger.error(msg)
-        raise
+    
+    return (errors, warnings)
 ### END stop_test()
 
 
@@ -1447,12 +1448,16 @@ def main(argv):
     else:
         action = "stop"
     starttime = time.time()
+    errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
+
+    # Close and reopen the DB connection (if stop test takes longer than usual, the DB connection might get dropped by the server)
     try:
-        errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
-    except MySQLdb._exceptions.OperationalError:
-        # if stop test takes longer than usual, the DB connection might get dropped by the server -> reconnect
-        (cn, cur) = flocklab.connect_to_db()
-    
+        cur.close()
+        cn.close()
+    except:
+        pass
+    (cn, cur) = flocklab.connect_to_db()
+
     # Record time needed to set up test for statistics in DB:
     time_needed = time.time() - starttime
     sql =   """ UPDATE `tbl_serv_tests`
