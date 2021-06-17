@@ -745,7 +745,7 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, cpuSpeed, prescaler, loopde
 
       # Offset correction for old linux platform
       if sleepOverhead > PLATFORM_SLEEP_OVERHEAD_THRESHOLD: # linux system with large overhead, measured sleepOverhead is used to identify platform (linux version)
-        raise Exception('Offset correction for old linux platform -> should not happen anymore!') # FIXME re-enable for productive system
+        raise Exception('Offset correction for old linux platform -> should not happen anymore!')
         yAll -= SWO_DATARATE_PLATFORM_OFFSET*(byteRate < SWO_DATARATE_PLATFORM_THRESHOLD)
       # Offset correction due to SWO byte rete dependent delay (mapping determined based on empirical measurements)
       if SWO_DATARATE_COMPENSATION:
