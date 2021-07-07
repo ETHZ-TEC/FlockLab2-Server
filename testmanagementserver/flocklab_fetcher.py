@@ -374,10 +374,13 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             # CSV file format
             rld_data = RocketLoggerData(inputfilename).merge_channels()
             # get network time and convert to UNIX timestamp (UTC)
-            timeidx = rld_data.get_time(absolute_time=True, time_reference='network')     # TODO adjust parameters for RL 1.99+
+            timeidx = rld_data.get_time(time_reference='network')
             timeidxunix = timeidx.astype('uint64') / 1e9   # convert to s
             current_ch = rld_data.get_data('I1') * 1000    # convert to mA
-            voltage_ch = rld_data.get_data('V2') - rld_data.get_data('V1')    # voltage difference
+            if rld_data._header['file_version'] < 4:
+                voltage_ch = rld_data.get_data('V2') - rld_data.get_data('V1')    # voltage difference for old file versions (channel order swapped)
+            else:
+                voltage_ch = rld_data.get_data('V1') - rld_data.get_data('V2')    # voltage difference for new file versions (channel order correct)
             rld_dataframe = pd.DataFrame(np.hstack((current_ch, voltage_ch)), index=timeidxunix, columns=['I', 'V'])
             rld_dataframe.insert(0, 'observer_id', obsid)
             rld_dataframe.insert(1, 'node_id', nodeid)
