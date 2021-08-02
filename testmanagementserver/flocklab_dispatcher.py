@@ -510,12 +510,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         if baudrate:
                             baudrate = baudrate[0].text.strip()
                             xmlblock += "\t<baudrate>%s</baudrate>\n" % baudrate
-                        cpuspeed = srconf.xpath('d:cpuSpeed', namespaces=ns)
-                        if cpuspeed:
-                            cpuspeed = cpuspeed[0].text.strip()
+                        cpuSpeed = srconf.xpath('d:cpuSpeed', namespaces=ns)
+                        if cpuSpeed:
+                            cpuSpeed = cpuSpeed[0].text.strip()
                         else:
                             cpuSpeed = flocklab.config.get("observer", "datatrace_cpuspeed")      # use default CPU speed
-                        xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuspeed
+                        xmlblock += "\t<cpuSpeed>%s</cpuSpeed>\n" % cpuSpeed
                         xmlblock += "</obsSerialConf>\n\n"
                         for obsid in obsids:
                             obsid = int(obsid)

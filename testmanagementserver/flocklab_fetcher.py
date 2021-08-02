@@ -1243,7 +1243,6 @@ def main(argv):
         signal.signal(signal.SIGINT,  sigterm_handler)
         # Loop through the folders and assign work to the worker processes:
         commitsize = flocklab.config.getint('fetcher', 'commitsize')
-        loggerprefix = "(Mainloop) "
         workmanager = WorkManager()
 
         # Main loop ---
@@ -1261,7 +1260,7 @@ def main(argv):
                 fsize = 0
                 if itemtype == ITEM_TO_PROCESS and os.path.isfile("%s/%s" % (fdir, f)):
                     fsize = os.path.getsize("%s/%s" % (fdir, f))
-                logger.debug(loggerprefix + "Got element from queue: %d, %s, %s/%s, %d" % (itemtype, str(obsid), fdir, f, fsize))
+                logger.debug("Next item in queue: %d, %s, %s, %d" % (itemtype, str(obsid), f, fsize))
             except queue.Empty:
                 # No one put any data onto the queue.
                 # In normal operation, just ignore the error and try again:
@@ -1271,10 +1270,10 @@ def main(argv):
             else: # type is ITEM_PROCESSED
                 nextitem = workmanager.done(item)
             if nextitem is None:
-                #logger.debug(loggerprefix + "Next item is None.")
+                #logger.debug("Next item is None.")
                 continue
             (itemtype, obsid, fdir, f, workerstate) = nextitem
-            #logger.debug(loggerprefix + "Next item is %s/%s (Obs%s)." % (fdir, f, str(obsid)))
+            #logger.debug("Next item is %s/%s (Obs%s)." % (fdir, f, str(obsid)))
             nodeid = obsdict_byid[obsid][1]
             # Match the filename against the patterns and schedule an appropriate worker function:
             if (re.search("^gpio_monitor_[0-9]{14}\.csv$", f) != None):
@@ -1306,7 +1305,7 @@ def main(argv):
                 worker_args = [nextitem, nodeid, testresultsfile_dict['timesynclog'][0], testresultsfile_dict['timesynclog'][1], logqueue, None]
                 worker_f    = worker_logs
             else:
-                logger.warning(loggerprefix + "Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
+                logger.warning("Results file %s/%s from observer %s did not match any of the known patterns" % (fdir, f, obsid))
                 continue
             # Schedule worker function from the service's pool. The result will be reported to the callback function.
             pool.apply_async(func=worker_f, args=tuple(worker_args), callback=worker_callback)

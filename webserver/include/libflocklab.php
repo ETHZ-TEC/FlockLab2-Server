@@ -724,7 +724,7 @@ function explodeobsids($obsids, $platform_fk=null) {
 #    get a list of all currently used observers
 #
 ##############################################################################
-function get_used_observers($platform_fk) {
+function get_used_observers() {
     $obsids = [];
     $now = time();
     $db = db_connect();

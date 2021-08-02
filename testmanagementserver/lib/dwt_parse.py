@@ -763,7 +763,7 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, cpuSpeed, prescaler, loopde
         # keep middle point
         x = []
         y = []
-        xBuffer = xAll[0]
+        xBuffer = [xAll[0]]
         yPrev = yAll[0]
         for xC, yC in zip(xAll[1:], yAll[1:]):
           if yC != yPrev:
