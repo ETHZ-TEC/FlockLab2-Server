@@ -12,7 +12,7 @@ cycler=0.10.0=py36_0
 dbus=1.13.12=h746ee38_0
 expat=2.2.6=he6710b0_0
 flocklab powerprofiling resultfetcher=2.0=pypi_0
-flocklab-tools=0.2.3=pypi_0
+flocklab-tools=0.2.7=pypi_0
 fontconfig=2.13.0=h9420a91_0
 freetype=2.9.1=h8a8886c_1
 glib=2.63.1=h5a9c865_0
@@ -38,7 +38,7 @@ libxml2=2.9.9=hea5a465_1
 libxslt=1.1.33=h7d1a2b0_0
 lxml=4.4.2=py36hefd8a0e_0
 markupsafe=1.1.1=pypi_0
-matplotlib=3.1.1=py36h5429711_0
+matplotlib=3.3.4=pypi_0
 mkl=2019.4=243
 mkl-service=2.3.0=py36he904b0f_0
 mkl_fft=1.0.15=py36ha843d7b_0
@@ -54,6 +54,7 @@ pandas=1.0.1=pypi_0
 pcre=8.43=he6710b0_0
 pillow=7.0.0=pypi_0
 pip=19.3.1=py36_0
+pyelftools=0.27=pypi_0
 pyparsing=2.4.6=py_0
 pyqt=5.9.2=py36h05f1152_2
 python=3.6.6=h6e4f718_2
