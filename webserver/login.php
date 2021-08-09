@@ -38,6 +38,11 @@
     $first = ((isset($_REQUEST['first'])) && ($_REQUEST['first'] == "no")) ? false : true;    
     $login_msg = "Login failed.";
     
+    /*$display_warning = "<div class=\"warning\"><div style=\"float:left;\"><img src=\"pics/icons/att.png\"></div>
+                        <p><b>FlockLab is currently unavailable</b></p>
+                        </div><p></p>";*/
+    $display_warning = false;
+    
     # if already logged in, then redirect to index.php
     if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
         header('Location: https://'.$_SERVER[HTTP_HOST].substr($_SERVER[REQUEST_URI], 0, strrpos($_SERVER[REQUEST_URI], "/") + 1)."index.php");
@@ -106,6 +111,9 @@
                     echo "<div class=\"warning\"><div style=\"float:left;\"><img alt=\"\" src=\"pics/icons/att.png\"></div>";
                     echo "<p>".$login_msg."</p>";
                     echo "</div><p></p>";
+                }
+                if ($display_warning) {
+                    echo $display_warning;
                 }
             ?>
                     <div id="loginspan">
