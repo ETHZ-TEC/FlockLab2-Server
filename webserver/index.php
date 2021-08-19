@@ -266,7 +266,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                 <tbody>
                 <?php 
                     $i = 0;
-                    $max_len = 60; // maximum length of text before being cut
+                    $max_len = 100; // maximum length of text before being cut
                     $js = '';$all = array();
                     $now = new DateTime();
                     $now = $now->format('U');

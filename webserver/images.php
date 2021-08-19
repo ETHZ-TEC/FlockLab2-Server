@@ -167,7 +167,7 @@
     <tbody>
 <?php 
     $i = 0;
-    $max_len = 30; // maximum length of text before beeing cut
+    $max_len = 100; // maximum length of text before beeing cut
     while ($row = mysqli_fetch_assoc($rs)) {
         $i++;
         if ($i%2 == 1) {
@@ -212,7 +212,7 @@
 </table>
 <br />
 <br />
-<i>Note: you can edit the test title and description with a double click.</i>
+<i>Note: you can edit title and description with a double click.</i>
 <?php
   }
 ?>
