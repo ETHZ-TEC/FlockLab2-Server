@@ -170,12 +170,14 @@ def main(argv):
             
             # Delete old entries in viz cache ---
             keeptime = flocklab.config.getint('cleaner', 'keeptime_viz')
+            maxfilesize = flocklab.config.getint('viz', 'filesizelimit')
             earliest_keeptime = time.time() - (keeptime * 86400)
             vizdir = flocklab.config.get('viz','dir')
             if os.path.isdir(vizdir):
                 for f in os.listdir(vizdir):
                     path = os.path.join(vizdir, f)
-                    if os.stat(path).st_mtime < earliest_keeptime:
+                    # either an old plot or a large file (which cannot be displayed anyways)
+                    if os.stat(path).st_mtime < earliest_keeptime or os.path.getsize(path) > maxfilesize:
                         logger.info("Removing plots %s..." % path)
                         os.remove(path)
             else:
