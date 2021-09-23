@@ -286,8 +286,8 @@ div.login form input[type="text"], div.login form input[type="password"] {
 *.warning {
     height: auto;
     min-height: 50px;
-    border: solid 1px #DDD;
-    padding: 2px;
+    border: solid 1px #FFF;
+    padding: 10px;
     background-image: url(../pics/bg_warning.png);
     background-repeat: repeat-x;
 }
@@ -301,8 +301,8 @@ p.warning {
 *.info {
     height: auto;
     min-height: 50px;
-    border: solid 1px #DDD;
-    padding: 2px;
+    border: solid 1px #FFF;
+    padding: 10px;
     background-image: url(../pics/bg_info.png);
     background-repeat: repeat-x;
 }

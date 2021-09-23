@@ -132,7 +132,7 @@
     
     // If there are no tests for this user, display a message instead of the table:
     if ($nrows == 0) {
-        echo "<p class='warning'><img alt='' src='pics/icons/att.png'>No images uploaded yet</p>";
+        echo "<p class='warning'><img alt='' src='pics/icons/att.png'>No images uploaded yet. You can add your first test image <a style='color:#666666;text-decoration:none;' href='newimage.php'>here</a>.</p>";
     }
     // If there are tests for this user, display them (with alternating row coloring):
     else {
