@@ -1450,13 +1450,7 @@ def main(argv):
     starttime = time.time()
     errors, warnings = stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort)
 
-    # Close and reopen the DB connection (if stop test takes longer than usual, the DB connection might get dropped by the server)
-    try:
-        cur.close()
-        cn.close()
-    except:
-        pass
-    (cn, cur) = flocklab.connect_to_db()
+    (cn, cur) = flocklab.check_db_connection(cn, cur)
 
     # Record time needed to set up test for statistics in DB:
     time_needed = time.time() - starttime
@@ -1508,6 +1502,7 @@ def main(argv):
         err = prepare_testresults(testid, cur)
         for e in err:
             errors.append(e)
+        (cn, cur) = flocklab.check_db_connection(cn, cur)
         # Evaluate link measurement:
         err = evaluate_linkmeasurement(testid, cur)
         cn.commit()

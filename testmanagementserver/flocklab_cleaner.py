@@ -272,7 +272,7 @@ def main(argv):
                     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                     ret = p.wait()
                     if ret != 0:
-                        logger.error("Observer %d (%s) appears to be offline." % (int(obs[0]), obs[1]))
+                        logger.warning("Observer %d (%s) appears to be offline." % (int(obs[0]), obs[1]))
                         if obs[2] == 'online':
                             cur.execute("UPDATE `tbl_serv_observer` SET status='offline' WHERE observer_id=%d" % int(obs[0]))
                             cn.commit()

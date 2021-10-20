@@ -202,6 +202,22 @@ def connect_to_db():
 
 ##############################################################################
 #
+# check_db_connection - check connection to the database and reconnect if necessary
+#
+##############################################################################
+def check_db_connection(conn, cursor):
+    try:
+        # arbitrary dummy request
+        cur.execute("SELECT * FROM `tbl_serv_observers` LIMIT 1")
+    except:
+        # reconnect
+        return connect_to_db()
+    return (conn, cursor)
+### END connect_to_db()
+
+
+##############################################################################
+#
 # is_user_admin - Check if a user ID belongs to an admin.
 #
 ##############################################################################
