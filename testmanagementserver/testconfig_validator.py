@@ -739,31 +739,43 @@ def main(argv):
                 print("Element powerProfilingConf: Some observer IDs have been used but do not have a targetConf element associated with them.")
                 print("List: %s, used IDs: %s" % (str(obsidlist), str(ids)))
             errcnt = errcnt + 1
-        # Check offset tag (mandatory element)
-        rs = tree.xpath('//d:powerProfilingConf/d:offset', namespaces=ns)
         total_samples = 0
-        for elem in rs:
-            ppOffset = int(elem.text)
-            elem2 = elem.getparent().find('d:duration', namespaces=ns)
-            if elem2 != None:
-                ppDuration = int(elem2.text.strip())
+        for powerProfConf in tree.xpath('//d:powerProfilingConf', namespaces=ns):
+            obsList = [int(obsIdStr) for obsIdStr in powerProfConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split()]
+            samplingRate = get_sampling_rate(powerProfConf, ns)
+            offset = int(powerProfConf.xpath('.//d:offset', namespaces=ns)[0].text)     # mandatory field
+            duration = powerProfConf.xpath('.//d:duration', namespaces=ns)
+            if duration:
+                ppDuration = int(duration[0].text.strip())
             else:
-                # assume sampling duration = test duration
-                ppDuration = testDuration - ppOffset
-            total_samples = total_samples + ppDuration * get_sampling_rate(elem.getparent(), ns)
-            if (ppOffset + ppDuration) > testDuration:
+                ppDuration = testDuration - offset    # sampling duration = test duration minus offset
+            # make sure the sampling window is within the test runtime
+            if (offset + ppDuration) > testDuration:
                 if not quiet:
-                    print(("Line %d: element duration/offset: Profiling lasts longer than test." % (elem2.sourceline)))
+                    print(("Line %d: element duration/offset: Profiling lasts longer than test." % (duration[0].sourceline)))
                 errcnt = errcnt + 1
-        
+            # sum up the total number of samples that will be collected
+            total_samples = total_samples + ppDuration * samplingRate * len(obsList)
+            aggregate = powerProfConf.xpath('.//d:aggregate', namespaces=ns)
+            fileFormat = powerProfConf.xpath('.//d:fileFormat', namespaces=ns)
+            if aggregate:
+                # make sure aggregate < samplingRate
+                ppAggregate = int(aggregate[0].text)
+                if ppAggregate >= samplingRate or ppAggregate < 1:
+                    if not quiet:
+                        print(("Line %d: element aggregate: Must be smaller than the sampling rate." % (aggregate[0].sourceline)))
+                    errcnt = errcnt + 1
+            if fileFormat:
+                if fileFormat[0].text == "rld" and aggregate:
+                    if not quiet:
+                        print(("Line %d: element fileFormat: Cannot use format 'rld' with data aggregation." % (fileFormat[0].sourceline)))
+                    errcnt = errcnt + 1
         # check total number of samples (for now, just multiply the total by the number of observers)
-        if ids:
-            total_samples = total_samples * len(ids)
-            if total_samples > flocklab.config.getint('tests', 'powerprofilinglimit'):
-                if not quiet:
-                    print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
-                errcnt = errcnt + 1
-        
+        if total_samples and total_samples > flocklab.config.getint('tests', 'powerprofilinglimit'):
+            if not quiet:
+                print(("Invalid combination of power profiling duration and sampling rate: the total amount of data to collect is too large (%d samples requested, limit is %d)." % (total_samples, flocklab.config.getint('tests', 'powerprofilinglimit'))))
+            errcnt = errcnt + 1
+
     #===========================================================================
     # All additional tests finished. Clean up and exit.
     #===========================================================================

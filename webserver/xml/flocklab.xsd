@@ -300,10 +300,11 @@
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
     <xs:element name="offset" type="offsetSecsType" minOccurs="1" maxOccurs="1"/>
-    <xs:choice minOccurs="0" maxOccurs="3">
+    <xs:choice minOccurs="0" maxOccurs="4">
       <xs:element name="fileFormat" type="profConfFileFormat" minOccurs="0" maxOccurs="1"/>
       <xs:element name="duration" type="powerProfDurationType" minOccurs="0" maxOccurs="1"/>
       <xs:element name="samplingRate" type="powerProfSamplingRateType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="aggregate" type="powerProfSamplingRateType" minOccurs="0" maxOccurs="1"/>
     </xs:choice>
   </xs:sequence>
 </xs:complexType>
