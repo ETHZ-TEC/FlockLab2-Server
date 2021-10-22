@@ -189,7 +189,7 @@ def main(argv):
             
             # Check for tests that are stuck ---
             sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
-                     WHERE ((`test_status` IN ('preparing', 'aborting', 'syncing', 'synced')) OR (`test_status` = 'running' AND `dispatched` = 1))
+                     WHERE ((`test_status` IN ('preparing', 'aborting', 'cleaning up', 'syncing', 'synced')) OR (`test_status` = 'running' AND `dispatched` = 1))
                      AND (TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d)
                   """
             if cur.execute(sql % (now, maxtestcleanuptime)) <= 0:
