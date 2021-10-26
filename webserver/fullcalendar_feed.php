@@ -105,8 +105,8 @@
                     'color'       => 'orange',
                 );
             }
-        } elseif ($_SESSION['is_admin'] == true) {
-            // The user is admin and can thus see all tests:
+        } elseif ($_SESSION['is_admin'] == true || $_SESSION['is_internal'] == true) {
+            // The user is admin/internal and can thus see all tests:
             $event = array(
                     'id'          => $row['serv_tests_key'],
                     'title'       => $row['username'] . ' (' . $row['firstname'] . ' ' . $row['lastname'] . ')',
@@ -150,12 +150,12 @@
         (`time_start` BETWEEN "' . $mysqlstart . '" AND "' . $mysqlend . '" OR
         `time_end` BETWEEN "' . $mysqlstart . '" AND "' . $mysqlend . '")
         GROUP BY serv_reservation_key
-        '. ($_SESSION['is_admin'] == true?'':'HAVING `reservation_match` is NULL OR `reservation_match` <> 1');
+        '. (($_SESSION['is_admin'] == true || $_SESSION['is_internal'] == true) ? '' : 'HAVING `reservation_match` is NULL OR `reservation_match` <> 1');
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get calendar data from database because: ' . mysqli_error($db));
     while ($row = mysqli_fetch_array($rs)) {    
         $event = array(
             'id'          => $row['serv_reservation_key'],
-            'title'       => ($_SESSION['is_admin'] == true?'Reservation for group '.$row['group_id_fk']:'Occupied'),
+            'title'       => (($_SESSION['is_admin'] == true || $_SESSION['is_internal'] == true) ? 'Reservation for group '.$row['group_id_fk'] : 'Occupied'),
             'description' => $mini?'':'Another user is running a test.',
             'allDay'      => false,
         );

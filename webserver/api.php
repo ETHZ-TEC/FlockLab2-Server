@@ -113,7 +113,7 @@
       $sql = "SELECT title, description, test_status as status, UNIX_TIMESTAMP(time_start_wish) AS start_planned, UNIX_TIMESTAMP(time_start_act) AS start_act, UNIX_TIMESTAMP(time_end_wish) AS end_planned, UNIX_TIMESTAMP(time_end_act) AS end_act
               FROM `flocklab`.`tbl_serv_tests`
               WHERE serv_tests_key=".intval($_POST['id']);
-      if ($userrole != 'admin') {
+      if ($userrole != 'admin' && $userrole != 'internal') {
         $sql .= " AND owner_fk=$_SESSION[serv_users_key]";
       }
       $res = mysqli_query($db, $sql);
