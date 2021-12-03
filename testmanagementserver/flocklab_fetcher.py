@@ -374,7 +374,7 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             # CSV file format
             rld_data = RocketLoggerData(inputfilename).merge_channels()
             # get network time and convert to UNIX timestamp (UTC)
-            timeidx = rld_data.get_time(time_reference='network')
+            timeidx = rld_data.get_time(absolute_time=True, time_reference='network')
             timeidxunix = timeidx.astype('uint64') / 1e9   # convert to s
             current_ch = rld_data.get_data('I1') * 1000    # convert to mA
             if rld_data._header['file_version'] < 4:
