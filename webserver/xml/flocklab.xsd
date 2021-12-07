@@ -394,7 +394,7 @@
 <xs:simpleType name="powerProfDurationType">
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="1"/>
-    <xs:maxInclusive value="3600"/>
+    <xs:maxInclusive value="86400"/>
   </xs:restriction>
 </xs:simpleType>
 
