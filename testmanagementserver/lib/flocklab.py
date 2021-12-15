@@ -1038,17 +1038,21 @@ def schedule_linktest(cur, cn, debug=False):
     if not config or not logger or ((type(cur) != MySQLdb.cursors.Cursor) or (type(cn) != MySQLdb.connections.Connection)):
         return FAILED
     
+    linktest_interval_min = config.getint("linktests", "interval_hours") * 60
+    if linktest_interval_min == 0:
+        return SUCCESS    # nothing to do
+    
     sql = "SELECT TIMESTAMPDIFF(MINUTE, `begin`, NOW()) AS `last` FROM `tbl_serv_link_measurements` ORDER BY `last` ASC LIMIT 1"
     cur.execute(sql)
     rs = cur.fetchone()
     if not rs:
         logger.debug("No link measurements found.")
-        lasttest = 60 * config.getint("linktests", "interval_hours") * 2    # any number > (interval_hours + interval_random_minutes) will do
+        lasttest = linktest_interval_min * 2    # any number > (interval_hours + interval_random_minutes) will do
     else:
         lasttest = int(rs[0])
         logger.debug("Last link measurement was %s minutes ago." % (lasttest))
     
-    nexttest = 60 * config.getint("linktests", "interval_hours") + random.randint(-config.getint("linktests", "interval_random_minutes"), config.getint("linktests", "interval_random_minutes"))
+    nexttest = linktest_interval_min + random.randint(-config.getint("linktests", "interval_random_minutes"), config.getint("linktests", "interval_random_minutes"))
     if lasttest >= nexttest:
         # Schedule new tests
         # Check if the lockfile is present:
@@ -1057,7 +1061,7 @@ def schedule_linktest(cur, cn, debug=False):
             logger.debug("Lockfile %s exists already. Skip adding new linktests." % lockfile)
             # If the last scheduled link tests are a long time ago, generate a warning since it may be that the lockfile was not deleted for whatever reason:
             if lasttest > 2 * nexttest:
-                logger.error("Lockfile %s exists and the last linktest was %d min ago (interval is %d min)." % (lockfile, lasttest, config.getint("linktests", "interval_hours")))
+                logger.error("Lockfile %s exists and the last linktest was %d min ago (interval is %d min)." % (lockfile, lasttest, linktest_interval_min))
         else:
             # Create the lockfile:
             basedir = os.path.dirname(lockfile)

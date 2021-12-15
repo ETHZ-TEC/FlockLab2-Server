@@ -7,5 +7,5 @@
 #[[ -f /scratch/flocklab/conda/bin/conda ]] && eval "$(/scratch/flocklab/conda/bin/conda shell.bash hook)"
 #conda activate py36
 
-source ~/.bashrc
+source ~/.profile
 $*
