@@ -741,7 +741,10 @@ def main(argv):
             errcnt = errcnt + 1
         total_samples = 0
         for powerProfConf in tree.xpath('//d:powerProfilingConf', namespaces=ns):
-            obsList = [int(obsIdStr) for obsIdStr in powerProfConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split()]
+            obsIds  = powerProfConf.xpath('.//d:obsIds', namespaces=ns)[0].text.split()
+            if "ALL" in obsIds:
+                obsIds = ids
+            obsList = [int(obsIdStr) for obsIdStr in obsIds]
             samplingRate = get_sampling_rate(powerProfConf, ns)
             offset = int(powerProfConf.xpath('.//d:offset', namespaces=ns)[0].text)     # mandatory field
             duration = powerProfConf.xpath('.//d:duration', namespaces=ns)
