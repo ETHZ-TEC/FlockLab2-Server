@@ -40,10 +40,11 @@
     
       // If the page is called for the second time, validate and process form:
     if (!$first) {
-        $emailaddress     = $_POST['emailaddress'];
+        $emailaddress = $_POST['emailaddress'];
+        $username     = $_POST['username'];
         
         // Check necessary fields:
-        if ($emailaddress=="") {
+        if ($emailaddress == "" || $username == "") {
             $error = true;
             array_push($errors, "Please fill out all fields marked with an asterisk.");
         }
@@ -56,16 +57,16 @@
         
         // If there was no error, set a new, random password in the DB and send it to the user by email:
         if (!$error) {
-            $db = db_connect();
+            $db   = db_connect();
             // Check if user exists in database:
-            $sql = "SELECT * FROM `tbl_serv_users` WHERE `email` = '" . mysqli_real_escape_string($db, $emailaddress) . "'";
-            $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get user information from database because: ' . mysqli_error($db));
+            $sql  = "SELECT * FROM `tbl_serv_users` WHERE `username` = '" . mysqli_real_escape_string($db, $username) . "' AND `email` = '" . mysqli_real_escape_string($db, $emailaddress) . "'";
+            $rs   = mysqli_query($db, $sql) or flocklab_die('Cannot get user information from database because: ' . mysqli_error($db));
             $rows = mysqli_fetch_array($rs);
             if ($rows) {
-                // Generate new password and store it:
-                $newpassword = substr(hash('sha512',rand()),0,16);
-                $newhash = sha1($newpassword);
-                $sql = "UPDATE `tbl_serv_users` SET `password` = '" . $newhash . "' WHERE `email` = '" . mysqli_real_escape_string($db, $emailaddress) . "'";
+                // Generate a temporary password and store it:
+                $newpassword = substr(hash('sha512', rand()), 0, 16);
+                $newhash     = sha1($newpassword);
+                $sql         = "UPDATE `tbl_serv_users` SET `password` = '" . $newhash . "' WHERE `username` = '" . mysqli_real_escape_string($db, $username) . "' AND `email` = '" . mysqli_real_escape_string($db, $emailaddress) . "'";
                 mysqli_query($db, $sql) or flocklab_die('Cannot get set new password for user in database because: ' . mysqli_error($db));
             }             
             mysqli_close($db);
@@ -73,15 +74,16 @@
             // If user was found and password has been set, inform user:
             if (isset($newpassword)) {
                 $subject = "[FlockLab] Request for password recovery";
-                $message = "A request for a FlockLab password recovery has been placed on the FlockLab user interface.\n";
-                $message = $message . "If this request has not been placed by you, please contact us on ".$CONFIG['smtp']['email'].".\n\n";
-                $message = $message . "Your password has been reset to the following new password: \n\n$newpassword\n\n";
-                $message = $message . "Please login at ".$CONFIG['xml']['namespace']."/user and change the password in your account settings afterwards.\n";
-                $message = $message . "\n"; 
+                $message = "A request for a FlockLab password recovery has been placed on the FlockLab user interface.\n".
+                           "If this request has not been placed by you, please contact us at ".$CONFIG['email']['admin_email'].".\n\n".
+                           "Your password has been reset to the following new password: \n\n$newpassword\n\n".
+                           "Please login at ".$CONFIG['xml']['namespace']."/user and change the password in your account settings afterwards.\n\n";
                 $message = wordwrap($message, 70);
-                $header  = 'X-Mailer: PHP/' . phpversion();
-                mail($emailaddress, $subject, $message, $header);
-            } 
+                send_mail($subject, $message, $emailaddress);
+            } else {
+                $error = true;
+                array_push($errors, "No user found with the specified name/email combination.");    
+            }
         }
     }
 ?>
@@ -111,6 +113,9 @@
                     emailaddress: {
                         required: true,
                         email: true
+                    },
+                    username: {
+                        required: true
                     }
                 }
         });
@@ -138,7 +143,8 @@
                     }
             ?>
                 <p>Please fill out the form below to request a new password for your FlockLab account. Fields marked with * are mandatory.</p>
-                <span class="formfield">E-mail Address:*</span><input type="text" name="emailaddress" id="emailaddress" value="<?php echo $emailaddress;?>"><br>
+                <span class="formfield">Username:*</span><input type="text" name="username" id="username" value="<?php echo $username; ?>"><br>
+                <span class="formfield">E-mail Address:*</span><input type="text" name="emailaddress" id="emailaddress" value="<?php echo $emailaddress; ?>"><br>
                 <span class="formfield">Captcha:*</span><?php recaptcha_print(); ?>
                 <p>
                     <input type="hidden" name="first" value="no">

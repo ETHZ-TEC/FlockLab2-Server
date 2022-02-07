@@ -233,12 +233,13 @@ function check_imageid($imageid, $userid) {
 ##############################################################################
 */
 function get_admin_emails() {
+    global $CONFIG;
     $admins = Array();
     if (isset($CONFIG['email']['admin_email'])) {
         array_push($admins, trim($CONFIG['email']['admin_email']));
     } else {
       $db = db_connect();
-      $sql =    "SELECT `email`
+      $sql = "SELECT `email`
               FROM tbl_serv_users
               WHERE `role` = 'admin'";
       $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get admin emails from database because: ' . mysqli_error($db));
@@ -248,6 +249,38 @@ function get_admin_emails() {
       mysqli_close($db);
     }
     return $admins;
+}
+
+/*
+##############################################################################
+#
+# get_flocklab_email
+#
+# Get the main mail address of Flocklab
+#
+##############################################################################
+*/
+function get_flocklab_email() {
+    global $CONFIG;
+    return $CONFIG['email']['flocklab_email'];
+}
+
+/*
+##############################################################################
+#
+# send_mail
+#
+# Send an email
+#
+##############################################################################
+*/
+function send_mail($subject, $message, $recipient) {
+    global $CONFIG;
+    $header  = 'From: ' . $CONFIG['email']['flocklab_email'] . "\r\n" .
+               'Reply-To: ' . $CONFIG['email']['admin_email'] . "\r\n" .
+               'Content-Type: text/plain; charset=utf-8' . "\r\n" .
+               'X-Mailer: PHP/' . phpversion();
+    return mail($recipient, $subject, $message, $header);
 }
 
 /*

@@ -47,7 +47,7 @@
             $row = mysqli_fetch_array($rs);
             if (file_exists("template/newuser_emailtemplate.txt") && $row['last_login'] === NULL) {    // only send mail to new users (who have not yet logged in)
                 $msg = file_get_contents("template/newuser_emailtemplate.txt");
-                mail($row['email'], "Re: Request for FlockLab user account", $msg, "From: flocklab@tik.ee.ethz.ch\r\nReply-To: flocklab-admin@tik.ee.ethz.ch");
+                send_mail("Re: Request for FlockLab user account", $msg, $row['email']);
             }
         }
         mysqli_close($db);

@@ -40,18 +40,18 @@
     
     // If the page is called for the second time, validate form and send an email to the flocklab admin on success.
     if (!$first) {
-        $institution      = $_POST['institution'];
+        $institution     = $_POST['institution'];
         $institutiontype = $_POST['institutiontype'];
-        $firstname         = $_POST['firstname'];
-        $lastname         = $_POST['lastname'];
-        $emailaddress     = $_POST['emailaddress'];
-        $username         = $_POST['username'];
+        $firstname       = $_POST['firstname'];
+        $lastname        = $_POST['lastname'];
+        $emailaddress    = $_POST['emailaddress'];
+        $username        = $_POST['username'];
         $country         = $_POST['country'];
-        $passwd             = sha1($_POST['passwd']);
-        $retypepasswd     = sha1($_POST['retypepasswd']);
+        $passwd          = sha1($_POST['passwd']);
+        $retypepasswd    = sha1($_POST['retypepasswd']);
         $description     = $_POST['description'];
-        $comments         = $_POST['comments'];
-        $termsofuse     = $_POST['termsofuse'];
+        $comments        = $_POST['comments'];
+        $termsofuse      = $_POST['termsofuse'];
         
         /* Check necessary fields */
         // Check necessary fields:
@@ -94,24 +94,23 @@
         
         // If there was no error, insert the data into the database and send an email to the flocklab admin:
         if (!$error) {
-            $db = db_connect();
-            $sql =    "INSERT INTO `tbl_serv_users` (`lastname`, `firstname`, `username`, `country`, `password`, `email`, `institution_type`, `institution`, `is_active`,`create_time`)
-                VALUES (
-                '" . mysqli_real_escape_string($db, $lastname) . "', 
-                '" . mysqli_real_escape_string($db, $firstname) . "',
-                '" . mysqli_real_escape_string($db, $username) . "',
-                '" . mysqli_real_escape_string($db, $country) . "',
-                '" . mysqli_real_escape_string($db, $passwd) . "',
-                '" . mysqli_real_escape_string($db, $emailaddress) . "',
-                '" . mysqli_real_escape_string($db, $institutiontype) . "',
-                '" . mysqli_real_escape_string($db, $institution) . "', 0, NOW())";
+            $db  = db_connect();
+            $sql = "INSERT INTO `tbl_serv_users` (`lastname`, `firstname`, `username`, `country`, `password`, `email`, `institution_type`, `institution`, `is_active`,`create_time`)
+                    VALUES (
+                    '" . mysqli_real_escape_string($db, $lastname) . "', 
+                    '" . mysqli_real_escape_string($db, $firstname) . "',
+                    '" . mysqli_real_escape_string($db, $username) . "',
+                    '" . mysqli_real_escape_string($db, $country) . "',
+                    '" . mysqli_real_escape_string($db, $passwd) . "',
+                    '" . mysqli_real_escape_string($db, $emailaddress) . "',
+                    '" . mysqli_real_escape_string($db, $institutiontype) . "',
+                    '" . mysqli_real_escape_string($db, $institution) . "', 0, NOW())";
             mysqli_query($db, $sql) or flocklab_die('Cannot store user information in database because: ' . mysqli_error($db));
             mysqli_close($db);
         
-            $adminemails = get_admin_emails();
-            $to = implode(", ", $adminemails);
+            $to = implode(", ", get_admin_emails());
             $subject = "Request for FlockLab user account";
-            $message = "A request for a new FlockLab user account has been placed on www.flocklab.ethz.ch/user/user_register.php\n\n";
+            $message = "A request for a new FlockLab user account has been placed.\n\n";
             $message = $message . "First Name:            $firstname\n";
             $message = $message . "Last Name:             $lastname\n";
             $message = $message . "Username:              $username\n";
@@ -125,9 +124,7 @@
             $message = $message . "Terms of use accepted: $termsofuse\n"; 
             $message = $message . "\n";
             $message = wordwrap($message, 70);
-            $header  = 'Reply-To: ' . $emailaddress . "\r\n" .
-                       'X-Mailer: PHP/' . phpversion();
-            mail($to, $subject, $message, $header); 
+            send_mail($subject, $message, $to);
         }
     }
 ?>
@@ -255,6 +252,7 @@
             </form>
         </div> <!-- END content -->
         <div style="clear:both"></div>
+        <div style="color: #666666; margin-top:10px"><?php echo "Contact the <a href='mailto:".get_admin_emails()[0]."'>FlockLab admin</a> in case of an issue with the registration form."; ?></div>
     </div> <!-- END container -->
 </body>
 </html>
