@@ -1416,7 +1416,7 @@ def main(argv):
         # Get the stop time from the database
         cur.execute("SELECT `time_end_wish` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
         ret = cur.fetchone()
-        stoptimestamp = datetime.datetime.timestamp(ret[0])
+        stoptimestamp = datetime.datetime.timestamp(ret[0]) + 1   # postpone by 1s to give services on observers time to shut down
         if not stoptimestamp or stoptimestamp < time.time():
             logger.error("Something went wrong, stop time is in the past (%s)." % (str(stoptimestamp)))
             abort = True
