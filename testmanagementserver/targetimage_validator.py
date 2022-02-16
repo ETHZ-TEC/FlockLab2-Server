@@ -156,7 +156,7 @@ def main(argv):
         if p.wait() != 0:
             errcnt += 1
     elif arch == 'arm':
-        p = subprocess.Popen([flocklab.config.get('targetimage', 'binutils_arm') + "/arm-angstrom-linux-gnueabi-readelf", '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
+        p = subprocess.Popen([flocklab.config.get('targetimage', 'binutils_arm') + "/arm-none-eabi-readelf", '-a', imagepath], stdout=open(os.devnull), stderr=open(os.devnull))
         if p.wait() != 0:
             errcnt += 1
     else:
