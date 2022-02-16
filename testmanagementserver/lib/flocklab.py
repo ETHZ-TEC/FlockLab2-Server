@@ -1050,7 +1050,7 @@ def schedule_linktest(cur, cn, debug=False):
         lasttest = linktest_interval_min * 2    # any number > (interval_hours + interval_random_minutes) will do
     else:
         lasttest = int(rs[0])
-        logger.debug("Last link measurement was %s minutes ago." % (lasttest))
+        #logger.debug("Last link measurement was %s minutes ago." % (lasttest))
     
     nexttest = linktest_interval_min + random.randint(-config.getint("linktests", "interval_random_minutes"), config.getint("linktests", "interval_random_minutes"))
     if lasttest >= nexttest:
@@ -1176,13 +1176,9 @@ def patch_binary(symbol=None, value=None, binaryfile=None, arch=None):
         binutils_objdump = "msp430-objdump"
     elif arch == 'arm':
         binutils_path = config.get('targetimage', 'binutils_arm')
-        binutils_objcopy = "usr/bin/arm-linux-gnu-objcopy"
-        binutils_objdump = "usr/bin/arm-linux-gnu-objdump"
-        # TODO: check whether this is necessary
-        if 'LD_LIBRARY_PATH' not in env:
-            env['LD_LIBRARY_PATH'] = ''
-        env['LD_LIBRARY_PATH'] += ':%s/%s' % (binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
-    
+        binutils_objcopy = "arm-none-eabi-objcopy"
+        binutils_objdump = "arm-none-eabi-objdump"
+
     cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (binutils_path, binutils_objcopy), '--objdump', '%s/%s' % (binutils_path, binutils_objdump), '--target', 'elf', binaryfile, binaryfile, '%s=%s' % (symbol, value), 'ActiveMessageAddressC$addr=%s' % (value), 'ActiveMessageAddressC__addr=%s' % (value)]
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
@@ -1218,13 +1214,9 @@ def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
         binutils_objdump = "msp430-objdump"
     elif arch == 'arm':
         binutils_path = config.get('targetimage', 'binutils_arm')
-        binutils_objcopy = "usr/bin/arm-linux-gnu-objcopy"
-        binutils_objdump = "usr/bin/arm-linux-gnu-objdump"
-        # TODO: check whether this is necessary
-        if 'LD_LIBRARY_PATH' not in env:
-            env['LD_LIBRARY_PATH'] = ''
-        env['LD_LIBRARY_PATH'] += ':%s/%s' % (binutils_path, "usr/x86_64-linux-gnu/arm-linux-gnu/lib")
-    
+        binutils_objcopy = "arm-none-eabi-objcopy"
+        binutils_objdump = "arm-none-eabi-objdump"
+
     cmd = ['%s/%s' % (binutils_path, binutils_objcopy), '--output-target', 'ihex', binaryfile, outputfile]
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)

@@ -394,7 +394,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         errors.append(msg)
                         logger.error(msg)
                         shutil.move(imagepath, binpath)
-                        logger.debug("Copied binary file without modification.")
+                        logger.debug("Copied binary file to '%s' without modification." % (binpath))
                 
                 # Remove the original file which is not used anymore:
                 if os.path.exists(imagepath):
@@ -424,8 +424,9 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 imagedict_key[obs_fk].append((binpath, slot, platname, core))
                 
             logger.info("Processed all target images from database.")
-                
-            # XML processing ---
+        
+        # XML processing ---
+        if len(errors) == 0:
             # Get the XML config from the database and generate a separate file for every observer used:
             cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" % testid)
             ret = cur.fetchone()
@@ -437,7 +438,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                 parser = lxml.etree.XMLParser(remove_comments=True)
                 tree = lxml.etree.fromstring(bytes(bytearray(ret[0], encoding = 'utf-8')), parser)
                 ns = {'d': flocklab.config.get('xml', 'namespace')}
-                logger.debug("Got XML from database.")
+                #logger.debug("Got XML from database.")
                 # Create XML files for observers ---
                 # Create an empty XML config file for every observer used and organize them in a dictionary:
                 xmldict_key = {}
@@ -1434,7 +1435,6 @@ def main(argv):
             logger.info("Waiting for the test to stop... (%ds left)" % (int(stoptimestamp - time.time())))
             while not abort and time.time() < stoptimestamp:
                 time.sleep(0.1)
-            logger.debug("Stopping test now...")
         
         # Reconnect to the database:
         try:

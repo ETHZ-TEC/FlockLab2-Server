@@ -177,9 +177,11 @@ def main(argv):
     
     # Check for work ---
     # Check if a new test is to be started ---
-    # Calculate the time frame in which a test can be started: at least the setuptime ahead, at most 5 minutes more ahead
-    earlieststart = (datetime.datetime.now() + datetime.timedelta(seconds=flocklab.config.getint("tests", "setuptime")) - datetime.timedelta(seconds=10)).strftime(flocklab.config.get("database", "timeformat"))
-    lateststart = (datetime.datetime.now() + datetime.timedelta(seconds=flocklab.config.getint("tests", "setuptime"))  + datetime.timedelta(minutes=2)).strftime(flocklab.config.get("database", "timeformat"))
+    # Calculate the time frame in which a test can be started: at least the setuptime ahead
+    slacktime = 10
+    setuptime = flocklab.config.getint("tests", "setuptime")
+    earlieststart = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) - datetime.timedelta(seconds=slacktime)).strftime(flocklab.config.get("database", "timeformat"))
+    lateststart = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) + datetime.timedelta(seconds=slacktime)).strftime(flocklab.config.get("database", "timeformat"))
     # Check if a test is going to start soon:
     sql = """SELECT `serv_tests_key`,`time_start_wish`
              FROM `tbl_serv_tests` 
@@ -188,22 +190,21 @@ def main(argv):
              AND (`test_status` = 'planned')
              AND (`dispatched` = 0)
           """ % (earlieststart, lateststart)
-    logger.debug("Looking in DB for tests with start time between %s and %s and test status planned..." % (now, lateststart))
+    #logger.debug("Looking in DB for tests with start time between %s and %s and test status planned..." % (earlieststart, lateststart))
     cur.execute(sql)
-    
-    # start thread for each test to start
     rs = cur.fetchall()
     if rs:
+        # start thread for each test to start
         for test in rs:
             testid = int(test[0])
-            delay = int(calendar.timegm(time.strptime(str(test[1]), '%Y-%m-%d %H:%M:%S'))) - flocklab.config.getint("tests", "setuptime") - int(time.time())
+            delay = int(calendar.timegm(time.strptime(str(test[1]), '%Y-%m-%d %H:%M:%S'))) - setuptime - int(time.time())
             if delay < 0:
                 delay = 0 
             logger.info("Call process to start test %s with delay %ss." % (testid,delay))
             p = multiprocessing.Process(target=test_startstopabort, args=(testid, False, delay))
             p.start()
     else:
-        logger.debug("No test is to be started within the next %s seconds" % (flocklab.config.get("tests", "setuptime")))
+        logger.debug("No test is to be started within the next %d seconds" % (setuptime + 2 * slacktime))
         # Check for test which have been missed ---
         sql1 = """SELECT `serv_tests_key`
                   FROM `tbl_serv_tests`
@@ -235,8 +236,8 @@ def main(argv):
                 else:
                     logger.error("Error %s returned when trying to get test owner information" % str(rs))
             logger.warning("Updated test status of %d missed tests to 'failed' and informed users." % nmissed)
-        else:
-            logger.debug("No missed tests found.")
+        #else:
+        #    logger.debug("No missed tests found.")
         rs = errno.ENODATA
     
     # Check if a test needs to be aborted ---
