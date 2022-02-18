@@ -344,7 +344,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                                     ON `t`.`core` = `a`.`core` AND `p`.`serv_platforms_key` = `a`.`platforms_fk`
                                 WHERE `m`.`test_fk` = %d
                             """
-            cur.execute(sql_image%testid)
+            cur.execute(sql_image % (testid))
             ret = cur.fetchall()
             for r in ret:
                 binary      = r[0]

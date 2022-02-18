@@ -1150,6 +1150,7 @@ def binary_has_symbol(symbol=None, binaryfile=None):
     (out, err) = p.communicate()
     if p.returncode == 0:
         if symbol in out:
+            logger = get_logger()
             logger.debug("Found symbol %s in binary file '%s'." % (symbol, binaryfile))
             return True
         return False
@@ -1168,7 +1169,6 @@ def patch_binary(symbol=None, value=None, binaryfile=None, arch=None):
         return FAILED
     
     set_symbols_tool = config.get('targetimage', 'setsymbolsscript')
-    env = os.environ
     
     if arch == 'msp430':
         binutils_path = config.get('targetimage', 'binutils_msp430')
@@ -1179,15 +1179,17 @@ def patch_binary(symbol=None, value=None, binaryfile=None, arch=None):
         binutils_objcopy = "arm-none-eabi-objcopy"
         binutils_objdump = "arm-none-eabi-objdump"
 
-    cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (binutils_path, binutils_objcopy), '--objdump', '%s/%s' % (binutils_path, binutils_objdump), '--target', 'elf', binaryfile, binaryfile, '%s=%s' % (symbol, value), 'ActiveMessageAddressC$addr=%s' % (value), 'ActiveMessageAddressC__addr=%s' % (value)]
+    cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (binutils_path, binutils_objcopy), '--objdump', '%s/%s' % (binutils_path, binutils_objdump), '--target', 'elf', binaryfile, binaryfile, '%s=%s' % (symbol, value)]
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         rs = p.wait()
         if rs != 0:
+            logger = get_logger()
             logger.error("Error %d returned from %s. Command was: %s" % (rs, set_symbols_tool, " ".join(cmd)))
             return FAILED
     except OSError as err:
         msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
+        logger = get_logger()
         logger.error(msg)
         return FAILED
 
@@ -1206,8 +1208,6 @@ def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
     if arch is None or binaryfile is None or outputfile is None:
         return FAILED
     
-    env = os.environ
-    
     if arch == 'msp430':
         binutils_path = config.get('targetimage', 'binutils_msp430')
         binutils_objcopy = "msp430-objcopy"
@@ -1219,16 +1219,18 @@ def bin_to_hex(binaryfile=None, arch=None, outputfile=None):
 
     cmd = ['%s/%s' % (binutils_path, binutils_objcopy), '--output-target', 'ihex', binaryfile, outputfile]
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-        rs = p.wait()
-        if rs != 0:
-            logger.error("Command %s returned with error code %d." % (" ".join(cmd), rs))
+        logger = get_logger()
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (out, err) = p.communicate()
+        if p.returncode != 0:
+            logger.error("Command %s returned with error code %d (%s)." % (" ".join(cmd), p.returncode, err.decode("utf-8").strip()))
             return FAILED
         else:
             logger.debug("Converted file %s to Intel hex." % (binaryfile))
     except OSError as err:
         msg = "Error in subprocess: tried calling %s. Error was: %s" % (str(cmd), str(err))
-        logger.error(msg)
+        if logger:
+            logger.error(msg)
         return FAILED
 
     return SUCCESS
