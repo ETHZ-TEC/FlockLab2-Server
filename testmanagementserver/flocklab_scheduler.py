@@ -178,10 +178,10 @@ def main(argv):
     # Check for work ---
     # Check if a new test is to be started ---
     # Calculate the time frame in which a test can be started: at least the setuptime ahead
-    slacktime = 10
-    setuptime = flocklab.config.getint("tests", "setuptime")
-    earlieststart = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) - datetime.timedelta(seconds=slacktime)).strftime(flocklab.config.get("database", "timeformat"))
-    lateststart = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) + datetime.timedelta(seconds=slacktime)).strftime(flocklab.config.get("database", "timeformat"))
+    schedinterval = 60 + 10   # add slack time
+    setuptime     = flocklab.config.getint("tests", "setuptime")
+    earlieststart = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) - datetime.timedelta(seconds=schedinterval)).strftime(flocklab.config.get("database", "timeformat"))
+    lateststart   = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) + datetime.timedelta(seconds=schedinterval)).strftime(flocklab.config.get("database", "timeformat"))
     # Check if a test is going to start soon:
     sql = """SELECT `serv_tests_key`,`time_start_wish`
              FROM `tbl_serv_tests` 
@@ -204,7 +204,7 @@ def main(argv):
             p = multiprocessing.Process(target=test_startstopabort, args=(testid, False, delay))
             p.start()
     else:
-        logger.debug("No test is to be started within the next %d seconds" % (setuptime + 2 * slacktime))
+        logger.debug("No test is to be started within the next %d seconds" % (setuptime + schedinterval))
         # Check for test which have been missed ---
         sql1 = """SELECT `serv_tests_key`
                   FROM `tbl_serv_tests`
