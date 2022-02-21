@@ -1140,21 +1140,23 @@ def parse_int(s):
 
 ##############################################################################
 #
-# binary_has_symbol()   checks whether a symbol exists in a binary file (ELF)
+# binary_get_symbol_section()   returns the section name if a symbol exists in a binary file (ELF), None otherwise
 #
 ##############################################################################
-def binary_has_symbol(symbol=None, binaryfile=None):
+def binary_get_symbol_section(symbol=None, binaryfile=None):
     if symbol is None or binaryfile is None or not os.path.isfile(binaryfile):
-        return FAILED
+        return None
     p = subprocess.Popen(['objdump', '-t', binaryfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
     (out, err) = p.communicate()
     if p.returncode == 0:
-        if symbol in out:
+        # objdump output is in the following format: [address] [flags] [section] [size] [name]
+        section = re.search('(\.[^\s]*)\s[0-9]+\s' + symbol, out)
+        if section:
+            section = section.group(1)
             logger = get_logger()
-            logger.debug("Found symbol %s in binary file '%s'." % (symbol, binaryfile))
-            return True
-        return False
-    return FAILED
+            logger.debug("Found symbol %s in section %s of binary file %s." % (symbol, section, binaryfile))
+            return section
+    return None
 ### END binary_has_symbol()
 
 
@@ -1179,7 +1181,14 @@ def patch_binary(symbol=None, value=None, binaryfile=None, arch=None):
         binutils_objcopy = "arm-none-eabi-objcopy"
         binutils_objdump = "arm-none-eabi-objdump"
 
-    cmd = ['%s' % (set_symbols_tool), '--objcopy', '%s/%s' % (binutils_path, binutils_objcopy), '--objdump', '%s/%s' % (binutils_path, binutils_objdump), '--target', 'elf', binaryfile, binaryfile, '%s=%s' % (symbol, value)]
+    # check whether the symbol exists in the binary file and get the section name
+    section = binary_get_symbol_section(symbol, binaryfile)
+    if section is None:
+        logger = get_logger()
+        logger.debug("Symbol %s not found in file %s." % (symbol, binaryfile))
+        return SUCCESS    # no error, symbol just doesn't exist
+
+    cmd = ['%s' % (set_symbols_tool), '--section', section, '--objcopy', '%s/%s' % (binutils_path, binutils_objcopy), '--objdump', '%s/%s' % (binutils_path, binutils_objdump), '--target', 'elf', binaryfile, binaryfile, '%s=%s' % (symbol, value)]
     try:
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         rs = p.wait()

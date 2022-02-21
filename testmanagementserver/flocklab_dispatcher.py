@@ -382,12 +382,12 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
                         # set node ID
                         if flocklab.patch_binary("FLOCKLAB_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
                             msg = "Failed to patch symbol FLOCKLAB_NODE_ID in binary file %s." % (imagepath)
-                            errors.append(msg)
-                            logger.error(msg)
+                            warnings.append(msg)
+                            logger.warning(msg)
                         if flocklab.patch_binary("TOS_NODE_ID", node_id, imagepath, arch) != flocklab.SUCCESS:
                             msg = "Failed to patch symbol TOS_NODE_ID in binary file %s." % (imagepath)
-                            errors.append(msg)
-                            logger.error(msg)
+                            warnings.append(msg)
+                            logger.warning(msg)
                     # convert elf to intel hex
                     if flocklab.bin_to_hex(imagepath, arch, binpath) != flocklab.SUCCESS:
                         msg = "Failed to convert image file %s to Intel hex format." % (imagepath)
