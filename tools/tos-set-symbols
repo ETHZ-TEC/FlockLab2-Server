@@ -10,6 +10,7 @@ my %G_opts = (
   objcopy => 'avr-objcopy',
   target => 'srec',
   readdata => 0,
+  section => '.data',
 );
 
 # default to backward compatability mode
@@ -24,14 +25,15 @@ while( @ARGV && $ARGV[0] =~ /^-/ ) {
 
 # print usage if we have the wrong number of arguments
 if( @ARGV < ($G_opts{readdata} ? 1 : 3) ) {
-    print "usage: tos-set-symbols --srec [--objcopy=...] [--objdump=...]\n";
+    print "usage: tos-set-symbols --srec [--objcopy=...] [--objdump=...] [--section=SECTION]\n";
     print "                       [--target=TARGETFILETYPE]\n";
     print "                       INFILE OUTFILE [SYMBOL=]VALUE...\n";
-    print "       tos-set-symbols --exe [--objcopy=...] [--objdump=...]\n";
+    print "       tos-set-symbols --exe [--objcopy=...] [--objdump=...] [--section=SECTION]\n";
     print "                       INFILE OUTFILE [SYMBOL]=VALUE...\n";
-    print "       tos-set-symbols --read [--objdump=...] INFILE SYMBOL...\n";
+    print "       tos-set-symbols --read [--objdump=...] [--section=SECTION] INFILE SYMBOL...\n";
     print "\nNote: If omitted, SYMBOL defaults to TOS_LOCAL_ADDRESS.\n";
     print "(for TinyOS 1.x compatibility).\n";
+    print "SECTION defaults to .data .\n";
     exit 0;
 }
 
@@ -52,9 +54,13 @@ if( $G_opts{readdata} ) {
     $user_symbols{$name} = $value;
   }
 }
+my $section = $G_opts{section};
+$section =~ s/\./\\./g;
+my $pattern = undef;
 my $segment_vma = undef;
 my $segment_lma = undef;
 my $segment_off = undef;
+my $segment_type = undef;
 
 # if in compatability mode, derive the names of the exes from the srecs
 my $srecin = undef;
@@ -66,27 +72,31 @@ if( $G_opts{compat} ) {
   $exeout =~ s/$G_opts{target}/exe/;
 }
 
-# find the data section
-open( SECTS, "$G_opts{objdump} -h $exein |" )
-  or die "Cannot extract section information: $!\n";
-while(<SECTS>) {
-  if( /^\s*\d+\s+\.data\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)/ ) {
-    $segment_vma = hex $1;
-    $segment_lma = hex $2;
-    $segment_off = hex $3;
-    last;
-  }
+# find the requested section
+my $sections = do {
+  local $/ = undef;
+  open( SECTS, "$G_opts{objdump} -hj $section $exein |" )
+    or die "Cannot extract section information: $!\n";
+  <SECTS>;
+};
+$pattern = '^\s*\d+\s+' . $section . '\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)\s+\S+\n\s+(\S+)';
+if( $sections =~ /$pattern/gm ) {
+  $segment_vma = hex $1;
+  $segment_lma = hex $2;
+  $segment_off = hex $3;
+  $segment_type = $4;
 }
 close(SECTS);
-warn "Could not find data section in $exein, aborting.\n"
-  unless defined $segment_vma && defined $segment_lma && defined $segment_off;
+defined $segment_vma && defined $segment_lma && defined $segment_off && ( $segment_off != 0 || uc($segment_type) eq 'CONTENT' )
+  or die "Could not find section $G_opts{section} in $exein, aborting.\n";
 
 # build a hash of all data segment symbols to their address and size
 my %exe_symbols = ();
+$pattern = '^(\S+)\s+\S+\s+\S+\s+' . $section . '\s+(\S+)\s+(\S+)\s*$';
 open( SYMBOL, "$G_opts{objdump} -t $exein |" )
   or die "Cannot extract symbol information: $!\n";
 while(<SYMBOL>) {
-  if( /^(\S+)\s+\S+\s+\S+\s+\.data\s+(\S+)\s+(\S+)\s*$/ ) {
+  if( /$pattern/ ) {
     $exe_symbols{$3} = { addr => hex($1), size => hex($2) };
   }
 }
@@ -160,4 +170,3 @@ if( $G_opts{readdata} ) {
   }
 
 }
-
