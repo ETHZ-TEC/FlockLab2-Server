@@ -122,7 +122,8 @@
                   ON (`serv_targetimages_key` = `tbl_serv_map_test_observer_targetimages`.`targetimage_fk`)
               LEFT JOIN `tbl_serv_tests` 
                   ON (`test_fk` = `tbl_serv_tests`.`serv_tests_key`)
-              WHERE (`tbl_serv_targetimages`.`owner_fk` = " . $_SESSION['serv_users_key'] . ") 
+              WHERE (`tbl_serv_targetimages`.`owner_fk` = " . $_SESSION['serv_users_key'] . ")
+                  AND (`tbl_serv_tests`.`owner_fk` = " . $_SESSION['serv_users_key'] . ")
                   AND (`tbl_serv_targetimages`.`binary_hash_sha1` is not NULL)
               GROUP BY `serv_targetimages_key`
               ORDER BY `serv_targetimages_key` DESC";
