@@ -226,7 +226,7 @@ def main(argv):
                 logger.debug("No tests found that need to be aborted.")
             
             # Check for stuck threads
-            cmd = ["ps", "-U", "flocklab", "-o", "pid:5=,cmd:100=,etime="]
+            cmd = ["ps", "-U", "flocklab", "-o", "pid:9=,cmd:100=,etime="]
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
             out, err = p.communicate()
             lines = out.split("\n")
@@ -234,9 +234,10 @@ def main(argv):
             for line in lines:
                 if len(line) > 0:
                     try:
-                        pid = int(line[0:6].strip())
-                        command = line[6:106].strip()
-                        runtime = line[106:].strip()
+                        pid = int(line[0:10].strip())
+                        command = line[10:110].strip()
+                        runtime = line[110:].strip()
+                        #logger.debug("pid: %d, command: '%s', runtime: %s" % (pid, command, runtime))
                     except:
                         logger.warning("Failed to parse output of 'ps'. Line was: '%s'" % line)
                         break
@@ -249,7 +250,10 @@ def main(argv):
                         if cur.execute(sql % (testid, now, maxtestcleanuptime)) > 0:
                             # thread is stuck -> add to list and kill
                             pids.append(str(pid))
-                            os.kill(pid, signal.SIGKILL)
+                            try:
+                                os.kill(pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                logger.warning("Could not kill process with ID %s (does not exist)" % (str(pid)))
             if len(pids) > 0:
                 msg = "%d stuck threads terminated (PIDs: %s)" % (len(pids), ", ".join(pids))
                 logger.info(msg)
