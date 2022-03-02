@@ -281,7 +281,7 @@
 <xs:complexType name="gpioActuationConfType">
   <xs:sequence>
     <xs:element name="obsIds" type="obsIdListRestType"/>
-    <xs:element name="pinConf" type="gpioActuationPinConfType" minOccurs="1" maxOccurs="1000"/>
+    <xs:element name="pinConf" type="gpioActuationPinConfType" minOccurs="1" maxOccurs="8000"/>
   </xs:sequence>
 </xs:complexType>
 <xs:complexType name="gpioActuationPinConfType">
@@ -470,7 +470,7 @@
 <xs:simpleType name="periodicCountType">
   <xs:restriction base="xs:integer">
     <xs:minInclusive value="1"/>
-    <xs:maxInclusive value="500"/>
+    <xs:maxInclusive value="4000"/>
   </xs:restriction>
 </xs:simpleType>
 
