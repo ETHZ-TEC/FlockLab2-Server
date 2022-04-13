@@ -106,6 +106,11 @@ def main(argv):
         logger.warning("Wrong API usage")
         sys.exit(errno.EINVAL)
     
+    # Check file size
+    if os.path.getsize(imagepath) == 0:
+        logger.error("Invalid file size")
+        sys.exit(errno.EINVAL)
+
     # Just basic checking for Intel HEX files ---
     if "hex" in os.path.splitext(imagepath)[1].lower() or flocklab.is_hex_file(imagepath) == True:
         logger.debug("Hex file detected.")

@@ -454,9 +454,14 @@ def main(argv):
                             obsiddict[obsid][core] = platform
                         # Get the image and save it to a temporary file:
                         image = imageconf[0].xpath('d:data', namespaces=ns)[0].text
-                        # For target platform DPP2LoRa, the <data> tag may be empty
-                        if len(image.strip()) == 0 and (platform.lower() == "dpp2lora" or platform.lower() == "dpp2lorahg"):
-                            continue   # skip image validation
+                        if len(image.strip()) == 0:
+                            # For target platform DPP2LoRa, the <data> tag may be empty (such that the user only has to provide an image for either dpp2lora or dpp2lorahg when using both targets in one test)
+                            if (platform.lower() == "dpp2lora" or platform.lower() == "dpp2lorahg"):
+                                continue   # skip image validation
+                            if not quiet:
+                                print(("Line %d: element data is empty." % line))
+                            errcnt = errcnt + 1
+                            break
                         image_line = imageconf[0].xpath('d:data', namespaces=ns)[0].sourceline
                         (fd, imagefilename) = tempfile.mkstemp()
                         imagefile = os.fdopen(fd, 'w+b')
