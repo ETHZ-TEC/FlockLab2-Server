@@ -113,20 +113,22 @@ def main(argv):
     logger.debug("Expiration lead time is %s days" % expiration_leadtime)
     try:
         # Get all users that have ran tests:
-        sql =    """ SELECT DISTINCT `owner_fk` 
-                    FROM `tbl_serv_tests`
-                    WHERE (`test_status` IN ('not schedulable','finished','failed', 'retention expiring'))
-                """
+        sql = """
+              SELECT DISTINCT `owner_fk` 
+              FROM `tbl_serv_tests`
+              WHERE (`test_status` IN ('not schedulable','finished','failed', 'retention expiring'))
+              """
         if ( cur.execute(sql) <= 0 ):
             logger.info("No users found which ran tests.")
         else:
             rs = cur.fetchall()
             ownerids = [str(i[0]) for i in rs]
             for ownerid in ownerids:
-                sql =     """    SELECT `retention_time`, `email`, `username`, `is_active`
-                            FROM `tbl_serv_users` 
-                            WHERE (`serv_users_key` = %s)
-                        """ % (ownerid)
+                sql = """
+                      SELECT `retention_time`, `email`, `username`, `is_active`
+                      FROM `tbl_serv_users` 
+                      WHERE (`serv_users_key` = %s)
+                      """ % (ownerid)
                 cur.execute(sql)
                 rs = cur.fetchone()
                 retention_time_user = rs[0]
@@ -136,11 +138,12 @@ def main(argv):
                 logger.debug("Checking tests of user %s (users retention time is %d days)." % (ownerusername, retention_time_user))
                 # Check for each user (taking into account her individual retention time [-1 means saving data forever]) if there are tests to be cleaned soon and inform the user about these tests. 
                 if retention_time_user != -1:
-                    sql =    """    SELECT `serv_tests_key`, `title`, DATE(`time_end_act`), `test_status`
-                                FROM `tbl_serv_tests` 
-                                WHERE ((`owner_fk` = %s) AND (`time_end_act` < ADDDATE(NOW(), -(%s + %s))) AND (`test_status` IN ('not schedulable','finished','failed'))) 
-                                ORDER BY `time_end_act` DESC
-                            """ % (ownerid, retention_time_user, expiration_leadtime)
+                    sql = """
+                          SELECT `serv_tests_key`, `title`, DATE(`time_end`), `test_status`
+                          FROM `tbl_serv_tests` 
+                          WHERE ((`owner_fk` = %s) AND (`time_end` < ADDDATE(NOW(), -(%s + %s))) AND (`test_status` IN ('not schedulable','finished','failed'))) 
+                          ORDER BY `time_end` DESC
+                          """ % (ownerid, retention_time_user, expiration_leadtime)
                     if(cur.execute(sql) > 0):
                         rs = cur.fetchall()
                         msg_expiring = """Dear FlockLab user,\n\n\
@@ -170,10 +173,11 @@ Yours faithfully,\nthe FlockLab server"""
                             continue
                         else:
                             # Mark the tests in the database:
-                            sql =    """    UPDATE `tbl_serv_tests`
-                                        SET `test_status` = 'retention expiring', `retention_expiration_warned` = NOW()
-                                        WHERE `serv_tests_key` IN (%s)
-                                    """
+                            sql = """
+                                  UPDATE `tbl_serv_tests`
+                                  SET `test_status` = 'retention expiring', `retention_expiration_warned` = NOW()
+                                  WHERE `serv_tests_key` IN (%s)
+                                  """
                             cur.execute(sql%(testids))
                             cn.commit()
                             logger.debug("Set test status to 'retention expiring' for tests.")
@@ -181,11 +185,12 @@ Yours faithfully,\nthe FlockLab server"""
                         logger.debug("Found no tests whose retention time expires soon.")
                 
                 # Check for each user if there are tests which are to be marked for deletion as their retention time expired:
-                sql =    """    SELECT `serv_tests_key`, `title`, DATE(`time_end_act`)
-                            FROM `tbl_serv_tests` 
-                            WHERE ((`owner_fk` = %s) AND (`time_end_act` < ADDDATE(NOW(), -(%s))) AND (`test_status` = 'retention expiring') AND (`retention_expiration_warned` < ADDDATE(NOW(), -(%s+1)))) 
-                            ORDER BY `time_end_act` DESC
-                        """
+                sql = """
+                      SELECT `serv_tests_key`, `title`, DATE(`time_end`)
+                      FROM `tbl_serv_tests` 
+                      WHERE ((`owner_fk` = %s) AND (`time_end` < ADDDATE(NOW(), -(%s))) AND (`test_status` = 'retention expiring') AND (`retention_expiration_warned` < ADDDATE(NOW(), -(%s+1)))) 
+                      ORDER BY `time_end` DESC
+                      """
                 if(cur.execute(sql % (ownerid, retention_time_user, expiration_leadtime)) > 0):
                     rs = cur.fetchall()
                     msg_deleted = """Dear FlockLab user,\n\n\
@@ -214,10 +219,11 @@ Yours faithfully,\nthe FlockLab server"""
                         continue
                     else:
                         # Mark the tests in the database:
-                        sql =    """    UPDATE `tbl_serv_tests`
-                                    SET `test_status` = 'todelete'
-                                    WHERE `serv_tests_key` IN (%s)
-                                """
+                        sql = """
+                              UPDATE `tbl_serv_tests`
+                              SET `test_status` = 'todelete'
+                              WHERE `serv_tests_key` IN (%s)
+                              """
                         cur.execute(sql%(testids))
                         cn.commit()
                         logger.debug("Set test status to 'todelete' for tests.")

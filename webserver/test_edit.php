@@ -60,14 +60,11 @@ else if(isset($_POST['testid']) && isset($_POST['starttime'])) { // reschedule r
             // get xml_config
             $config = get_testconfig($_POST['testid']);
             $testconfig = new SimpleXMLElement($config);
-            // shift start and end time
-            $timeshift_sec = $new_start_time - strtotime($testconfig->generalConf->scheduleAbsolute->start);
-            $time = new DateTime ($testconfig->generalConf->scheduleAbsolute->start);
+            // shift start time
+            $timeshift_sec = $new_start_time - strtotime($testconfig->generalConf->schedule->start);
+            $time = new DateTime ($testconfig->generalConf->schedule->start);
             $time->modify($timeshift_sec.' seconds');
-            $testconfig->generalConf->scheduleAbsolute->start = $time->format(DATE_W3C);
-            $time = new DateTime ($testconfig->generalConf->scheduleAbsolute->end);
-            $time->modify($timeshift_sec.' seconds');
-            $testconfig->generalConf->scheduleAbsolute->end = $time->format(DATE_W3C);
+            $testconfig->generalConf->schedule->start = $time->format(DATE_W3C);
             // write new xml and validate test
             $xmlfile = $testconfig->asXML();
             $res = update_add_test($xmlfile, $errors, $_POST['testid']);

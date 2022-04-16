@@ -110,7 +110,7 @@
         exit();
       }
       $db = db_connect();
-      $sql = "SELECT title, description, test_status as status, UNIX_TIMESTAMP(time_start_wish) AS start_planned, UNIX_TIMESTAMP(time_start_act) AS start_act, UNIX_TIMESTAMP(time_end_wish) AS end_planned, UNIX_TIMESTAMP(time_end_act) AS end_act
+      $sql = "SELECT title, description, test_status as status, UNIX_TIMESTAMP(time_start) AS start, UNIX_TIMESTAMP(time_end) AS end
               FROM `flocklab`.`tbl_serv_tests`
               WHERE serv_tests_key=".intval($_POST['id']);
       if ($userrole != 'admin' && $userrole != 'internal') {
@@ -123,7 +123,7 @@
       else {
         $row = mysqli_fetch_assoc($res);
         if ($row) {
-          echo json_encode(array('status' => 'ok', 'output' => array('title' => $row['title'], 'description' => $row['description'], 'status' => $row['status'], 'start_planned' => $row['start_planned'], 'start' => $row['start_act'], 'end_planned' => $row['end_planned'], 'end' => $row['end_act'])));
+          echo json_encode(array('status' => 'ok', 'output' => array('title' => $row['title'], 'description' => $row['description'], 'status' => $row['status'], 'start' => $row['start'], 'end' => $row['end'], 'start_planned' => $row['start'], 'end_planned' => $row['end'])));   // keep start_planned / end_planned for backwards compatibility (flocklab tools)
         } else {
           echo json_encode(array('status' => 'error', 'output' => 'test ID '.intval($_POST['id']).' not found'));
         }

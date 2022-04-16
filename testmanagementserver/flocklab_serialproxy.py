@@ -152,7 +152,7 @@ def update_configuration_from_db():
         flocklab.error_logandexit(msg, errno.EAGAIN)
     try:
         # Get the XML config from the database:
-        cur.execute("SELECT `testconfig_xml`, `serv_tests_key` FROM `tbl_serv_tests` WHERE (`test_status` IN ('preparing', 'running') AND `time_end_wish` >= NOW())")
+        cur.execute("SELECT `testconfig_xml`, `serv_tests_key` FROM `tbl_serv_tests` WHERE (`test_status` IN ('preparing', 'running') AND `time_end` >= NOW())")
         ret = cur.fetchall()
         for testconfig in ret:
             logger.debug("Create proxy config for test %d" % testconfig[1])

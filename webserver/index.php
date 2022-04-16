@@ -220,8 +220,8 @@
 echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname']. '</h1>';
                 /* Get all test of the current user from the database and display them in the table. */
                 $db = db_connect();
-                $sql = "SELECT serv_tests_key, title, description, time_start_act, time_start_wish, time_end_act, time_end_wish, test_status, ExtractValue(testconfig_xml, 'testConf/targetConf/dbImageId') image_ids
-                        FROM tbl_serv_tests 
+                $sql = "SELECT serv_tests_key, title, description, time_start, time_end, test_status, ExtractValue(testconfig_xml, 'testConf/targetConf/dbImageId') image_ids
+                        FROM tbl_serv_tests
                         WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND test_status <> 'deleted' AND test_status <> 'todelete'
                         ORDER BY serv_tests_key DESC";
                 $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get tests from database because: ' . mysqli_error($db));
@@ -337,27 +337,27 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
                         else
                             echo "<td class='qtip_show' title='" . htmlentities($row['description']) . "' id='desc".$row['serv_tests_key']."' ondblclick='editDesc(".$row['serv_tests_key'].")'>" . htmlentities(substr($row['description'],0,$max_len)) . "...</td>";
                         // Image ID
-                        echo "<td class='qtip_show' title='image IDs used in this test'>" . $row['image_ids'] . "</td>";
+                        echo "<td class='qtip_show' title='Image IDs used in this test'>" . $row['image_ids'] . "</td>";
                         // Status
                         echo "<td>";
                         echo "<span style='display:none'>".$row['test_status']."</span>"; // needed to make cell sortable by JQuery
                         echo "<img src='".state_icon($row['test_status'])."' height='16px' alt='".state_short_description($row['test_status'])."' title='".state_long_description($row['test_status'])."' class='qtip_show' >";
                         echo "</td>";
                         // Start time: dependent of state of test
-                        if ( $running || $cleaningup || $finished || $failed || $aborting || $syncing || $synced || $retentionexp) {
-                            echo "<td title='Actual start time' class='qtip_show'>" . date_to_tzdate($row['time_start_act']). "</td>";
+                        if ($preparing || $running || $cleaningup || $finished || $failed || $aborting || $syncing || $synced || $retentionexp) {
+                            echo "<td title='Start time' class='qtip_show'>" . date_to_tzdate($row['time_start']). "</td>";
                         }
-                        elseif ($preparing || $planned) {
-                            echo "<td title='Planned start time' class='qtip_show'><i class='starttime'>" . date_to_tzdate($row['time_start_wish']). "</i></td>";
+                        elseif ($planned) {
+                            echo "<td title='Planned start time' class='qtip_show'><i class='starttime'>" . date_to_tzdate($row['time_start']). "</i></td>";
                         }
                         else
                             echo "<td title='Test is not schedulable' class='qtip_show'>n/a</td>";
                         // End time: dependent of state of test
-                        if ($planned || $preparing || $running) {
-                            echo "<td title='Planned end time' class='qtip_show'><i class='endtime'>" . date_to_tzdate($row['time_end_wish']). "</i></td>";
+                        if ($planned) {
+                            echo "<td title='Planned end time' class='qtip_show'><i class='endtime'>" . date_to_tzdate($row['time_end']). "</i></td>";
                         }
-                        elseif ($cleaningup || $finished || $failed || $syncing  || $synced || $retentionexp) {
-                            echo "<td title='Actual end time' class='qtip_show'>" . date_to_tzdate($row['time_end_act']). "</td>";
+                        elseif ($preparing || $running || $cleaningup || $finished || $failed || $syncing || $synced || $retentionexp) {
+                            echo "<td title='End time' class='qtip_show'>" . date_to_tzdate($row['time_end']). "</td>";
                         }
                         elseif ($aborting)
                             echo "<td title='Test is currently aborting' class='qtip_show'>n/a</td>";

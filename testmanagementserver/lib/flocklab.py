@@ -625,9 +625,9 @@ def get_obs_from_id(cursor=None, obsid=0):
         return FAILED
     
     try:
-        sql = "    SELECT `ethernet_address`, `status` \
-                FROM `tbl_serv_observer` \
-                WHERE `observer_id`=%d;"
+        sql = "SELECT `ethernet_address`, `status` \
+               FROM `tbl_serv_observer` \
+               WHERE `observer_id`=%d;"
         cursor.execute(sql %obsid)
         rs = cursor.fetchone()
         
@@ -1014,7 +1014,7 @@ def is_test_running(cursor=None):
         cursor.execute("""
                        SELECT COUNT(serv_tests_key) FROM tbl_serv_tests
                        WHERE test_status IN('preparing', 'running', 'aborting', 'cleaning up')
-                       AND TIMESTAMPDIFF(MINUTE, time_end_wish, '%s') <= %d
+                       AND TIMESTAMPDIFF(MINUTE, time_end, '%s') <= %d
                        """ % (now, maxcleanuptime))
         rs = cursor.fetchone()
         if rs[0] != 0:

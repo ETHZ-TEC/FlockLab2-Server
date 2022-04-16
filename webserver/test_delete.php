@@ -113,24 +113,24 @@
     }
     else {
         $db = db_connect();
-        $sql =   "SELECT serv_tests_key, title, description, time_start_act, time_start_wish, time_end_act, time_end_wish, test_status, `targetimage_fk`
-            FROM tbl_serv_tests  LEFT JOIN tbl_serv_map_test_observer_targetimages ON (serv_tests_key = test_fk)
-            WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND serv_tests_key = ".mysqli_real_escape_string($db, $_POST['testid'])." AND test_status <> 'deleted' AND test_status <> 'todelete'
-            GROUP BY `targetimage_fk`";
+        $sql = "SELECT serv_tests_key, title, description, time_start, time_end, test_status, `targetimage_fk`
+                FROM tbl_serv_tests  LEFT JOIN tbl_serv_map_test_observer_targetimages ON (serv_tests_key = test_fk)
+                WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND serv_tests_key = ".mysqli_real_escape_string($db, $_POST['testid'])." AND test_status <> 'deleted' AND test_status <> 'todelete'
+                GROUP BY `targetimage_fk`";
         $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch test information: ' . mysqli_error($db));
         $row = mysqli_fetch_assoc($res);
         // Find out the state of the test:
-                $schedulable    = true;
-                $planned        = false;
-                $running        = false;
-                $finished        = false;
-                $preparing        = false;
-                $cleaningup        = false;
-                $failed         = false;
-                $aborting        = false;
-                $syncing        = false;
-                $synced            = false;
-                $retentionexp    = false;
+                $schedulable  = true;
+                $planned      = false;
+                $running      = false;
+                $finished     = false;
+                $preparing    = false;
+                $cleaningup   = false;
+                $failed       = false;
+                $aborting     = false;
+                $syncing      = false;
+                $synced       = false;
+                $retentionexp = false;
                 switch($row['test_status']) {
                     case "planned":
                         $planned = true;
@@ -192,11 +192,11 @@
             <tr><td>Start</td>';
             // Start time: dependent of state of test
             if ($running || $cleaningup || $finished || $failed || $aborting || $syncing || $synced || $retentionexp) {
-                $d = new DateTime($row['time_start_act']);
-                echo "<td title='Actual start time' class='qtip_show time'>" . $d->format('U') . "</td>";
+                $d = new DateTime($row['time_start']);
+                echo "<td title='Start time' class='qtip_show time'>" . $d->format('U') . "</td>";
             }
             elseif ($planned || $preparing) {
-                $d = new DateTime($row['time_start_wish']);
+                $d = new DateTime($row['time_start']);
                 echo "<td title='Planned start time' class='qtip_show'><i class='time'>" . $d->format('U') . "</i></td>";
             }
             elseif (!$schedulable)
@@ -207,12 +207,12 @@
             <tr><td>End</td>';
             // End time: dependent of state of test
             if ($planned || $preparing || $running || $cleaningup || $syncing || $synced || $retentionexp) {
-                $d = new DateTime($row['time_end_wish']);
+                $d = new DateTime($row['time_end']);
                 echo "<td title='Planned end time' class='qtip_show'><i class='time'>" .$d->format('U'). "</i></td>";
             }
             elseif ($finished || $failed) {
-                $d = new DateTime($row['time_end_act']);
-                echo "<td title='Actual end time' class='qtip_show time'>" . $d->format('U') . "</td>";
+                $d = new DateTime($row['time_end']);
+                echo "<td title='End time' class='qtip_show time'>" . $d->format('U') . "</td>";
             }
             elseif ($aborting)
                 echo "<td title='Test is currently aborting' class='qtip_show'>n/a</td>";

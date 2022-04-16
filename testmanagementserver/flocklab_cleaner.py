@@ -112,8 +112,8 @@ def main(argv):
     else:
         try:
             # Check for tests to delete ---
-            sql = """SELECT `serv_tests_key`, `time_start_wish`
-                     FROM `tbl_serv_tests` 
+            sql = """SELECT `serv_tests_key`, `time_start`
+                     FROM `tbl_serv_tests`
                      WHERE (`test_status` = 'todelete')
                   """
             if ( cur.execute(sql) <= 0 ):
@@ -190,7 +190,7 @@ def main(argv):
             # Check for tests that are stuck ---
             sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
                      WHERE ((`test_status` IN ('preparing', 'aborting', 'cleaning up', 'syncing', 'synced')) OR (`test_status` = 'running' AND `dispatched` = 1))
-                     AND (TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d)
+                     AND (TIMESTAMPDIFF(MINUTE, `time_end`, '%s') > %d)
                   """
             if cur.execute(sql % (now, maxtestcleanuptime)) <= 0:
                 logger.debug("No stuck tests found.")
@@ -211,7 +211,7 @@ def main(argv):
             
             # Check for tests that are still running, but should have been stopped (NOTE: needs to be AFTER the checking for stuck tests!) ---
             sql = """SELECT `serv_tests_key`, `test_status` FROM `tbl_serv_tests` 
-                     WHERE (`test_status` = 'running') AND (`time_end_wish` <= '%s') AND (`dispatched` = 0)
+                     WHERE (`test_status` = 'running') AND (`time_end` <= '%s') AND (`dispatched` = 0)
                   """
             cur.execute(sql % (now))
             rs = cur.fetchall()
@@ -245,7 +245,7 @@ def main(argv):
                         testid = int(command.split('testid=', 1)[1].split()[0])
                         # check stop time of this test
                         sql = """SELECT `serv_tests_key` FROM `tbl_serv_tests`
-                                  WHERE `serv_tests_key`=%d AND TIMESTAMPDIFF(MINUTE, `time_end_wish`, '%s') > %d
+                                  WHERE `serv_tests_key`=%d AND TIMESTAMPDIFF(MINUTE, `time_end`, '%s') > %d
                               """
                         if cur.execute(sql % (testid, now, maxtestcleanuptime)) > 0:
                             # thread is stuck -> add to list and kill

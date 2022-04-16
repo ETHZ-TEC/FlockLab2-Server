@@ -313,7 +313,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
             flocklab.set_test_status(cur, cn, testid, 'preparing')
             
             # Get start/stop time ---
-            cur.execute("SELECT `time_start_wish`, `time_end_wish`, `owner_fk` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" %testid)
+            cur.execute("SELECT `time_start`, `time_end`, `owner_fk` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" %testid)
             # Times are going to be of datetime type:
             ret = cur.fetchone()
             starttime = ret[0]
@@ -788,7 +788,7 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
         # check if we're still in time ---
         if len(errors) == 0:
             now = time.strftime(flocklab.config.get("database", "timeformat"), time.gmtime(time.time() - 10))     # allow 10s tolerance
-            cur.execute("SELECT `serv_tests_key` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d AND `time_start_wish` <= '%s'" % (testid, now))
+            cur.execute("SELECT `serv_tests_key` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d AND `time_start` <= '%s'" % (testid, now))
             if cur.fetchone() is not None:
                 msg = "Setup for test ID %d took too much time." % (testid)
                 errors.append(msg)
@@ -798,12 +798,10 @@ def start_test(testid, cur, cn, obsdict_key, obsdict_id):
         if len(errors) == 0:
             logger.debug("Setting test status in DB to running...")
             flocklab.set_test_status(cur, cn, testid, 'running')
-            cur.execute("UPDATE `tbl_serv_tests` SET `time_start_act` = `time_start_wish` WHERE `serv_tests_key` = %d" %testid)
-            cn.commit()
         else:
             logger.debug("Setting test status in DB to aborting...")
             flocklab.set_test_status(cur, cn, testid, 'aborting')
-            cur.execute("UPDATE `tbl_serv_tests` SET `time_start_act` = `time_start_wish`, `time_end_act` = UTC_TIMESTAMP() WHERE `serv_tests_key` = %d" %testid)
+            cur.execute("UPDATE `tbl_serv_tests` SET `time_end` = UTC_TIMESTAMP() WHERE `serv_tests_key` = %d" % testid)
             cn.commit()
         logger.debug("At end of start_test(). Returning...")
 
@@ -926,10 +924,6 @@ def stop_test(testid, cur, cn, obsdict_key, obsdict_id, abort=False):
             for err in errs[1]:
                 #logger.error("Error from test stop thread: %s" %(str(err[0])))
                 warnings.append(err[0])
-        
-        # Set stop time in DB ---
-        cur.execute("UPDATE `tbl_serv_tests` SET `time_end_act` = UTC_TIMESTAMP() WHERE `serv_tests_key` = %d" %testid)
-        cn.commit()
     
     except Exception:
         msg = "Unexpected error: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
@@ -1051,7 +1045,7 @@ def evaluate_linkmeasurement(testid, cur):
         logger = flocklab.get_logger()
     errors = []
     # if link measurement, evaluate data
-    cur.execute("SELECT `username`, `time_start_act` FROM `tbl_serv_tests` LEFT JOIN `tbl_serv_users` ON (`serv_users_key`=`owner_fk`) WHERE (`serv_tests_key` = %s)" % testid)
+    cur.execute("SELECT `username`, `time_start` FROM `tbl_serv_tests` LEFT JOIN `tbl_serv_users` ON (`serv_users_key`=`owner_fk`) WHERE (`serv_tests_key` = %s)" % testid)
     ret = cur.fetchone()
     if ret and ret[0] == flocklab.config.get('linktests', 'user'):
         teststarttime = ret[1]
@@ -1415,7 +1409,7 @@ def main(argv):
             flocklab.send_mail_to_admin(msg)
         
         # Get the stop time from the database
-        cur.execute("SELECT `time_end_wish` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
+        cur.execute("SELECT `time_end` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
         ret = cur.fetchone()
         stoptimestamp = datetime.datetime.timestamp(ret[0]) + 1   # postpone by 1s to give services on observers time to shut down
         if not stoptimestamp or stoptimestamp < time.time():
@@ -1488,7 +1482,7 @@ def main(argv):
     logger.debug("Fetcher has set test status to '%s'." % status)
     
     # Check the actual runtime: if < 0, test failed
-    cur.execute("SELECT TIME_TO_SEC(TIMEDIFF(`time_end_act`, `time_start_act`)) FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
+    cur.execute("SELECT TIME_TO_SEC(TIMEDIFF(`time_end`, `time_start`)) FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
     test_runtime = cur.fetchone()[0]
     if not test_runtime or int(test_runtime) < 0:
         logger.info("Negative runtime detected, marking test as 'failed'.")

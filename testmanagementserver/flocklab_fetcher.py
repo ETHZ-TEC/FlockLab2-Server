@@ -1068,7 +1068,7 @@ def main(argv):
     serialdict = {0: 'r', 1: 'w'}
 
     #find out the start and stoptime of the test
-    cur.execute("SELECT `time_start_wish`, `time_end_wish` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" %testid)
+    cur.execute("SELECT `time_start`, `time_end` FROM `tbl_serv_tests` WHERE `serv_tests_key` = %d" % testid)
     # Times are going to be of datetime type:
     ret = cur.fetchone()
     teststarttime = ret[0]
@@ -1078,7 +1078,7 @@ def main(argv):
     # Find out which services are used to allocate working threads later on ---
     # Get the XML config from the database and check which services are used in the test.
     servicesUsed_dict = {'gpiotracing': 'gpioTracingConf', 'powerprofiling': 'powerProfilingConf', 'serial': 'serialConf', 'datatrace': 'dataTraceConf'}
-    cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" %testid)
+    cur.execute("SELECT `testconfig_xml` FROM `tbl_serv_tests` WHERE (`serv_tests_key` = %s)" % testid)
     ret = cur.fetchone()
     if not ret:
         msg = "No XML found in database for testid %d." %testid

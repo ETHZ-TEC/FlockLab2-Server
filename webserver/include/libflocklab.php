@@ -100,7 +100,7 @@ function rrm($dir) {
 ##############################################################################
 #
 # do_login
-# 
+#
 # check name and password and create session.
 #
 # @param username
@@ -111,7 +111,7 @@ function rrm($dir) {
 */
 function do_login($username, $password) {
     global $CONFIG;
-    
+
     // Check username and password:
     if (strlen($username)>0 && strlen($password) > 0) {
         $db = db_connect();
@@ -124,8 +124,8 @@ function do_login($username, $password) {
             if ($rows['role'] != 'admin') {
                 // check for global UI lock
                 $sql = "SELECT message, time_start, time_end
-                    FROM tbl_serv_web_status
-                    WHERE time_start < UTC_TIMESTAMP() and time_end > UTC_TIMESTAMP() AND ui_lock='true'";
+                        FROM tbl_serv_web_status
+                        WHERE time_start < UTC_TIMESTAMP() and time_end > UTC_TIMESTAMP() AND ui_lock='true'";
                 $rs = mysqli_query($db, $sql) or flocklab_die('Cannot authenticate because: ' . mysqli_error($db));
                 if (mysqli_num_rows($rs) > 0) {
                     $rows = mysqli_fetch_array($rs);
@@ -187,8 +187,8 @@ function destroy_session() {
 ##############################################################################
 */
 function check_testid($testid, $userid) {
-    $db = db_connect();
-    $sql =    "SELECT owner_fk  
+    $db  = db_connect();
+    $sql = "SELECT owner_fk  
             FROM tbl_serv_tests 
             WHERE serv_tests_key = " . $testid;
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get test owner from database because: ' . mysqli_error($db));
@@ -210,8 +210,8 @@ function check_testid($testid, $userid) {
 ##############################################################################
 */
 function check_imageid($imageid, $userid) {
-    $db = db_connect();
-    $sql =    "SELECT owner_fk  
+    $db  = db_connect();
+    $sql = "SELECT owner_fk  
             FROM tbl_serv_targetimages 
             WHERE serv_targetimages_key = " . $imageid;
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get test owner from database because: ' . mysqli_error($db));
@@ -238,7 +238,7 @@ function get_admin_emails() {
     if (isset($CONFIG['email']['admin_email'])) {
         array_push($admins, trim($CONFIG['email']['admin_email']));
     } else {
-      $db = db_connect();
+      $db  = db_connect();
       $sql = "SELECT `email`
               FROM tbl_serv_users
               WHERE `role` = 'admin'";
@@ -317,13 +317,13 @@ function get_user_role($username=null) {
 ##############################################################################
 */
 function get_available_platforms() {
-    $db = db_connect();
+    $db  = db_connect();
     $sql = 'SELECT `serv_platforms_key`, `name`, `core`, `tbl_serv_architectures`.`description` `core_desc`
-        FROM `tbl_serv_platforms`
-        LEFT JOIN `tbl_serv_architectures`
-        ON `tbl_serv_architectures`.`platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`
-        WHERE `active` = 1
-        ORDER BY `name`, `core` ASC';
+            FROM `tbl_serv_platforms`
+            LEFT JOIN `tbl_serv_architectures`
+            ON `tbl_serv_architectures`.`platforms_fk` = `tbl_serv_platforms`.`serv_platforms_key`
+            WHERE `active` = 1
+            ORDER BY `name`, `core` ASC';
     $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch available platforms because: ' . mysqli_error($db));
     $num = mysqli_num_rows($res);
     $available_platforms = Array();
@@ -341,10 +341,10 @@ function get_available_platforms() {
 }
 
 function get_testconfig($testid) {
-    $db = db_connect();
-    $sql =  "SELECT `testconfig_xml` 
-        FROM tbl_serv_tests 
-        WHERE ".($_SESSION['is_admin']?"":("owner_fk = " . $_SESSION['serv_users_key'] . " AND "))."`serv_tests_key`=".mysqli_real_escape_string($db, $testid);
+    $db  = db_connect();
+    $sql = "SELECT `testconfig_xml` 
+            FROM tbl_serv_tests 
+            WHERE ".($_SESSION['is_admin']?"":("owner_fk = " . $_SESSION['serv_users_key'] . " AND "))."`serv_tests_key`=".mysqli_real_escape_string($db, $testid);
     $res = mysqli_query($db, $sql);
     if ($res !== false) {
         $row = mysqli_fetch_assoc($res);
@@ -354,10 +354,10 @@ function get_testconfig($testid) {
 }
 
 function get_teststatus($testid) {
-    $db = db_connect();
-    $sql =  "SELECT `test_status` 
-        FROM tbl_serv_tests 
-        WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND `serv_tests_key`=".mysqli_real_escape_string($db, $testid);
+    $db  = db_connect();
+    $sql = "SELECT `test_status` 
+            FROM tbl_serv_tests 
+            WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND `serv_tests_key`=".mysqli_real_escape_string($db, $testid);
     $res = mysqli_query($db, $sql);
     if ($res !== false) {
         $row = mysqli_fetch_assoc($res);
@@ -434,12 +434,12 @@ function check_image_duplicate($image) {
     $db = db_connect();
     $hash = hash('sha1', $image['data']);
     $sql = 'SELECT `serv_targetimages_key`, `binary`
-        FROM `tbl_serv_targetimages`
-        WHERE `owner_fk`='.$_SESSION['serv_users_key'].'
-        AND `binary` IS NOT NULL 
-        AND `binary_hash_sha1`="'.$hash.'"
-        AND `platforms_fk`='.mysqli_real_escape_string($db, $image['platform']).'
-        AND `core`='.mysqli_real_escape_string($db, $image['core']);
+            FROM `tbl_serv_targetimages`
+            WHERE `owner_fk`='.$_SESSION['serv_users_key'].'
+            AND `binary` IS NOT NULL 
+            AND `binary_hash_sha1`="'.$hash.'"
+            AND `platforms_fk`='.mysqli_real_escape_string($db, $image['platform']).'
+            AND `core`='.mysqli_real_escape_string($db, $image['core']);
     $res = mysqli_query($db, $sql) or flocklab_die('Cannot compare to other images because: ' . mysqli_error($db));
     $num = mysqli_num_rows($res);
     while ($num-- > 0) {
@@ -541,9 +541,9 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
 
     // get scheduled tests / time for this user
     $db = db_connect();
-    $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end_wish`,`time_start_wish`)))/60 as runtime, COUNT(*) as test_num
-        FROM `tbl_serv_tests`
-        WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test) ? '' : ' AND `serv_tests_key`!='.$exclude_test);
+    $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end`,`time_start`)))/60 as runtime, COUNT(*) as test_num
+            FROM `tbl_serv_tests`
+            WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test) ? '' : ' AND `serv_tests_key`!='.$exclude_test);
     $res = mysqli_query($db, $sql) or flocklab_die('Cannot check user quota because: ' . mysqli_error($db));
     $row = mysqli_fetch_assoc($res);
     $test_num = $row['test_num'];
@@ -555,33 +555,33 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
     // get scheduled tests / time for this user during office hours
     $runtime_daytime = 0;
     if ($CONFIG['tests']['quota_daytime']) {
-      if (isset($testconfig->generalConf->schedule->start)) {
-        $startdt = new DateTime($testconfig->generalConf->schedule->start);
-      } else {
-        $startdt = new DateTime();
-      }
-      $startdt->setTimeZone(new DateTimeZone("UTC"));
-      $this_start     = intval($startdt->format('G'));
-      $this_dayofweek = intval($startdt->format('N'));
-      if ($this_start >= $CONFIG['tests']['daytime_start'] && $this_start <= $CONFIG['tests']['daytime_end'] && $this_dayofweek < 6) {
-        // test starts during daytime (Mo-Fr)
-        $runtime_daytime = $this_runtime;
-        $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end_wish`,`time_start_wish`)))/60 as runtime, COUNT(*) as test_num
-        FROM `tbl_serv_tests`
-        WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test)?'':' AND `serv_tests_key`!='.$exclude_test.' AND HOUR(`time_start_wish`) > '.$CONFIG['tests']['daytime_start'].' AND HOUR(`time_start_wish`) < '.$CONFIG['tests']['daytime_end']);
-        $res = mysqli_query($db, $sql) or flocklab_die('Cannot check user quota because: ' . mysqli_error($db));
-        $row = mysqli_fetch_assoc($res);
-        if ($row['test_num'] != 0)
-            $runtime_daytime = $runtime_daytime + $row['runtime'];
-      }
+        if (isset($testconfig->generalConf->schedule->start)) {
+            $startdt = new DateTime($testconfig->generalConf->schedule->start);
+        } else {
+            $startdt = new DateTime();
+        }
+        $startdt->setTimeZone(new DateTimeZone("UTC"));
+        $this_start     = intval($startdt->format('G'));
+        $this_dayofweek = intval($startdt->format('N'));
+        if ($this_start >= $CONFIG['tests']['daytime_start'] && $this_start <= $CONFIG['tests']['daytime_end'] && $this_dayofweek < 6) {
+            // test starts during daytime (Mo-Fr)
+            $runtime_daytime = $this_runtime;
+            $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end`,`time_start`)))/60 as runtime, COUNT(*) as test_num
+            FROM `tbl_serv_tests`
+            WHERE `owner_fk` = ' . $_SESSION['serv_users_key']. ' AND (`test_status` IN("planned", "preparing", "running", "cleaning up", "aborting"))' .(is_null($exclude_test)?'':' AND `serv_tests_key`!='.$exclude_test.' AND HOUR(`time_start`) > '.$CONFIG['tests']['daytime_start'].' AND HOUR(`time_start`) < '.$CONFIG['tests']['daytime_end']);
+            $res = mysqli_query($db, $sql) or flocklab_die('Cannot check user quota because: ' . mysqli_error($db));
+            $row = mysqli_fetch_assoc($res);
+            if ($row['test_num'] != 0)
+                $runtime_daytime = $runtime_daytime + $row['runtime'];
+        }
     }
 
     // get the allowed quota
     $sql = 'SELECT `quota_runtime`, `quota_tests`
-        FROM `tbl_serv_users`
-        WHERE `serv_users_key` = ' . $_SESSION['serv_users_key'];
+            FROM `tbl_serv_users`
+            WHERE `serv_users_key` = ' . $_SESSION['serv_users_key'];
     $res = mysqli_query($db, $sql) or flocklab_die('Cannot check user quota because: ' . mysqli_error($db));
-    if (mysqli_num_rows($res)==1) {
+    if (mysqli_num_rows($res) == 1) {
         $row = mysqli_fetch_assoc($res);
         if ($quota != NULL) {
             $quota['available']=array('runtime'=>$row['quota_runtime'], 'num'=>$row['quota_tests']);
@@ -598,8 +598,8 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
 
 // remove mappings
 function remove_test_mappings($testid) {
-    $db = db_connect();
-    $sql =  'DELETE FROM `tbl_serv_map_test_observer_targetimages`
+    $db  = db_connect();
+    $sql = 'DELETE FROM `tbl_serv_map_test_observer_targetimages`
             USING `tbl_serv_map_test_observer_targetimages` INNER JOIN `tbl_serv_tests` ON (`tbl_serv_map_test_observer_targetimages`.`test_fk` = `tbl_serv_tests`.`serv_tests_key` )
             WHERE `serv_tests_key` = ' .mysqli_real_escape_string($db, $testid);
     mysqli_query($db, $sql) or flocklab_die('Cannot remove test mappings: ' . mysqli_error($db));
@@ -761,7 +761,7 @@ function explodeobsids($obsids, $platform_fk=null) {
 function get_used_observers() {
     $obsids = [];
     $now = time();
-    $db = db_connect();
+    $db  = db_connect();
     $sql = "SELECT b.`observer_id` as obsid FROM flocklab.tbl_serv_observer AS b
             LEFT JOIN flocklab.tbl_serv_resource_allocation AS a ON b.serv_observer_key = a.observer_fk
             WHERE UNIX_TIMESTAMP(a.`time_start`) < ".$now." AND UNIX_TIMESTAMP(a.`time_end`) > ".$now."
@@ -786,17 +786,16 @@ function resource_slots($duration, $targetnodes) {
     $resources = Array();
     $db = db_connect();
     foreach($targetnodes as $tn) {
-        $sql = "
-        SELECT ifnull(1*(`b`.`tg_adapt_types_fk`=".$tn['platform']."),0)
-             + ifnull(2*(`c`.`tg_adapt_types_fk`=".$tn['platform']."),0)
-             + ifnull(3*(`d`.`tg_adapt_types_fk`=".$tn['platform']."),0) 
-             + ifnull(4*(`e`.`tg_adapt_types_fk`=".$tn['platform']."),0) as slot
-        FROM `tbl_serv_observer` AS `a` 
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `b` ON `a`.`slot_1_tg_adapt_list_fk` = `b`.`serv_tg_adapt_list_key`
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `c` ON `a`.`slot_2_tg_adapt_list_fk` = `c`.`serv_tg_adapt_list_key`
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `d` ON `a`.`slot_3_tg_adapt_list_fk` = `d`.`serv_tg_adapt_list_key`
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `e` ON `a`.`slot_4_tg_adapt_list_fk` = `e`.`serv_tg_adapt_list_key`
-        WHERE `a`.`observer_id` = " .$tn['obsid'];
+        $sql = "SELECT ifnull(1*(`b`.`tg_adapt_types_fk`=".$tn['platform']."),0)
+                    + ifnull(2*(`c`.`tg_adapt_types_fk`=".$tn['platform']."),0)
+                    + ifnull(3*(`d`.`tg_adapt_types_fk`=".$tn['platform']."),0) 
+                    + ifnull(4*(`e`.`tg_adapt_types_fk`=".$tn['platform']."),0) as slot
+                FROM `tbl_serv_observer` AS `a` 
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `b` ON `a`.`slot_1_tg_adapt_list_fk` = `b`.`serv_tg_adapt_list_key`
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `c` ON `a`.`slot_2_tg_adapt_list_fk` = `c`.`serv_tg_adapt_list_key`
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `d` ON `a`.`slot_3_tg_adapt_list_fk` = `d`.`serv_tg_adapt_list_key`
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `e` ON `a`.`slot_4_tg_adapt_list_fk` = `e`.`serv_tg_adapt_list_key`
+                WHERE `a`.`observer_id` = " .$tn['obsid'];
         $res = mysqli_query($db, $sql);
         if (mysqli_num_rows($res) == 1) {
             $row = mysqli_fetch_assoc($res);
@@ -816,9 +815,9 @@ function resource_slots($duration, $targetnodes) {
 ##############################################################################
 function resource_freq($duration, $targetnodes) {
     global $CONFIG;
-    $db = db_connect();
-    $sql = "SELECT serv_platforms_key, freq_2400, freq_868, freq_433 FROM `tbl_serv_platforms`";
-    $res = mysqli_query($db, $sql);
+    $db    = db_connect();
+    $sql   = "SELECT serv_platforms_key, freq_2400, freq_868, freq_433 FROM `tbl_serv_platforms`";
+    $res   = mysqli_query($db, $sql);
     $freqs = Array();
     while ($row = mysqli_fetch_assoc($res)) {
         $freqs[$row['serv_platforms_key']] = $row;
@@ -858,7 +857,7 @@ function resource_multiplexer($duration, $targetnodes, $xmlconfig) {
             }
         }
     }*/
-    
+
     foreach($targetnodes as $tn) {
         //if (! in_array($tn['obsid'], $ignoreObs)) {
             if ($duration > ($CONFIG['tests']['setuptime'] + $CONFIG['tests']['cleanuptime'])) {
@@ -884,17 +883,16 @@ function resource_cleanup($targetnodes) {
     $resources = Array();
     $db = db_connect();
     foreach($targetnodes as $tn) {
-        $sql = "
-        SELECT ifnull(1*(`b`.`tg_adapt_types_fk`=".$tn['platform']."),0)
-             + ifnull(2*(`c`.`tg_adapt_types_fk`=".$tn['platform']."),0)
-             + ifnull(3*(`d`.`tg_adapt_types_fk`=".$tn['platform']."),0) 
-             + ifnull(4*(`e`.`tg_adapt_types_fk`=".$tn['platform']."),0) as slot
-        FROM `tbl_serv_observer` AS `a` 
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `b` ON `a`.`slot_1_tg_adapt_list_fk` = `b`.`serv_tg_adapt_list_key`
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `c` ON `a`.`slot_2_tg_adapt_list_fk` = `c`.`serv_tg_adapt_list_key`
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `d` ON `a`.`slot_3_tg_adapt_list_fk` = `d`.`serv_tg_adapt_list_key`
-        LEFT JOIN `tbl_serv_tg_adapt_list` AS `e` ON `a`.`slot_4_tg_adapt_list_fk` = `e`.`serv_tg_adapt_list_key`
-        WHERE `a`.`observer_id` = " .$tn['obsid'];
+        $sql = "SELECT ifnull(1*(`b`.`tg_adapt_types_fk`=".$tn['platform']."),0)
+                    + ifnull(2*(`c`.`tg_adapt_types_fk`=".$tn['platform']."),0)
+                    + ifnull(3*(`d`.`tg_adapt_types_fk`=".$tn['platform']."),0) 
+                    + ifnull(4*(`e`.`tg_adapt_types_fk`=".$tn['platform']."),0) as slot
+                FROM `tbl_serv_observer` AS `a` 
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `b` ON `a`.`slot_1_tg_adapt_list_fk` = `b`.`serv_tg_adapt_list_key`
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `c` ON `a`.`slot_2_tg_adapt_list_fk` = `c`.`serv_tg_adapt_list_key`
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `d` ON `a`.`slot_3_tg_adapt_list_fk` = `d`.`serv_tg_adapt_list_key`
+                LEFT JOIN `tbl_serv_tg_adapt_list` AS `e` ON `a`.`slot_4_tg_adapt_list_fk` = `e`.`serv_tg_adapt_list_key`
+                WHERE `a`.`observer_id` = " .$tn['obsid'];
         $res = mysqli_query($db, $sql);
         if (mysqli_num_rows($res) == 1) {
             $row = mysqli_fetch_assoc($res);
@@ -905,8 +903,6 @@ function resource_cleanup($targetnodes) {
     mysqli_close($db);
     return $resources;
 }
-
-
 
 ##############################################################################
 #
@@ -921,28 +917,27 @@ function resource_cleanup($targetnodes) {
 ##############################################################################
 function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     global $CONFIG;
-    $db = db_connect();
-    $guard_setup_sec = $CONFIG['tests']['setuptime'];
-    $guard_cleanup_sec = $CONFIG['tests']['cleanuptime'];
+    $db                   = db_connect();
+    $guard_setup_sec      = $CONFIG['tests']['setuptime'];
+    $guard_cleanup_sec    = $CONFIG['tests']['cleanuptime'];
     $allow_parallel_tests = $CONFIG['tests']['allowparalleltests'];
-    $isAsap = !isset($testconfig->generalConf->schedule->start);
-    $now = new DateTime ();
+    $isAsap               = !isset($testconfig->generalConf->schedule->start);
+    $duration             = $testconfig->generalConf->schedule->duration;
+    $now                  = new DateTime ();
     $now->setTimeZone(new DateTimeZone("UTC"));
-    $duration = $testconfig->generalConf->schedule->duration;
     // start is time start wish - setup time
     // end is time end wish + cleanup time
     if (!$isAsap) {
         $start = new DateTime($testconfig->generalConf->schedule->start);
         $start->setTimeZone(new DateTimeZone("UTC"));
-        $end = clone $start;
+        $end   = clone $start;
         $start->modify('-'.$guard_setup_sec.' seconds');
         $end->modify('+'.($duration + $guard_cleanup_sec).' seconds');
     }
     else {
         $start = new DateTime(); // now
-        $end = clone $start;
         $start->setTimeZone(new DateTimeZone("UTC"));
-        $end->setTimeZone(new DateTimeZone("UTC"));
+        $end   = clone $start;
         $end->modify('+'.$testconfig->generalConf->schedule->duration.' seconds');
         $end->modify('+'.($guard_setup_sec + $guard_cleanup_sec).' seconds');
     }
@@ -952,12 +947,17 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
             $resourcesdict[$r['obskey']][$r['restype']] = Array();
         array_push($resourcesdict[$r['obskey']][$r['restype']], $r);
     }
-    
-    $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, `observer_fk`, `resource_type` FROM `tbl_serv_resource_allocation` a left join tbl_serv_tests b on (b.serv_tests_key = a.test_fk) WHERE (`time_end` >= '".$start->format(DATE_ISO8601)."' and test_status in ('planned','preparing','running','cleaning up','syncing','synced','aborting')".(isset($exclude_test)?" and `test_fk`!=".$exclude_test:"").")"; 
+
+    $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, `observer_fk`, `resource_type`
+            FROM `tbl_serv_resource_allocation` a left join tbl_serv_tests b on (b.serv_tests_key = a.test_fk)
+            WHERE (`time_end` >= '".$start->format(DATE_ISO8601)."' AND test_status in ('planned','preparing','running','cleaning up','syncing','synced','aborting')".(isset($exclude_test)?" AND `test_fk`!=".$exclude_test:"").")";
     $res_usedresources = mysqli_query($db, $sql);
-    $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, max(ifnull(user_fk,-1) = ".$_SESSION['serv_users_key'].") as `reservation_match` FROM `tbl_serv_reservations` LEFT JOIN `tbl_serv_user_groups` ON `group_fk`=`group_id_fk` WHERE `time_end` >= '".$start->format(DATE_ISO8601)."' GROUP BY `serv_reservation_key` HAVING `reservation_match` = 0";
+    $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, max(ifnull(user_fk,-1) = ".$_SESSION['serv_users_key'].") as `reservation_match`
+            FROM `tbl_serv_reservations` LEFT JOIN `tbl_serv_user_groups` ON `group_fk`=`group_id_fk`
+            WHERE `time_end` >= '".$start->format(DATE_ISO8601)."'
+            GROUP BY `serv_reservation_key` HAVING `reservation_match` = 0";
     $res_reservations = mysqli_query($db, $sql);
-    
+
     # Now check for all resource usage intervals if they overlap in time with an already scheduled test or reservations
     $shiftOffset =  $start->format("U");
     $testShift = $start->format("U");
@@ -1003,7 +1003,7 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
                     # for every ret, check for collisions
                     if (isset($resourcesdict[$row['observer_fk']]) && isset($resourcesdict[$row['observer_fk']][$row['resource_type']])) {
                         foreach($resourcesdict[$row['observer_fk']][$row['resource_type']] as $r) {
-//                             echo "<!--";print_r($row);echo "-->";
+                            //echo "<!--";print_r($row);echo "-->";
                             if($row['utime_start'] <= $r['time_end'] + $testShift and $row['utime_end'] >= $r['time_start'] + $testShift) {
                                 if (!$isAsap)
                                     return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
@@ -1080,7 +1080,7 @@ function add_resource_allocation($testId, $resources, $starttime) {
         $end = clone $starttime;
         $start->modify('+'.$r['time_start'].' seconds');
         $end->modify('+'.$r['time_end'].' seconds');
-        $sql =  "INSERT INTO `tbl_serv_resource_allocation` (`time_start`, `time_end`, `test_fk`, `observer_fk`, `resource_type`)
+        $sql = "INSERT INTO `tbl_serv_resource_allocation` (`time_start`, `time_end`, `test_fk`, `observer_fk`, `resource_type`)
                 VALUES (
                 '" . $start->format(DATE_ISO8601). "', 
                 '" . $end->format(DATE_ISO8601) . "', 
@@ -1207,7 +1207,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 # 1. calculate required resources:
                 foreach($testconfig->targetConf as $tc) {
                     if (count($tc->embeddedImageId)>0) {
-                        $eId = trim($tc->embeddedImageId[0]);
+                        $eId  = trim($tc->embeddedImageId[0]);
                         $pkey = $embeddedImages[$eId]['platform'];
                     } else if (count($tc->dbImageId)>0) {
                         $dbId = (int)trim($tc->dbImageId[0]);
@@ -1220,7 +1220,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 $duration = $testconfig->generalConf->schedule->duration;
                 # 1a. slots
                 $resources = Array();
-                if ($abort===True) {
+                if ($abort === True) {
                     $resources = array_merge($resources, resource_cleanup($targetnodes));
                     if (isset($testconfig->generalConf->schedule->start)) {
                         unset($testconfig->generalConf->schedule);
@@ -1237,10 +1237,10 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 }
                 #flocklab_log('Try to schedule test. Needed resources are: '. print_r($resources, $return = True));
                 # fetch observer keys
-                $db = db_connect();
+                $db      = db_connect();
                 $obskeys = Array();
-                $sql = "select `serv_observer_key`, `observer_id` from tbl_serv_observer";
-                $res = mysqli_query($db, $sql) or flocklab_die('Cannot fetch observer information from database because: ' . mysqli_error($db));
+                $sql     = "select `serv_observer_key`, `observer_id` from tbl_serv_observer";
+                $res     = mysqli_query($db, $sql) or flocklab_die('Cannot fetch observer information from database because: ' . mysqli_error($db));
                 while ($row = mysqli_fetch_assoc($res)) {
                     $obskeys[$row['observer_id']] = $row['serv_observer_key'];
                 }
@@ -1251,17 +1251,18 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 acquire_db_lock('resource_allocation');
                 $r = schedule_test($testconfig, $resources, $existing_test_id);
                 if ($abort) { // update test to abort
-                    $db = db_connect();
+                    $db  = db_connect();
                     // only schedule abort procedure if test has been started and not yet finished
                     $sql = "SELECT `test_status` FROM tbl_serv_tests WHERE `serv_tests_key`=".$existing_test_id." AND `test_status` IN ('running', 'preparing')";
                     $res = mysqli_query($db, $sql);
                     if (mysqli_num_rows($res)) {
                         // remove resource allocations
-                        $sql =  'DELETE from tbl_serv_resource_allocation WHERE `test_fk` = ' .$existing_test_id;
+                        $sql = 'DELETE from tbl_serv_resource_allocation WHERE `test_fk` = ' .$existing_test_id;
                         mysqli_query($db, $sql) or flocklab_die('Cannot abort test: ' . mysqli_error($db));
                         // update test entry
                         $end = $r['end_time'];
-                        $sql = 'UPDATE `tbl_serv_tests` SET `time_end_wish`="'.mysqli_real_escape_string($db, $end->format(DATE_ISO8601)).'", `test_status`="aborting" WHERE `serv_tests_key`='.$existing_test_id;
+                        $sql = 'UPDATE `tbl_serv_tests` SET `time_end`="' . mysqli_real_escape_string($db, $end->format(DATE_ISO8601)) . '", `test_status`="aborting"
+                                WHERE `serv_tests_key`='.$existing_test_id;
                         mysqli_query($db, $sql) or flocklab_die('Cannot remove resource allocation from database: ' . mysqli_error($db));
                         $testId = $existing_test_id;
                         mysqli_close($db);
@@ -1317,7 +1318,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         if (isset($existing_test_id)) { // update test
                             // remove mappings and resource allocations
                             remove_test_mappings($existing_test_id);
-                            $db = db_connect();
+                            $db  = db_connect();
                             $sql =  'DELETE from tbl_serv_resource_allocation WHERE `test_fk` = ' .$existing_test_id;
                             mysqli_query($db, $sql) or flocklab_die('Cannot modify test: ' . mysqli_error($db));
                             // update test entry
@@ -1325,8 +1326,8 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                                      `title`="'.mysqli_real_escape_string($db, trim($testconfig->generalConf->name)).'",
                                      `description`="'.mysqli_real_escape_string($db, trim($testconfig->generalConf->description)).'",
                                      `testconfig_xml`="'.mysqli_real_escape_string($db, trim($xml_config)).'",
-                                     `time_start_wish`="'.mysqli_real_escape_string($db, $start->format(DATE_ISO8601)) .'",
-                                     `time_end_wish`="'.mysqli_real_escape_string($db, $end->format(DATE_ISO8601)).'",
+                                     `time_start`="'.mysqli_real_escape_string($db, $start->format(DATE_ISO8601)) .'",
+                                     `time_end`="'.mysqli_real_escape_string($db, $end->format(DATE_ISO8601)).'",
                                      `test_status`="planned"
                                      WHERE `serv_tests_key`='.$existing_test_id;
                             mysqli_query($db, $sql) or flocklab_die('Cannot store test configuration in database table tbl_serv_tests because: ' . mysqli_error($db));
@@ -1335,8 +1336,8 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                         }
                         else {
                             // add test entry
-                            $db = db_connect();
-                            $sql =  "INSERT INTO `tbl_serv_tests` (`title`, `description`, `owner_fk`, `testconfig_xml`, `time_start_wish`, `time_end_wish`, `test_status`)
+                            $db  = db_connect();
+                            $sql =  "INSERT INTO `tbl_serv_tests` (`title`, `description`, `owner_fk`, `testconfig_xml`, `time_start`, `time_end`, `test_status`)
                                      VALUES (
                                      '" . mysqli_real_escape_string($db, trim($testconfig->generalConf->name)) . "', 
                                      '" . mysqli_real_escape_string($db, trim($testconfig->generalConf->description)) . "', 

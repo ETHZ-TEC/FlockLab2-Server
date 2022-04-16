@@ -53,12 +53,12 @@
     // Connect to database and get the corresponding events:
     $db = db_connect();
     // Only get data for the last 30 days:
-    $sql =    "SELECT serv_tests_key, title, left(description, 100) as description, ADDTIME(`a`.time_start_wish, '-00:05:00') AS time_start_w_offset, ADDTIME(`a`.time_end_wish, '00:05:00') AS time_end_w_offset,
+    $sql =    "SELECT serv_tests_key, title, left(description, 100) as description, ADDTIME(`a`.time_start, '-00:05:00') AS time_start_w_offset, ADDTIME(`a`.time_end, '00:05:00') AS time_end_w_offset,
         `b`.username
         FROM `tbl_serv_tests` AS `a`
         LEFT JOIN `tbl_serv_users` AS `b` ON `a`.owner_fk = `b`.serv_users_key
-        WHERE `a`.test_status <> 'not schedulable' AND `a`.test_status <> 'deleted' AND `a`.test_status <> 'todelete' AND (`a`.time_end_wish >= ADDTIME(NOW(), '-30 0:0:0.0'))
-        ORDER by `a`.time_start_wish ASC LIMIT 1000";
+        WHERE `a`.test_status <> 'not schedulable' AND `a`.test_status <> 'deleted' AND `a`.test_status <> 'todelete' AND (`a`.time_end >= ADDTIME(NOW(), '-30 0:0:0.0'))
+        ORDER by `a`.time_start ASC LIMIT 1000";
 
     $rs = mysqli_query($db, $sql) or die("Unknown error occurred.");
     mysqli_close($db);

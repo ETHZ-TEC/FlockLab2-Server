@@ -183,10 +183,10 @@ def main(argv):
     earlieststart = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) - datetime.timedelta(seconds=schedinterval)).strftime(flocklab.config.get("database", "timeformat"))
     lateststart   = (datetime.datetime.now() + datetime.timedelta(seconds=setuptime) + datetime.timedelta(seconds=schedinterval)).strftime(flocklab.config.get("database", "timeformat"))
     # Check if a test is going to start soon:
-    sql = """SELECT `serv_tests_key`,`time_start_wish`
-             FROM `tbl_serv_tests` 
-             WHERE (`time_start_wish` >= '%s') 
-             AND (`time_start_wish` <= '%s')
+    sql = """SELECT `serv_tests_key`,`time_start`
+             FROM `tbl_serv_tests`
+             WHERE (`time_start` >= '%s')
+             AND (`time_start` <= '%s')
              AND (`test_status` = 'planned')
              AND (`dispatched` = 0)
           """ % (earlieststart, lateststart)
@@ -208,12 +208,12 @@ def main(argv):
         # Check for test which have been missed ---
         sql1 = """SELECT `serv_tests_key`
                   FROM `tbl_serv_tests`
-                  WHERE (`time_start_wish` < '%s')
+                  WHERE (`time_start` < '%s')
                   AND (`test_status` = 'planned')
                """ % earlieststart
         sql2 = """UPDATE `tbl_serv_tests`
                   SET `test_status` = 'failed'
-                  WHERE (`time_start_wish` < '%s')
+                  WHERE (`time_start` < '%s')
                   AND (`test_status` = 'planned')
                """ % earlieststart
         nmissed = cur.execute(sql1)

@@ -32,17 +32,17 @@
  */
 ?>
 <?php
-    require_once('include/auth.php'); 
-    
+    require_once('include/auth.php');
+
     //debug();
     if ((!isset($_GET['testid']) || !is_numeric($_GET['testid'])) && (!isset($_GET['updatesince']) || !is_numeric($_GET['updatesince']))) {
         return;
     }
     // Connect to database and get the corresponding test info:
     $db = db_connect();
-    $sql =    "SELECT serv_tests_key as testid, title, description, time_start_act, time_start_wish, time_end_act, time_end_wish, test_status 
-        FROM tbl_serv_tests 
-        WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND test_status <> 'deleted' AND test_status <> 'todelete' AND ".(isset($_GET['testid'])?"serv_tests_key = ".$_GET['testid']:"last_changed >= '".date( 'Y-m-d H:i:s T', $_GET['updatesince'])."'");
+    $sql = "SELECT serv_tests_key as testid, title, description, time_start, time_end, test_status 
+            FROM tbl_serv_tests 
+            WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND test_status <> 'deleted' AND test_status <> 'todelete' AND ".(isset($_GET['testid'])?"serv_tests_key = ".$_GET['testid']:"last_changed >= '".date( 'Y-m-d H:i:s T', $_GET['updatesince'])."'");
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get test data from database because: ' . mysqli_error($db));
     mysqli_close($db);
 
