@@ -173,7 +173,7 @@ function destroy_session() {
     session_destroy();
 
     // Destroy the sesssion cookie if it exists:
-    if( isset($_COOKIE[session_name()]))
+    if (isset($_COOKIE[session_name()]))
         setcookie(session_name(), null, 0);
 }
 
@@ -188,8 +188,8 @@ function destroy_session() {
 */
 function check_testid($testid, $userid) {
     $db  = db_connect();
-    $sql = "SELECT owner_fk  
-            FROM tbl_serv_tests 
+    $sql = "SELECT owner_fk
+            FROM tbl_serv_tests
             WHERE serv_tests_key = " . $testid;
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get test owner from database because: ' . mysqli_error($db));
     $owner = mysqli_fetch_array($rs);
@@ -211,8 +211,8 @@ function check_testid($testid, $userid) {
 */
 function check_imageid($imageid, $userid) {
     $db  = db_connect();
-    $sql = "SELECT owner_fk  
-            FROM tbl_serv_targetimages 
+    $sql = "SELECT owner_fk
+            FROM tbl_serv_targetimages
             WHERE serv_targetimages_key = " . $imageid;
     $rs = mysqli_query($db, $sql) or flocklab_die('Cannot get test owner from database because: ' . mysqli_error($db));
     $owner = mysqli_fetch_array($rs);
@@ -342,8 +342,8 @@ function get_available_platforms() {
 
 function get_testconfig($testid) {
     $db  = db_connect();
-    $sql = "SELECT `testconfig_xml` 
-            FROM tbl_serv_tests 
+    $sql = "SELECT `testconfig_xml`
+            FROM tbl_serv_tests
             WHERE ".($_SESSION['is_admin']?"":("owner_fk = " . $_SESSION['serv_users_key'] . " AND "))."`serv_tests_key`=".mysqli_real_escape_string($db, $testid);
     $res = mysqli_query($db, $sql);
     if ($res !== false) {
@@ -355,8 +355,8 @@ function get_testconfig($testid) {
 
 function get_teststatus($testid) {
     $db  = db_connect();
-    $sql = "SELECT `test_status` 
-            FROM tbl_serv_tests 
+    $sql = "SELECT `test_status`
+            FROM tbl_serv_tests
             WHERE owner_fk = " . $_SESSION['serv_users_key'] . " AND `serv_tests_key`=".mysqli_real_escape_string($db, $testid);
     $res = mysqli_query($db, $sql);
     if ($res !== false) {
@@ -616,7 +616,7 @@ function add_test_mappings($testId, $testconfig) {
             $targedIds = preg_split("/[\s]+/", trim($tc->targetIds));
         else
             $targedIds = $observerIds;
-        if(isset($tc->dbImageId)) {
+        if (isset($tc->dbImageId)) {
             $dbImageId = iterator_to_array($tc->dbImageId, false);
         }
         else
@@ -921,13 +921,11 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     $guard_setup_sec      = $CONFIG['tests']['setuptime'];
     $guard_cleanup_sec    = $CONFIG['tests']['cleanuptime'];
     $allow_parallel_tests = $CONFIG['tests']['allowparalleltests'];
-    $isAsap               = !isset($testconfig->generalConf->schedule->start);
+    $is_asap              = !isset($testconfig->generalConf->schedule->start);
     $duration             = $testconfig->generalConf->schedule->duration;
-    $now                  = new DateTime ();
-    $now->setTimeZone(new DateTimeZone("UTC"));
     // start is time start wish - setup time
     // end is time end wish + cleanup time
-    if (!$isAsap) {
+    if (!$is_asap) {
         $start = new DateTime($testconfig->generalConf->schedule->start);
         $start->setTimeZone(new DateTimeZone("UTC"));
         $end   = clone $start;
@@ -948,9 +946,9 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
         array_push($resourcesdict[$r['obskey']][$r['restype']], $r);
     }
 
-    $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, `observer_fk`, `resource_type`
-            FROM `tbl_serv_resource_allocation` a left join tbl_serv_tests b on (b.serv_tests_key = a.test_fk)
-            WHERE (`time_end` >= '".$start->format(DATE_ISO8601)."' AND test_status in ('planned','preparing','running','cleaning up','syncing','synced','aborting')".(isset($exclude_test)?" AND `test_fk`!=".$exclude_test:"").")";
+    $sql = "SELECT UNIX_TIMESTAMP(a.`time_start`) as `utime_start`, UNIX_TIMESTAMP(a.`time_end`) as `utime_end`, a.`observer_fk`, a.`resource_type`
+            FROM `tbl_serv_resource_allocation` a LEFT JOIN tbl_serv_tests b on (b.serv_tests_key = a.test_fk)
+            WHERE (a.time_end >= '".$start->format(DATE_ISO8601)."' AND b.test_status in ('planned','preparing','running','cleaning up','syncing','synced','aborting')".(isset($exclude_test) ? " AND `test_fk`!=".$exclude_test : "").")";
     $res_usedresources = mysqli_query($db, $sql);
     $sql = "SELECT UNIX_TIMESTAMP(`time_start`) as `utime_start`, UNIX_TIMESTAMP(`time_end`) as `utime_end`, max(ifnull(user_fk,-1) = ".$_SESSION['serv_users_key'].") as `reservation_match`
             FROM `tbl_serv_reservations` LEFT JOIN `tbl_serv_user_groups` ON `group_fk`=`group_id_fk`
@@ -959,42 +957,42 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     $res_reservations = mysqli_query($db, $sql);
 
     # Now check for all resource usage intervals if they overlap in time with an already scheduled test or reservations
-    $shiftOffset =  $start->format("U");
-    $testShift = $start->format("U");
-    while(True) {
+    $shiftOffset = $start->format("U");
+    $testShift   = $start->format("U");
+    while (True) {
         $maxShift = 0; # keep track of largest shift needed to resolve dependencies
-        if (mysqli_num_rows($res_reservations)>0) {
+        if (mysqli_num_rows($res_reservations) > 0) {
             mysqli_data_seek($res_reservations, 0);
             $ustart = $testShift;
-            $uend = $end->format("U") + $testShift - $shiftOffset;
-            while($row = mysqli_fetch_assoc($res_reservations)) {
+            $uend   = $end->format("U") + $testShift - $shiftOffset;
+            while ($row = mysqli_fetch_assoc($res_reservations)) {
                 # for every ret, check for collisions
-                if($row['utime_start'] <= $uend and $row['utime_end'] >= $ustart) {
-                    if (!$isAsap)
+                if ($row['utime_start'] <= $uend and $row['utime_end'] >= $ustart) {
+                    if (!$is_asap)
                         return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
                     else {
                         $shift = $row['utime_end'] - $ustart;
-                        if($shift > $maxShift)
+                        if ($shift > $maxShift)
                             $maxShift = $shift;
                     }
                 }
             }
         }
-        if (mysqli_num_rows($res_usedresources)>0) {
+        if (mysqli_num_rows($res_usedresources) > 0) {
             mysqli_data_seek($res_usedresources, 0);
-            while($row = mysqli_fetch_assoc($res_usedresources)) {
+            while ($row = mysqli_fetch_assoc($res_usedresources)) {
                 if (!$allow_parallel_tests) {
                     # if observer is used, then treat it as a collision (parallel tests on same observer cause problems)
                     if (isset($resourcesdict[$row['observer_fk']])) {
                         # observer is used by the new test, check the start and end times
                         $ustart = $testShift;
-                        $uend = $end->format("U") + $testShift - $shiftOffset;
-                        if($row['utime_start'] <= $uend and $row['utime_end'] >= $ustart) {
-                            if (!$isAsap)
+                        $uend   = $end->format("U") + $testShift - $shiftOffset;
+                        if ($row['utime_start'] <= $uend and $row['utime_end'] >= $ustart) {
+                            if (!$is_asap)
                                 return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
                             else {
                                 $shift = $row['utime_end'] - $ustart;
-                                if($shift > $maxShift)
+                                if ($shift > $maxShift)
                                     $maxShift = $shift;
                             }
                         }
@@ -1002,14 +1000,14 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
                 } else {
                     # for every ret, check for collisions
                     if (isset($resourcesdict[$row['observer_fk']]) && isset($resourcesdict[$row['observer_fk']][$row['resource_type']])) {
-                        foreach($resourcesdict[$row['observer_fk']][$row['resource_type']] as $r) {
+                        foreach ($resourcesdict[$row['observer_fk']][$row['resource_type']] as $r) {
                             //echo "<!--";print_r($row);echo "-->";
-                            if($row['utime_start'] <= $r['time_end'] + $testShift and $row['utime_end'] >= $r['time_start'] + $testShift) {
-                                if (!$isAsap)
+                            if ($row['utime_start'] <= $r['time_end'] + $testShift and $row['utime_end'] >= $r['time_start'] + $testShift) {
+                                if (!$is_asap)
                                     return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
                                 else {
                                     $shift = $row['utime_end'] - ($r['time_start'] + $testShift);
-                                    if($shift > $maxShift)
+                                    if ($shift > $maxShift)
                                         $maxShift = $shift;
                                 }
                             }
@@ -1028,7 +1026,7 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     $end->modify('+'.($testShift - $shiftOffset).' seconds');
     $start->modify('+'.$guard_setup_sec.' seconds');
     $end->modify('-'.$guard_cleanup_sec.' seconds');
-    return Array('feasible'=>True,'start_time'=>$start, 'end_time'=>$end);
+    return Array('feasible'=>True, 'start_time'=>$start, 'end_time'=>$end);
 }
 
 function adjust_schedule_tag(&$testconfig) {
@@ -1142,12 +1140,12 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
         foreach($testconfig->targetConf as $tc) {
             foreach($tc->embeddedImageId as $eId) {
                 $eId = trim($eId);
-                if(!in_array($eId, $used_embeddedImages))
+                if (!in_array($eId, $used_embeddedImages))
                     array_push($used_embeddedImages, $eId);
             }
             foreach($tc->dbImageId as $dbId) {
                 $dbId = (int)trim($dbId);
-                if(!in_array($dbId, $used_dbImages))
+                if (!in_array($dbId, $used_dbImages))
                     array_push($used_dbImages, $dbId);
             }
         }
@@ -1161,7 +1159,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
         }
         foreach($testconfig->embeddedImageConf as $im) {
             $eId = trim($im->embeddedImageId);
-            if(array_key_exists($eId, $embeddedImages)) {
+            if (array_key_exists($eId, $embeddedImages)) {
                 array_push($errors, "Provided embedded images do not have unique IDs.");
             }
             else {
@@ -1180,15 +1178,15 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
         }
         // check if there are images without a data block:
         foreach(array_keys($embeddedImages) as $imID) {
-            if(strlen($embeddedImages[$imID]['data']) == 0) {
+            if (strlen($embeddedImages[$imID]['data']) == 0) {
                 // find the first entry which matches the platform (compare only first 3 characters)
                 foreach($embeddedImages as $eIm) {
-                    if(strncmp($eIm['platform'], $embeddedImages[$imID]['platform'], 3) && strlen($eIm['data']) > 0) {
+                    if (strncmp($eIm['platform'], $embeddedImages[$imID]['platform'], 3) && strlen($eIm['data']) > 0) {
                         $embeddedImages[$imID]['data'] = $eIm['data'];  // use the image data of this entry
                         break;
                     }
                 }
-                if(strlen($embeddedImages[$imID]['data']) == 0) {
+                if (strlen($embeddedImages[$imID]['data']) == 0) {
                     // no image data found -> abort
                     array_push($errors, "No data provided for embedded image ID ".$imID.".");
                     break;
@@ -1239,7 +1237,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 # fetch observer keys
                 $db      = db_connect();
                 $obskeys = Array();
-                $sql     = "select `serv_observer_key`, `observer_id` from tbl_serv_observer";
+                $sql     = "SELECT `serv_observer_key`, `observer_id` FROM tbl_serv_observer";
                 $res     = mysqli_query($db, $sql) or flocklab_die('Cannot fetch observer information from database because: ' . mysqli_error($db));
                 while ($row = mysqli_fetch_assoc($res)) {
                     $obskeys[$row['observer_id']] = $row['serv_observer_key'];
@@ -1386,7 +1384,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
 function acquire_db_lock($key) {
     $db = db_connect();
     $done = False;
-    while(!$done) {
+    while (!$done) {
         $sql = "lock tables tbl_serv_locks write";
         mysqli_query($db, $sql) or flocklab_die('Cannot acquire database lock because: ' . mysqli_error($db));
         $sql = "delete from tbl_serv_locks where expiry_time < now()";

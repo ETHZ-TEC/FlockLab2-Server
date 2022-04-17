@@ -323,7 +323,7 @@ def main(argv):
                 else:
                     thread_timeoutadd = 0
                 t.join(timeout=(10 + thread_timeoutadd))
-                if t.isAlive():
+                if t.is_alive():
                     logger.warning("Timeout when joining thread - is still alive...")
             except:
                 logger.warning("Error when joining threads...")
