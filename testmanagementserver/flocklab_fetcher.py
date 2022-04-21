@@ -402,9 +402,11 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             resultfile_lock.release()
             os.remove(inputfilename)
     except ValueError:
-        msg = "ValueError in powerprof worker process: %s\n" % str(sys.exc_info()[1])
-        _errors.append((msg, obsid))
-        logqueue.put_nowait((loggername, logging.ERROR, msg))
+        # happens when the results file is empty, e.g. when the user aborts a test -> for now just ignore this error
+        pass
+        #msg = "ValueError in powerprof worker process: %s\n" % str(sys.exc_info()[1])
+        #_errors.append((msg, obsid))
+        #logqueue.put_nowait((loggername, logging.ERROR, msg))
     except:
         msg = "Error in powerprof worker process: %s: %s\n%s" % (str(sys.exc_info()[0]), str(sys.exc_info()[1]), traceback.format_exc())
         _errors.append((msg, obsid))
