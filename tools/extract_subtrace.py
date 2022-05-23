@@ -47,7 +47,6 @@ def extract_data(results_dir, start, end, output_dir):
     line_cnt     = 0
 
     for filename in filenames:
-        line_cnt = 0
         filepath = "%s/%s" % (results_dir, filename)
         if not os.path.isfile(filepath):
             continue
