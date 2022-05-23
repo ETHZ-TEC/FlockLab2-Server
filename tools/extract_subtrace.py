@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 """
-Copyright (c) 2010 - 2020, ETH Zurich, Computer Engineering Group
+Copyright (c) 2010 - 2022, ETH Zurich, Computer Engineering Group
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -38,50 +38,73 @@ import sys
 import os
 
 
-if len(sys.argv) < 4:
-    print("no enough arguments provided")
-    print("usage: %s [results_dir] [start_time] [end_time]" % (__file__))
-    sys.exit(1)
+# extract data from test results directory
+def extract_data(results_dir, start, end, output_dir):
+    filenames    = [ 'gpiotracing.csv', 'powerprofiling.csv' ]    # first file must be GPIO tracing
+    output       = []
+    teststart    = None
+    gpiotracing  = True
+    line_cnt     = 0
 
-results_dir = sys.argv[1]
-start_time  = float(sys.argv[2])
-end_time    = float(sys.argv[3])
-
-if not os.path.isdir(results_dir):
-    print("directory %s not found" % results_dir)
-    sys.exit(1)
-
-if (start_time < 0) or (end_time <= start_time) or (end_time > 86400):
-    print("invalid start and/or end time")
-    sys.exit(1)
-
-# check if output directory exists
-outdir = results_dir.rstrip("/") + "_part"
-if not os.path.isdir(outdir):
-    os.mkdir(outdir)
-
-processed_lines = 0
-output_lines    = 0
-output          = []
-
-with open("%s/gpiotracing.csv" % results_dir, 'r') as f_in:
-    lines          = f_in.readlines()
-    teststart_time = 0
-    for line in lines:
-        (timestamp, obsid, node_id, pin, state) = line.split(",", 5)
-        if "timestamp" in timestamp:    # first line?
-            output.append(line)
+    for filename in filenames:
+        line_cnt = 0
+        filepath = "%s/%s" % (results_dir, filename)
+        if not os.path.isfile(filepath):
             continue
-        if teststart_time == 0:
-            teststart_time = float(timestamp)
-        relative_time = float(timestamp) - teststart_time
-        if (relative_time >= start_time) and (relative_time <= end_time) or ("nRST" in pin):
-            output.append(line)
-            output_lines += 1
-        processed_lines += 1
+        print("extracting data from %s..." % filepath)
 
-if len(output) > 0:
-    with open("%s/gpiotracing.csv" % outdir, 'w') as f_out:
-        f_out.write("".join(output))
+        with open(filepath, 'r') as f:
+            for line in f.readlines():
+                parts     = line.split(",")
+                timestamp = parts[0]
+                if gpiotracing:
+                    pin = parts[3]
+                if "timestamp" in timestamp:  # first line?
+                    output.append(line)
+                    continue
+                if not teststart:
+                    teststart = float(timestamp)
+                ofs = float(timestamp) - teststart
+                if (ofs >= start) and (ofs <= end) or (gpiotracing and "nRST" in pin):
+                    output.append(line)
 
-print("%d lines processed, %d lines written to %s" % (processed_lines, output_lines, outdir))
+        if len(output) > 0:
+            line_cnt += len(output)
+            with open("%s/%s" % (output_dir, filename), 'w') as f:
+                f.write("".join(output))
+
+        gpiotracing = False
+        output.clear()
+
+    return line_cnt
+
+
+
+if __name__ == "__main__":
+
+    # check arguments
+    if len(sys.argv) < 4:
+        print("no enough arguments provided")
+        print("usage: %s [results_dir] [start_time] [end_time]" % (__file__))
+        sys.exit(1)
+
+    results_dir = sys.argv[1].rstrip("/")
+    start_time  = float(sys.argv[2])
+    end_time    = float(sys.argv[3])
+
+    if not os.path.isdir(results_dir):
+        print("directory %s not found" % results_dir)
+        sys.exit(1)
+
+    if (start_time < 0) or (end_time <= start_time) or (end_time > 86400):
+        print("invalid start and/or end time")
+        sys.exit(1)
+
+    # check if output directory exists
+    out_dir = results_dir + "_part"
+    if not os.path.isdir(out_dir):
+        os.mkdir(out_dir)
+
+    # GPIO tracing
+    line_cnt = extract_data(results_dir, start_time, end_time, out_dir)
+    print("%d lines written to %s" % (line_cnt, out_dir))

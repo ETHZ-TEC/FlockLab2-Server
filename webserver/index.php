@@ -253,7 +253,7 @@ echo '<h1>Manage Tests for '.$_SESSION['firstname'] . ' ' . $_SESSION['lastname'
             <table id="test_overview" class="tablesorter" style="display:none">
                 <thead>
                     <tr>
-                        <th width="35px">ID</th>
+                        <th width="40px">ID</th>
                         <th width="100px">Title</th>
                         <th width="150px">Description</th>
                         <th width="35px">IMG</th>
