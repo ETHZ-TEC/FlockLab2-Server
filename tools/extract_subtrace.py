@@ -38,6 +38,9 @@ import sys
 import os
 
 
+keep_pins = [ "INT1", "INT2", "LED1", "LED2", "LED3" ]
+
+
 # extract data from test results directory
 def extract_data(results_dir, start, end, output_dir):
     filenames    = [ 'gpiotracing.csv', 'powerprofiling.csv' ]    # first file must be GPIO tracing
@@ -64,7 +67,9 @@ def extract_data(results_dir, start, end, output_dir):
                 if not teststart:
                     teststart = float(timestamp)
                 ofs = float(timestamp) - teststart
-                if (ofs >= start) and (ofs <= end) or (gpiotracing and "nRST" in pin):
+                if gpiotracing and "nRST" in pin:
+                    output.append(line)       # keep reset pin changes in any case
+                elif (ofs >= start) and (ofs <= end) and (not gpiotracing or pin in keep_pins):
                     output.append(line)
 
         if len(output) > 0:
