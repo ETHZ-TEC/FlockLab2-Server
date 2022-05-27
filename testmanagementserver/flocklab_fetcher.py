@@ -401,8 +401,9 @@ def worker_powerprof(queueitem=None, nodeid=None, resultfile_path=None, resultfi
             rld_dataframe.to_csv(resultfile_path, sep=',', index_label='time', header=False, mode='a')
             resultfile_lock.release()
             os.remove(inputfilename)
-    except ValueError:
+    except (ValueError, IndexError) as err:
         # happens when the results file is empty, e.g. when the user aborts a test -> for now just ignore this error
+        logqueue.put_nowait((loggername, logging.WARNING, "%s in powerprof worker (empty result?)" % type(err)))
         pass
         #msg = "ValueError in powerprof worker process: %s\n" % str(sys.exc_info()[1])
         #_errors.append((msg, obsid))
