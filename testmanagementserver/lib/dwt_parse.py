@@ -786,7 +786,7 @@ def timeCorrection(dfData, dfLocalTs, sleepOverhead, cpuSpeed, prescaler, loopde
     if PIECEWISE_REGRESSION:
         # piecewise regression -> interpolate.splrep()
         totalTime = x[-1] - x[0]
-        numSegments = max(1, np.floor(totalTime/(PIECEWISE_REGRESSION_SEGMENT_LENGTH*secondsToLocalTsTicks)))
+        numSegments = max(1, np.floor(totalTime/(PIECEWISE_REGRESSION_SEGMENT_LENGTH*secondsToLocalTsTicks)).astype(int))
         print('number of segments (1st regression): {}'.format(numSegments))
         # TODO: determine number of segments based on duration of 1 full timestamp (timediff between local timestamps with ts=1999999)
         internalKnots = np.linspace(x[0], x[-1], num=numSegments, endpoint=False)[1:]
