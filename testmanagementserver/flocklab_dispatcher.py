@@ -988,8 +988,8 @@ def prepare_testresults(testid, cur):
         else:
             logger.warning("Could not copy XML config to test results directory.")
     
-    # Generate plot ---
-    if flocklab.config.getint('viz', 'generate_plots'):
+    # Generate plot if GPIO tracing file exists and is not too large ---
+    if flocklab.config.getint('viz', 'generate_plots') and os.path.isfile("%s/gpiotracing.csv" % testresultsdir):
         # Make sure the GPIO tracing file does not exceed a certain limit (otherwise plot generation will not complete)
         tracingsize = os.path.getsize("%s/gpiotracing.csv" % testresultsdir)
         allowedsize = flocklab.config.getint('viz', 'gpiotracinglimit')
