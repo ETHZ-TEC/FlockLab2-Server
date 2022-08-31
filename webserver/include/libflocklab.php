@@ -554,7 +554,7 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
 
     // get scheduled tests / time for this user during office hours
     $runtime_daytime = 0;
-    if ($CONFIG['tests']['quota_daytime']) {
+    if ($CONFIG['tests']['quota_daytime'] && ($this_runtime <= $CONFIG['tests']['quota_daytime'])) {    // only check if runtime below allowed max., longer runtimes will be shifted/blocked by schedule_test()
         if (isset($testconfig->generalConf->schedule->start)) {
             $startdt = new DateTime($testconfig->generalConf->schedule->start);
         } else {
@@ -973,8 +973,13 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
             $newStartMin  = intval($newStart->format('i'));
             $newStartDoW  = intval($newStart->format('N'));
             if (($newStartHour >= $CONFIG['tests']['daytime_start']) && ($newStartHour < $CONFIG['tests']['daytime_end']) && ($newStartDoW < 6)) {
-                # move to evening hours
-                $maxShift = ($CONFIG['tests']['daytime_end'] - $newStartHour - 1) * 3600 + (60 - $newStartMin) * 60;
+                if (!$is_asap) {
+                    return Array('feasible'=>False, 'start_time'=>$start, 'end_time'=>$end);
+                }
+                else {
+                    # move to evening hours
+                    $maxShift = ($CONFIG['tests']['daytime_end'] - $newStartHour - 1) * 3600 + (60 - $newStartMin) * 60;
+                }
             }
         }
         if (mysqli_num_rows($res_reservations) > 0) {
@@ -1285,7 +1290,7 @@ function update_add_test($xml_config, &$errors, $existing_test_id = NULL, $abort
                 }
                 else {
                     if (!$r['feasible'])
-                        array_push($errors, "Time slot is already used, pick another slot.");
+                        array_push($errors, "The selected time slot is not available.");
                     else {
                         if (!isset($testconfig->generalConf->schedule->start)) {
                             // convert from ASAP to absoulte
