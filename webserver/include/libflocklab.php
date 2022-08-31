@@ -563,7 +563,7 @@ function check_quota($testconfig, $exclude_test = NULL, &$quota = NULL) {
         $startdt->setTimeZone(new DateTimeZone("UTC"));
         $this_start     = intval($startdt->format('G'));
         $this_dayofweek = intval($startdt->format('N'));
-        if ($this_start >= $CONFIG['tests']['daytime_start'] && $this_start <= $CONFIG['tests']['daytime_end'] && $this_dayofweek < 6) {
+        if ($this_start >= $CONFIG['tests']['daytime_start'] && $this_start < $CONFIG['tests']['daytime_end'] && $this_dayofweek < 6) {
             // test starts during daytime (Mo-Fr)
             $runtime_daytime = $this_runtime;
             $sql = 'SELECT SUM(TIME_TO_SEC(TIMEDIFF(`time_end`,`time_start`)))/60 as runtime, COUNT(*) as test_num
@@ -960,7 +960,23 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
     $shiftOffset = $start->format("U");
     $testShift   = $start->format("U");
     while (True) {
-        $maxShift = 0; # keep track of largest shift needed to resolve dependencies
+        $maxShift = 0; # keep track of largest shift needed (in seconds) to resolve dependencies
+
+        # check for max allowed runtime during daytime
+        if ($CONFIG['tests']['quota_daytime'] &&
+            ($duration > $CONFIG['tests']['quota_daytime'])) {
+            #$newStart     = clone $start;
+            $newStart     = new DateTime();
+            $newStart->setTimestamp($testShift);
+            #$newStart->modify('+'.($testShift - $shiftOffset).' seconds');
+            $newStartHour = intval($newStart->format('G'));
+            $newStartMin  = intval($newStart->format('i'));
+            $newStartDoW  = intval($newStart->format('N'));
+            if (($newStartHour >= $CONFIG['tests']['daytime_start']) && ($newStartHour < $CONFIG['tests']['daytime_end']) && ($newStartDoW < 6)) {
+                # move to evening hours
+                $maxShift = ($CONFIG['tests']['daytime_end'] - $newStartHour - 1) * 3600 + (60 - $newStartMin) * 60;
+            }
+        }
         if (mysqli_num_rows($res_reservations) > 0) {
             mysqli_data_seek($res_reservations, 0);
             $ustart = $testShift;
