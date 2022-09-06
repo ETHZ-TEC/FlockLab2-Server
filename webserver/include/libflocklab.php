@@ -963,8 +963,7 @@ function schedule_test($testconfig, $resources, $exclude_test = NULL) {
         $maxShift = 0; # keep track of largest shift needed (in seconds) to resolve dependencies
 
         # check for max allowed runtime during daytime
-        if ($CONFIG['tests']['quota_daytime'] &&
-            ($duration > $CONFIG['tests']['quota_daytime'])) {
+        if ($CONFIG['tests']['quota_daytime'] && ($duration > ($CONFIG['tests']['quota_daytime'] * 60))) {
             #$newStart     = clone $start;
             $newStart     = new DateTime();
             $newStart->setTimestamp($testShift);
